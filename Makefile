@@ -1,11 +1,13 @@
-.PHONY: help install catalogue packs agents build check test audit clean
+.PHONY: help install catalogue packs agents docs build check verify test audit clean
 
 help:
 	@echo "make install    - install runtime and dev dependencies"
-	@echo "make build      - regenerate catalogue, country packs and all 815 specs"
+	@echo "make build      - regenerate catalogue, packs, all 815 specs and the docs"
+	@echo "make verify     - end-to-end proof that all 815 units are built and valid"
 	@echo "make catalogue  - normalise the workbook into catalogue/"
 	@echo "make packs      - regenerate the country packs"
 	@echo "make agents     - regenerate the 815 unit specs"
+	@echo "make docs       - regenerate the browsable catalogue index"
 	@echo "make check      - fail if anything generated is stale"
 	@echo "make audit      - run the standing-rule audit over every spec"
 	@echo "make test       - run the test suite"
@@ -22,7 +24,13 @@ packs:
 agents:
 	python3 tools/generate_agents.py
 
-build: catalogue packs agents
+docs:
+	python3 tools/build_docs.py
+
+build: catalogue packs agents docs
+
+verify:
+	python3 tools/verify_build.py
 
 check:
 	python3 tools/build_catalogue.py --check

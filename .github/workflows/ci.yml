@@ -35,3 +35,7 @@ jobs:
 
       - name: Tests
         run: python3 -m pytest -q
+
+      # One verdict covering completeness, the standing rules and reproducibility.
+      - name: Build verification
+        run: python3 tools/verify_build.py
