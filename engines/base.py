@@ -153,6 +153,22 @@ SAFETY_GUARDRAIL = Guardrail(
     source="catalogue",
 )
 
+#: Attached to units the workbook marks "None - interlock": a rule with no
+#: override, on a unit that is not otherwise a safety protocol.
+HARD_INTERLOCK_GUARDRAIL = Guardrail(
+    id="GR-HARD-INTERLOCK",
+    rule=(
+        "The interlock holds absolutely. No override exists - not for the "
+        "customer, not for staff, not for the owner, and not for this unit."
+    ),
+    check=(
+        "The interlock step runs first and its block stays applied until the "
+        "underlying condition is satisfied on the evidence the rule requires; "
+        "no path through the plan lifts it on anyone's say-so."
+    ),
+    source="catalogue",
+)
+
 #: Attached to units that touch regulated advice surfaces.
 REGULATED_GUARDRAIL = Guardrail(
     id="GR-REGULATED-SURFACE",
@@ -389,6 +405,24 @@ class Engine(ABC):
     ) -> tuple[Artifact, ...]:
         artifacts = list(self.base_artifacts(record)) + list(profile.artifacts)
         artifacts.extend(derive_artifacts(record))
+
+        if record["flags"]["safety_critical"] or requires_hard_interlock(record):
+            # The interlock step produces this, so it has to be a declared
+            # artefact: on an interlocked unit the record of what the protocol
+            # did, and when, is the deliverable.
+            artifacts.append(
+                Artifact(
+                    key="interlock_log",
+                    name="Safety interlock log",
+                    description=(
+                        "What the protocol recognised, which fixed steps ran, in what "
+                        "order and at what time, and the point at which the unit "
+                        "stopped and handed over."
+                    ),
+                    format="log",
+                )
+            )
+
         artifacts.append(
             Artifact(
                 key="audit_trail",
@@ -422,6 +456,28 @@ class Engine(ABC):
                         "Recognise the condition and execute the fixed protocol steps "
                         "before any commercial step. The interlock cannot be skipped, "
                         "reordered or deferred, and no other step may run ahead of it."
+                    ),
+                    produces=("interlock_log",),
+                    interlock=True,
+                ),
+                *steps,
+            ]
+        elif requires_hard_interlock(record):
+            # Not a diamond: the unit does go on to finish its work.  But the
+            # rule holds first and holds absolutely -- the workbook's own words
+            # are "hard stop", "no override in the agent", "enforced until
+            # renewed" -- so it is a step, not a sentence in the mission.
+            steps = [
+                Step(
+                    id="interlock",
+                    name="Enforce the hard interlock",
+                    kind=StepKind.ACT,
+                    description=(
+                        "Apply the block, hold or restriction the rule demands before "
+                        "anything else runs, and keep it applied until the underlying "
+                        "condition is genuinely satisfied. There is no override: not "
+                        "by the customer, not by staff, not by the owner, and not by "
+                        "this unit. Record what was blocked and why."
                     ),
                     produces=("interlock_log",),
                     interlock=True,
@@ -512,6 +568,8 @@ class Engine(ABC):
         haystack = _haystack(record)
         if flags.safety_critical:
             guardrails.append(SAFETY_GUARDRAIL)
+        elif requires_hard_interlock(record):
+            guardrails.append(HARD_INTERLOCK_GUARDRAIL)
         if any(marker in haystack for marker in _PRICING_MARKERS):
             guardrails.append(PRICING_GUARDRAIL)
         if any(marker in haystack for marker in _REGULATED_MARKERS):
@@ -812,10 +870,45 @@ _GATE_ESCALATION_MARKERS: tuple[tuple[tuple[str, ...], Escalation], ...] = (
 )
 
 
+#: The workbook writes "None - interlock" where a hard rule governs and nobody
+#: may wave it through: "Hard booking block until test done - no override in the
+#: agent", "Hard stop", "enforced until renewed". That is not an approval-queue
+#: gate -- it is the absence of discretion, and it has to be modelled as one.
+_NO_OVERRIDE_GATE = re.compile(r"^none\s*[-:]\s*interlock\b", re.IGNORECASE)
+
+
+def requires_hard_interlock(record: Mapping[str, Any]) -> bool:
+    """True when the workbook reserves no discretion because a hard rule governs.
+
+    Distinct from the diamond flag.  A diamond is a safety-critical protocol that
+    recognises and routes and then stops.  A hard interlock is a rule the unit
+    enforces before it may do anything else -- the booking stays blocked, the
+    access flag stays raised -- but the unit still goes on to do its job once the
+    condition clears.
+    """
+    return any(
+        _NO_OVERRIDE_GATE.match(str(gate).strip())
+        for gate in record.get("human_gates") or ()
+    )
+
+
 def build_human_gate(raw: str, flags: Flags) -> HumanGate:
     """Turn a 'What stays human' cell into a typed gate."""
     text = raw.strip()
     lowered = text.lower()
+
+    if _NO_OVERRIDE_GATE.match(text):
+        return HumanGate(
+            decision="No override exists - a hard interlock governs this case",
+            severity=GateSeverity.ABSOLUTE,
+            escalate_to=Escalation.EMERGENCY_SERVICES
+            if flags.safety_critical
+            else Escalation.OWNER,
+            note=(
+                f"{text}. The interlock is not a decision anybody may take; it "
+                "holds until the underlying condition is genuinely satisfied."
+            ),
+        )
 
     if lowered.startswith("nothing"):
         return HumanGate(
@@ -909,6 +1002,7 @@ def load_engines() -> None:
 
 __all__ = [
     "Engine",
+    "HARD_INTERLOCK_GUARDRAIL",
     "PRICING_GUARDRAIL",
     "Profile",
     "REGULATED_GUARDRAIL",
@@ -924,5 +1018,6 @@ __all__ = [
     "get_engine",
     "load_engines",
     "register",
+    "requires_hard_interlock",
     "step",
 ]

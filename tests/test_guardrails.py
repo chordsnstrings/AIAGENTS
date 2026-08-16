@@ -66,6 +66,39 @@ def test_safety_critical_count_matches_the_workbook(registry):
     assert len(registry.safety_critical) == 37
 
 
+def test_hard_interlock_units_enforce_the_rule_as_a_step(registry):
+    """"None - interlock" in the workbook means no override exists.
+
+    Eight units say so without being safety-critical -- the patch test that
+    blocks a booking, the failed right-to-work check, the allergy order, the
+    election-period comms restriction. The rule must be the first step of the
+    plan, not a sentence in the mission, and it must carry its own guardrail.
+    """
+    hard = [
+        u
+        for u in registry
+        if not u.is_safety_critical
+        and any(
+            g.severity is GateSeverity.ABSOLUTE and "interlock" in g.decision.lower()
+            for g in u.human_gates
+        )
+    ]
+    assert len(hard) == 8, sorted(u.id for u in hard)
+    for unit in hard:
+        assert unit.plan[0].interlock, f"{unit.id}: interlock is not the first step"
+        assert any(g.id == "GR-HARD-INTERLOCK" for g in unit.guardrails), unit.id
+        assert any(a.key == "interlock_log" for a in unit.artifacts), unit.id
+        # Unlike a diamond, a hard-interlock unit still finishes its work once
+        # the condition clears, so it must not be forced into a terminal stop.
+        assert unit.plan[-1].kind is StepKind.RECORD, unit.id
+
+
+def test_every_interlock_step_declares_its_log(registry):
+    for unit in registry:
+        if any(s.interlock for s in unit.plan):
+            assert any(a.key == "interlock_log" for a in unit.artifacts), unit.id
+
+
 def test_revenue_critical_count_matches_the_workbook(registry):
     assert len(registry.revenue_critical) == 68
 
@@ -201,6 +234,29 @@ def test_safety_check_requires_an_interlock_first():
     )
     details = " ".join(v.detail for v in check_safety_protocol(unit))
     assert "no interlock step" in details
+
+
+def test_hard_interlock_check_catches_a_gate_without_a_step():
+    from adw.guardrails import check_hard_interlock
+
+    unit = _minimal_unit(
+        human_gates=(
+            HumanGate(
+                decision="No override exists - a hard interlock governs this case",
+                severity=GateSeverity.ABSOLUTE,
+                escalate_to=Escalation.OWNER,
+            ),
+        ),
+        plan=(Step(id="s1", name="Do it", kind=StepKind.ACT, description="Just do it."),),
+    )
+    details = " ".join(v.detail for v in check_hard_interlock(unit))
+    assert "no interlock step" in details
+
+
+def test_hard_interlock_check_ignores_ordinary_units():
+    from adw.guardrails import check_hard_interlock
+
+    assert not check_hard_interlock(_minimal_unit())
 
 
 def test_audit_severities_are_partitioned():

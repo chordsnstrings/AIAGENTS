@@ -127,6 +127,39 @@ def check_safety_protocol(unit: Unit) -> list[Violation]:
 # --------------------------------------------------------------------------- #
 
 
+def check_hard_interlock(unit: Unit) -> list[Violation]:
+    """A no-override rule must be a step, not a sentence.
+
+    The workbook writes "None - interlock" where nobody may wave the case
+    through. Composition turns that into an absolute gate; this verifies the
+    plan actually enforces it, independently of how it was composed.
+    """
+    absolute = [
+        g
+        for g in unit.human_gates
+        if g.severity is GateSeverity.ABSOLUTE and "interlock" in g.decision.lower()
+    ]
+    if not absolute:
+        return []
+
+    violations: list[Violation] = []
+    rule = "hard interlock: no override exists"
+    interlocks = [s for s in unit.plan if s.interlock]
+    if not interlocks:
+        violations.append(
+            Violation(unit.id, rule, Severity.ERROR, "absolute interlock gate with no interlock step")
+        )
+    elif unit.plan[0] is not interlocks[0]:
+        violations.append(
+            Violation(unit.id, rule, Severity.ERROR, "interlock step does not run first")
+        )
+    if not any(g.id in ("GR-HARD-INTERLOCK", "GR-SAFETY-INTERLOCK") for g in unit.guardrails):
+        violations.append(
+            Violation(unit.id, rule, Severity.ERROR, "no interlock guardrail attached")
+        )
+    return violations
+
+
 def check_probabilistic_authority(unit: Unit) -> list[Violation]:
     violations: list[Violation] = []
     rule = "probabilistic components never clear, diagnose, advise or approve"
@@ -233,13 +266,22 @@ def _load_deglobalised_terms() -> dict[str, str]:
 _DEGLOBALISED_TERMS = _load_deglobalised_terms()
 
 #: Market-specific values that belong in a country pack, not in a spec body.
+#: Several are short enough to hide inside ordinary words -- "sepa" in
+#: "separately", "fps" in "RFPs", "line app" in "deadline approaching", "mot" in
+#: "motor" -- so they are matched on word boundaries. Substring matching here
+#: produced nothing but false positives.
 _MARKET_LITERALS = (
     "whatsapp", "kakaotalk", "wechat", "zalo", "imessage", "line app",
     "yelp", "trustpilot", "tabelog", "dianping",
     "upi", "pix", "m-pesa", "mada", "sepa", "ideal", "fps",
-    "mot ", "tüv", "tuv ", "shaken", "smog check", "ejari",
-    "hipaa", "cqc", "gmc", "ahpra", "fca", "sec ", "esma",
+    "mot", "tüv", "tuv", "shaken", "smog check", "ejari",
+    "hipaa", "cqc", "gmc", "ahpra", "fca", "sec", "esma",
     "ramadan", "diwali", "golden week",
+)
+
+_MARKET_LITERAL_PATTERNS = tuple(
+    (literal, re.compile(rf"\b{re.escape(literal)}\b", re.IGNORECASE))
+    for literal in _MARKET_LITERALS
 )
 
 # Contexts where naming a market is legitimate: the catalogue itself enumerates
@@ -278,23 +320,24 @@ def check_config_not_code(unit: Unit) -> list[Violation]:
                 )
             )
 
-    for literal in _MARKET_LITERALS:
-        if literal not in lowered:
+    for literal, pattern in _MARKET_LITERAL_PATTERNS:
+        matches = list(pattern.finditer(lowered))
+        if not matches:
             continue
         # Naming a market literal is fine when the sentence is about resolving it
         # from configuration; it is a breach when it is stated as fact.
-        window_ok = False
-        for match in re.finditer(re.escape(literal), lowered):
-            window = lowered[max(0, match.start() - 160) : match.end() + 160]
-            if any(hint in window for hint in _CONFIG_CONTEXT):
-                window_ok = True
+        window_ok = any(
+            hint in lowered[max(0, m.start() - 160) : m.end() + 160]
+            for m in matches
+            for hint in _CONFIG_CONTEXT
+        )
         if not window_ok:
             violations.append(
                 Violation(
                     unit.id,
                     rule,
                     Severity.WARNING,
-                    f"market literal {literal.strip()!r} stated outside a config context",
+                    f"market literal {literal!r} stated outside a config context",
                 )
             )
     return violations
@@ -361,6 +404,7 @@ CHECKS = (
     check_structure,
     check_probabilistic_authority,
     check_safety_protocol,
+    check_hard_interlock,
     check_owned_channels,
     check_config_not_code,
 )
@@ -397,6 +441,7 @@ __all__ = [
     "audit",
     "audit_unit",
     "check_config_not_code",
+    "check_hard_interlock",
     "check_owned_channels",
     "check_probabilistic_authority",
     "check_safety_protocol",
