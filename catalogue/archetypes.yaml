@@ -1,0 +1,97 @@
+- id: ARC-A
+  letter: A
+  name: Emergency trades
+  recognise_by: Urgent, unplanned, out-of-hours demand
+  primary_lever: Speed to lead (sub-60s)
+  anchor_agents:
+  - A6
+  - A3 (dispatch window)
+  - D1
+  - F2
+  slug: emergency-trades
+- id: ARC-B
+  letter: B
+  name: Booked personal services
+  recognise_by: Recurring appointments; chair/room/practitioner capacity
+  primary_lever: Reminders + rebooking
+  anchor_agents:
+  - D1
+  - D2
+  - C4
+  slug: booked-personal-services
+- id: ARC-C
+  letter: C
+  name: Regulated professions
+  recognise_by: Licensed, advice-giving, matter-based work
+  primary_lever: Qualification, then progress updates
+  anchor_agents:
+  - A2
+  - D4
+  - matter overlays
+  slug: regulated-professions
+- id: ARC-D
+  letter: D
+  name: Project trades
+  recognise_by: Quoted work, site visit, multi-week cycle
+  primary_lever: Quote follow-up
+  anchor_agents:
+  - C6
+  - B2
+  - A5
+  slug: project-trades
+- id: ARC-E
+  letter: E
+  name: Recurring B2B contracts
+  recognise_by: Contracted service, notice periods, renewal dates
+  primary_lever: Renewal calendar
+  anchor_agents:
+  - D6
+  - B2
+  slug: recurring-b2b-contracts
+- id: ARC-F
+  letter: F
+  name: Hospitality & venues
+  recognise_by: Covers, rooms, events, deposits
+  primary_lever: Response speed on high-value enquiries
+  anchor_agents:
+  - A2 (value-routed)
+  - D5
+  slug: hospitality-venues
+- id: ARC-G
+  letter: G
+  name: Clinical & health
+  recognise_by: Recall intervals, treatment plans
+  primary_lever: Recall + reactivation
+  anchor_agents:
+  - C4
+  - C3
+  - D1
+  slug: clinical-health
+- id: ARC-H
+  letter: H
+  name: Education & training
+  recognise_by: Cohorts, terms, enrolment cycles
+  primary_lever: Trial-to-paid + term-break retention
+  anchor_agents:
+  - C6
+  - C3
+  - cohort overlays
+  slug: education-training
+- id: ARC-I
+  letter: I
+  name: Property & lettings
+  recognise_by: Viewings, tenancies, statutory dates
+  primary_lever: Statutory dates + viewing speed
+  anchor_agents:
+  - D6
+  - A3
+  slug: property-lettings
+- id: ARC-J
+  letter: J
+  name: Retail product-led
+  recognise_by: Walk-in, stock, no client record
+  primary_lever: Weak fit - availability only (deprioritise)
+  anchor_agents:
+  - A8
+  - D7
+  slug: retail-product-led

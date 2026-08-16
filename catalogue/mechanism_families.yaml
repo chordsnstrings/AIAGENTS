@@ -1,0 +1,101 @@
+- id: MF1
+  number: 1
+  family: Conversational intake & triage
+  what_it_does: Understands a request, gathers structured detail, routes it
+  status: Existing
+  slug: conversational-intake-triage
+  module: engines.mf01_conversational_intake_triage
+- id: MF2
+  number: 2
+  family: Case / matter state machine
+  what_it_does: Long-running case objects with stages, clocks and updates - matters, claims, tickets,
+    NCRs, permits, applications
+  status: Existing
+  slug: case-matter-state-machine
+  module: engines.mf02_case_matter_state_machine
+- id: MF3
+  number: 3
+  family: Exception-queue triage
+  what_it_does: Watches a queue and surfaces only what needs a human
+  status: Existing
+  slug: exception-queue-triage
+  module: engines.mf03_exception_queue_triage
+- id: MF4
+  number: 4
+  family: Clock & calendar engine
+  what_it_does: Renewal, recall, statutory, covenant, AR and reminder dates
+  status: Existing
+  slug: clock-calendar-engine
+  module: engines.mf04_clock_calendar_engine
+- id: MF5
+  number: 5
+  family: Sequence engine
+  what_it_does: Multi-touch follow-up, save, reactivation and referral journeys
+  status: Existing
+  slug: sequence-engine
+  module: engines.mf05_sequence_engine
+- id: MF6
+  number: 6
+  family: Document collection & assembly
+  what_it_does: Chases, checks and assembles document sets - KYC, dossiers, RFPs, grants, customs packs
+  status: Existing
+  slug: document-collection-assembly
+  module: engines.mf06_document_collection_assembly
+- id: MF7
+  number: 7
+  family: Watcher / surveillance
+  what_it_does: Monitors internal and external signals - rates, literature, competitors, parity, benchmarks
+  status: Existing
+  slug: watcher-surveillance
+  module: engines.mf07_watcher_surveillance
+- id: MF8
+  number: 8
+  family: Reconciliation
+  what_it_does: Matches records across systems and works the exceptions
+  status: Existing
+  slug: reconciliation
+  module: engines.mf08_reconciliation
+- id: MF9
+  number: 9
+  family: Vision assessment
+  what_it_does: Photo and video assessment - damage, progress, proof, portfolio, shelf audit
+  status: Existing
+  slug: vision-assessment
+  module: engines.mf09_vision_assessment
+- id: MF10
+  number: 10
+  family: Capacity & scheduling optimization
+  what_it_does: Slots, dispatch, routes, waitlists and class capacity
+  status: Existing
+  slug: capacity-scheduling-optimization
+  module: engines.mf10_capacity_scheduling_optimization
+- id: MF11
+  number: 11
+  family: Telephony / voice
+  what_it_does: Calls answered, transcribed and mined; missed-call recovery
+  status: NEW
+  slug: telephony-voice
+  module: engines.mf11_telephony_voice
+- id: MF12
+  number: 12
+  family: Publishing & platform connectors
+  what_it_does: SEO/AEO surfaces, social publishing, ad-platform sync, MCP endpoint
+  status: NEW
+  slug: publishing-platform-connectors
+  module: engines.mf12_publishing_platform_connectors
+- id: MF13
+  number: 13
+  family: Creative generation
+  what_it_does: Operations-grounded content plus ModelArk image and video assets
+  status: NEW (rides existing ModelArk stack)
+  slug: creative-generation
+  module: engines.mf13_creative_generation
+- id: MF14
+  number: 14
+  family: Protocol & incident playbooks
+  what_it_does: 'Event-triggered, time-boxed, safety-gated playbooks: statutory clocks, escalation chains,
+    hard interlocks. Escalation IS the product - the agent recognizes, executes steps, and stops at the
+    human gate'
+  status: NEW
+  slug: protocol-incident-playbooks
+  module: engines.mf14_protocol_incident_playbooks

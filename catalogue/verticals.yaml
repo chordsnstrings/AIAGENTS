@@ -1,0 +1,1475 @@
+- id: V1
+  number: 1
+  name: Emergency home services
+  slug: v01-emergency-home-services
+  segment: SMB / Local
+  examples:
+  - Plumbing
+  - electrical
+  - AC
+  - HVAC
+  - locksmith
+  - pest
+  - drainage
+  - appliance repair
+  archetypes:
+  - ARC-A
+  specialist_ids:
+  - V1-S1
+  - V1-S2
+  - V1-S3
+  - V1-S4
+  - V1-S5
+  playbook_ids:
+  - V1-E1
+  - V1-E2
+  - V1-E3
+  - V1-E4
+  - V1-E5
+- id: V2
+  number: 2
+  name: Project trades
+  slug: v02-project-trades
+  segment: SMB / Local
+  examples:
+  - Builders
+  - kitchen
+  - bathroom fitters
+  - landscaping
+  - solar
+  - flooring
+  - painting
+  archetypes:
+  - ARC-D
+  specialist_ids:
+  - V2-S1
+  - V2-S2
+  - V2-S3
+  - V2-S4
+  - V2-S5
+  playbook_ids:
+  - V2-E1
+  - V2-E2
+  - V2-E3
+  - V2-E4
+  - V2-E5
+- id: V3
+  number: 3
+  name: Construction & fit-out
+  slug: v03-construction-fit-out
+  segment: SMB / Local
+  examples:
+  - Fit-out contractors
+  - MEP
+  - maintenance contractors
+  archetypes:
+  - ARC-D
+  - ARC-E
+  specialist_ids:
+  - V3-S1
+  - V3-S2
+  - V3-S3
+  - V3-S4
+  - V3-S5
+  - V3-S6
+  playbook_ids:
+  - V3-E1
+  - V3-E2
+  - V3-E3
+  - V3-E4
+  - V3-E5
+- id: V4
+  number: 4
+  name: Cleaning & facilities
+  slug: v04-cleaning-facilities
+  segment: SMB / Local
+  examples:
+  - Residential cleaning
+  - commercial cleaning
+  - security
+  - waste
+  - grounds
+  archetypes:
+  - ARC-E
+  - ARC-B
+  specialist_ids:
+  - V4-S1
+  - V4-S2
+  - V4-S3
+  - V4-S4
+  - V4-S5
+  playbook_ids:
+  - V4-E1
+  - V4-E2
+  - V4-E3
+  - V4-E4
+  - V4-E5
+- id: V5
+  number: 5
+  name: Beauty & personal care
+  slug: v05-beauty-personal-care
+  segment: SMB / Local
+  examples:
+  - Salons
+  - barbers
+  - spas
+  - nails
+  - aesthetics
+  - tattoo
+  - massage
+  archetypes:
+  - ARC-B
+  specialist_ids:
+  - V5-S1
+  - V5-S2
+  - V5-S3
+  - V5-S4
+  - V5-S5
+  - V5-S6
+  playbook_ids:
+  - V5-E1
+  - V5-E2
+  - V5-E3
+  - V5-E4
+  - V5-E5
+- id: V6
+  number: 6
+  name: Fitness & studios
+  slug: v06-fitness-studios
+  segment: SMB / Local
+  examples:
+  - Gyms
+  - PTs
+  - yoga
+  - martial arts
+  - dance
+  archetypes:
+  - ARC-H
+  - ARC-B
+  specialist_ids:
+  - V6-S1
+  - V6-S2
+  - V6-S3
+  - V6-S4
+  - V6-S5
+  playbook_ids:
+  - V6-E1
+  - V6-E2
+  - V6-E3
+  - V6-E4
+  - V6-E5
+- id: V7
+  number: 7
+  name: Clinical & health
+  slug: v07-clinical-health
+  segment: SMB / Local
+  examples:
+  - Dental
+  - private GP
+  - physio
+  - chiro
+  - optician
+  - aesthetic clinics
+  archetypes:
+  - ARC-G
+  specialist_ids:
+  - V7-S1
+  - V7-S2
+  - V7-S3
+  - V7-S4
+  - V7-S5
+  - V7-S6
+  playbook_ids:
+  - V7-E1
+  - V7-E2
+  - V7-E3
+  - V7-E4
+  - V7-E5
+- id: V8
+  number: 8
+  name: Veterinary & pet
+  slug: v08-veterinary-pet
+  segment: SMB / Local
+  examples:
+  - Vets
+  - grooming
+  - boarding
+  - pet relocation
+  archetypes:
+  - ARC-G
+  - ARC-B
+  specialist_ids:
+  - V8-S1
+  - V8-S2
+  - V8-S3
+  - V8-S4
+  playbook_ids:
+  - V8-E1
+  - V8-E2
+  - V8-E3
+  - V8-E4
+  - V8-E5
+- id: V9
+  number: 9
+  name: Regulated professions
+  slug: v09-regulated-professions
+  segment: SMB / Local
+  examples:
+  - Law
+  - accounting
+  - tax
+  - audit
+  - IFA
+  - surveyors
+  - architects
+  archetypes:
+  - ARC-C
+  specialist_ids:
+  - V9-S1
+  - V9-S2
+  - V9-S3
+  - V9-S4
+  - V9-S5
+  - V9-S6
+  - V9-S7
+  playbook_ids:
+  - V9-E1
+  - V9-E2
+  - V9-E3
+  - V9-E4
+  - V9-E5
+- id: V10
+  number: 10
+  name: Immigration, PRO & visa services
+  slug: v10-immigration-pro-visa-services
+  segment: SMB / Local
+  examples:
+  - Immigration consultants
+  - typing centres
+  - attestation
+  - PRO services
+  archetypes:
+  - ARC-C
+  specialist_ids:
+  - V10-S1
+  - V10-S2
+  - V10-S3
+  - V10-S4
+  - V10-S5
+  - V10-S6
+  playbook_ids:
+  - V10-E1
+  - V10-E2
+  - V10-E3
+  - V10-E4
+  - V10-E5
+- id: V11
+  number: 11
+  name: Education & training
+  slug: v11-education-training
+  segment: SMB / Local
+  examples:
+  - Tutoring
+  - language schools
+  - driving schools
+  - vocational
+  - music
+  archetypes:
+  - ARC-H
+  specialist_ids:
+  - V11-S1
+  - V11-S2
+  - V11-S3
+  - V11-S4
+  - V11-S5
+  - V11-S6
+  - V11-S7
+  playbook_ids:
+  - V11-E1
+  - V11-E2
+  - V11-E3
+  - V11-E4
+  - V11-E5
+- id: V12
+  number: 12
+  name: Study-abroad consulting
+  slug: v12-study-abroad-consulting
+  segment: SMB / Local
+  examples:
+  - International education agencies (EduNomad-class)
+  archetypes:
+  - ARC-C
+  - ARC-H
+  specialist_ids:
+  - V12-S1
+  - V12-S2
+  - V12-S3
+  - V12-S4
+  - V12-S5
+  - V12-S6
+  playbook_ids:
+  - V12-E1
+  - V12-E2
+  - V12-E3
+  - V12-E4
+  - V12-E5
+- id: V13
+  number: 13
+  name: Nurseries & childcare
+  slug: v13-nurseries-childcare
+  segment: SMB / Local
+  examples:
+  - Nurseries
+  - daycare
+  - after-school programs
+  archetypes:
+  - ARC-H
+  specialist_ids:
+  - V13-S1
+  - V13-S2
+  - V13-S3
+  - V13-S4
+  - V13-S5
+  - V13-S6
+  playbook_ids:
+  - V13-E1
+  - V13-E2
+  - V13-E3
+  - V13-E4
+  - V13-E5
+- id: V14
+  number: 14
+  name: Restaurants & cafes
+  slug: v14-restaurants-cafes
+  segment: SMB / Local
+  examples:
+  - Restaurants
+  - cafes
+  - QSR
+  archetypes:
+  - ARC-F
+  specialist_ids:
+  - V14-S1
+  - V14-S2
+  - V14-S3
+  - V14-S4
+  - V14-S5
+  - V14-S6
+  playbook_ids:
+  - V14-E1
+  - V14-E2
+  - V14-E3
+  - V14-E4
+  - V14-E5
+- id: V15
+  number: 15
+  name: Catering & cloud kitchens
+  slug: v15-catering-cloud-kitchens
+  segment: SMB / Local
+  examples:
+  - Event caterers
+  - cloud kitchens
+  archetypes:
+  - ARC-F
+  - ARC-D
+  specialist_ids:
+  - V15-S1
+  - V15-S2
+  - V15-S3
+  - V15-S4
+  playbook_ids:
+  - V15-E1
+  - V15-E2
+  - V15-E3
+  - V15-E4
+  - V15-E5
+- id: V16
+  number: 16
+  name: Hotels, holiday homes & venues
+  slug: v16-hotels-holiday-homes-venues
+  segment: SMB / Local
+  examples:
+  - Hotels
+  - B&Bs
+  - holiday lets
+  - wedding venues
+  - event spaces
+  archetypes:
+  - ARC-F
+  specialist_ids:
+  - V16-S1
+  - V16-S2
+  - V16-S3
+  - V16-S4
+  - V16-S5
+  - V16-S6
+  playbook_ids:
+  - V16-E1
+  - V16-E2
+  - V16-E3
+  - V16-E4
+  - V16-E5
+- id: V17
+  number: 17
+  name: Real estate brokerage
+  slug: v17-real-estate-brokerage
+  segment: SMB / Local
+  examples:
+  - Sales
+  - leasing agents
+  - holiday-let managers
+  archetypes:
+  - ARC-I
+  specialist_ids:
+  - V17-S1
+  - V17-S2
+  - V17-S3
+  - V17-S4
+  - V17-S5
+  - V17-S6
+  playbook_ids:
+  - V17-E1
+  - V17-E2
+  - V17-E3
+  - V17-E4
+  - V17-E5
+- id: V18
+  number: 18
+  name: Property & block management
+  slug: v18-property-block-management
+  segment: SMB / Local
+  examples:
+  - Owners associations
+  - building
+  - HMO management
+  archetypes:
+  - ARC-I
+  - ARC-E
+  specialist_ids:
+  - V18-S1
+  - V18-S2
+  - V18-S3
+  - V18-S4
+  - V18-S5
+  playbook_ids:
+  - V18-E1
+  - V18-E2
+  - V18-E3
+  - V18-E4
+  - V18-E5
+- id: V19
+  number: 19
+  name: Automotive services
+  slug: v19-automotive-services
+  segment: SMB / Local
+  examples:
+  - Garages
+  - detailing
+  - tinting
+  - recovery
+  - rental
+  archetypes:
+  - ARC-A
+  - ARC-B
+  - ARC-D
+  specialist_ids:
+  - V19-S1
+  - V19-S2
+  - V19-S3
+  - V19-S4
+  - V19-S5
+  - V19-S6
+  - V19-S7
+  playbook_ids:
+  - V19-E1
+  - V19-E2
+  - V19-E3
+  - V19-E4
+  - V19-E5
+- id: V20
+  number: 20
+  name: Vehicle trading & salvage
+  slug: v20-vehicle-trading-salvage
+  segment: SMB / Local
+  examples:
+  - Used-car dealers
+  - auction buyers
+  - exporters
+  archetypes:
+  - ARC-D
+  specialist_ids:
+  - V20-S1
+  - V20-S2
+  - V20-S3
+  - V20-S4
+  - V20-S5
+  playbook_ids:
+  - V20-E1
+  - V20-E2
+  - V20-E3
+  - V20-E4
+  - V20-E5
+- id: V21
+  number: 21
+  name: Retail & product-led
+  slug: v21-retail-product-led
+  segment: SMB / Local
+  examples:
+  - Florists
+  - bakeries
+  - furniture
+  - bike shops
+  - boutiques
+  archetypes:
+  - ARC-J
+  specialist_ids:
+  - V21-S1
+  - V21-S2
+  - V21-S3
+  - V21-S4
+  playbook_ids:
+  - V21-E1
+  - V21-E2
+  - V21-E3
+  - V21-E4
+  - V21-E5
+- id: V22
+  number: 22
+  name: B2B services & agencies
+  slug: v22-b2b-services-agencies
+  segment: SMB / Local
+  examples:
+  - Marketing
+  - IT
+  - MSP
+  - consulting
+  archetypes:
+  - ARC-E
+  - ARC-C
+  specialist_ids:
+  - V22-S1
+  - V22-S2
+  - V22-S3
+  - V22-S4
+  - V22-S5
+  - V22-S6
+  - V22-S7
+  playbook_ids:
+  - V22-E1
+  - V22-E2
+  - V22-E3
+  - V22-E4
+  - V22-E5
+- id: V23
+  number: 23
+  name: Recruitment & staffing
+  slug: v23-recruitment-staffing
+  segment: SMB / Local
+  examples:
+  - Agencies
+  - executive search
+  - manpower supply
+  archetypes:
+  - ARC-E
+  - ARC-C
+  specialist_ids:
+  - V23-S1
+  - V23-S2
+  - V23-S3
+  - V23-S4
+  - V23-S5
+  - V23-S6
+  playbook_ids:
+  - V23-E1
+  - V23-E2
+  - V23-E3
+  - V23-E4
+  - V23-E5
+- id: V24
+  number: 24
+  name: Events & creative services
+  slug: v24-events-creative-services
+  segment: SMB / Local
+  examples:
+  - Photographers
+  - planners
+  - AV
+  - printing
+  archetypes:
+  - ARC-D
+  - ARC-F
+  specialist_ids:
+  - V24-S1
+  - V24-S2
+  - V24-S3
+  - V24-S4
+  - V24-S5
+  - V24-S6
+  playbook_ids:
+  - V24-E1
+  - V24-E2
+  - V24-E3
+  - V24-E4
+  - V24-E5
+- id: V25
+  number: 25
+  name: Travel & tour operators
+  slug: v25-travel-tour-operators
+  segment: SMB / Local
+  examples:
+  - Agencies
+  - DMCs
+  - tour operators
+  archetypes:
+  - ARC-D
+  - ARC-F
+  specialist_ids:
+  - V25-S1
+  - V25-S2
+  - V25-S3
+  - V25-S4
+  - V25-S5
+  playbook_ids:
+  - V25-E1
+  - V25-E2
+  - V25-E3
+  - V25-E4
+  - V25-E5
+- id: V26
+  number: 26
+  name: Logistics & freight (SMB)
+  slug: v26-logistics-freight-smb
+  segment: SMB / Local
+  examples:
+  - Forwarders
+  - last-mile
+  - movers
+  archetypes:
+  - ARC-D
+  - ARC-E
+  specialist_ids:
+  - V26-S1
+  - V26-S2
+  - V26-S3
+  - V26-S4
+  - V26-S5
+  - V26-S6
+  playbook_ids:
+  - V26-E1
+  - V26-E2
+  - V26-E3
+  - V26-E4
+  - V26-E5
+- id: V27
+  number: 27
+  name: Insurance & financial brokerage
+  slug: v27-insurance-financial-brokerage
+  segment: SMB / Local
+  examples:
+  - Insurance brokers
+  - mortgage brokers
+  archetypes:
+  - ARC-C
+  specialist_ids:
+  - V27-S1
+  - V27-S2
+  - V27-S3
+  - V27-S4
+  - V27-S5
+  playbook_ids:
+  - V27-E1
+  - V27-E2
+  - V27-E3
+  - V27-E4
+  - V27-E5
+- id: V28
+  number: 28
+  name: Hospitals & health systems
+  slug: v28-hospitals-health-systems
+  segment: Enterprise / Global
+  examples:
+  - Hospital groups
+  - clinics networks
+  - diagnostics chains
+  archetypes:
+  - ARC-G
+  specialist_ids:
+  - V28-S1
+  - V28-S2
+  - V28-S3
+  - V28-S4
+  - V28-S5
+  - V28-S6
+  - V28-S7
+  - V28-S8
+  playbook_ids:
+  - V28-E1
+  - V28-E2
+  - V28-E3
+  - V28-E4
+  - V28-E5
+- id: V29
+  number: 29
+  name: Pharma & biotech
+  slug: v29-pharma-biotech
+  segment: Enterprise / Global
+  examples:
+  - Pharma
+  - biotech
+  - CROs
+  archetypes:
+  - ARC-C
+  specialist_ids:
+  - V29-S1
+  - V29-S2
+  - V29-S3
+  - V29-S4
+  - V29-S5
+  - V29-S6
+  - V29-S7
+  playbook_ids:
+  - V29-E1
+  - V29-E2
+  - V29-E3
+  - V29-E4
+  - V29-E5
+- id: V30
+  number: 30
+  name: Medical devices & diagnostics
+  slug: v30-medical-devices-diagnostics
+  segment: Enterprise / Global
+  examples:
+  - Device makers
+  - diagnostic labs
+  archetypes:
+  - ARC-E
+  - ARC-G
+  specialist_ids:
+  - V30-S1
+  - V30-S2
+  - V30-S3
+  - V30-S4
+  - V30-S5
+  playbook_ids:
+  - V30-E1
+  - V30-E2
+  - V30-E3
+  - V30-E4
+  - V30-E5
+- id: V31
+  number: 31
+  name: Retail banking & lending
+  slug: v31-retail-banking-lending
+  segment: Enterprise / Global
+  examples:
+  - Banks
+  - credit unions
+  - lenders
+  archetypes:
+  - ARC-C
+  specialist_ids:
+  - V31-S1
+  - V31-S2
+  - V31-S3
+  - V31-S4
+  - V31-S5
+  - V31-S6
+  playbook_ids:
+  - V31-E1
+  - V31-E2
+  - V31-E3
+  - V31-E4
+  - V31-E5
+- id: V32
+  number: 32
+  name: Wealth & asset management
+  slug: v32-wealth-asset-management
+  segment: Enterprise / Global
+  examples:
+  - Wealth managers
+  - asset managers
+  - family offices
+  archetypes:
+  - ARC-C
+  specialist_ids:
+  - V32-S1
+  - V32-S2
+  - V32-S3
+  - V32-S4
+  - V32-S5
+  - V32-S6
+  playbook_ids:
+  - V32-E1
+  - V32-E2
+  - V32-E3
+  - V32-E4
+  - V32-E5
+- id: V33
+  number: 33
+  name: Insurance carriers
+  slug: v33-insurance-carriers
+  segment: Enterprise / Global
+  examples:
+  - P&C
+  - life
+  - health carriers
+  archetypes:
+  - ARC-C
+  specialist_ids:
+  - V33-S1
+  - V33-S2
+  - V33-S3
+  - V33-S4
+  - V33-S5
+  - V33-S6
+  - V33-S7
+  playbook_ids:
+  - V33-E1
+  - V33-E2
+  - V33-E3
+  - V33-E4
+  - V33-E5
+- id: V34
+  number: 34
+  name: Payments & fintech
+  slug: v34-payments-fintech
+  segment: Enterprise / Global
+  examples:
+  - PSPs
+  - acquirers
+  - fintechs
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V34-S1
+  - V34-S2
+  - V34-S3
+  - V34-S4
+  - V34-S5
+  - V34-S6
+  playbook_ids:
+  - V34-E1
+  - V34-E2
+  - V34-E3
+  - V34-E4
+  - V34-E5
+- id: V35
+  number: 35
+  name: SaaS & software
+  slug: v35-saas-software
+  segment: Enterprise / Global
+  examples:
+  - B2B SaaS
+  - dev tools
+  - horizontal software
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V35-S1
+  - V35-S2
+  - V35-S3
+  - V35-S4
+  - V35-S5
+  - V35-S6
+  - V35-S7
+  - V35-S8
+  playbook_ids:
+  - V35-E1
+  - V35-E2
+  - V35-E3
+  - V35-E4
+  - V35-E5
+- id: V36
+  number: 36
+  name: IT services, MSP & cybersecurity
+  slug: v36-it-services-msp-cybersecurity
+  segment: Enterprise / Global
+  examples:
+  - MSPs
+  - MSSPs
+  - SOCs
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V36-S1
+  - V36-S2
+  - V36-S3
+  - V36-S4
+  - V36-S5
+  - V36-S6
+  playbook_ids:
+  - V36-E1
+  - V36-E2
+  - V36-E3
+  - V36-E4
+  - V36-E5
+- id: V37
+  number: 37
+  name: Telecom
+  slug: v37-telecom
+  segment: Enterprise / Global
+  examples:
+  - Carriers
+  - MVNOs
+  - ISPs
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V37-S1
+  - V37-S2
+  - V37-S3
+  - V37-S4
+  - V37-S5
+  - V37-S6
+  playbook_ids:
+  - V37-E1
+  - V37-E2
+  - V37-E3
+  - V37-E4
+  - V37-E5
+- id: V38
+  number: 38
+  name: Media & publishing
+  slug: v38-media-publishing
+  segment: Enterprise / Global
+  examples:
+  - News
+  - magazines
+  - digital media
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V38-S1
+  - V38-S2
+  - V38-S3
+  - V38-S4
+  - V38-S5
+  - V38-S6
+  playbook_ids:
+  - V38-E1
+  - V38-E2
+  - V38-E3
+  - V38-E4
+  - V38-E5
+- id: V39
+  number: 39
+  name: Gaming
+  slug: v39-gaming
+  segment: Enterprise / Global
+  examples:
+  - Studios
+  - publishers
+  - platforms
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V39-S1
+  - V39-S2
+  - V39-S3
+  - V39-S4
+  - V39-S5
+  - V39-S6
+  playbook_ids:
+  - V39-E1
+  - V39-E2
+  - V39-E3
+  - V39-E4
+  - V39-E5
+- id: V40
+  number: 40
+  name: Sports clubs & leagues
+  slug: v40-sports-clubs-leagues
+  segment: Enterprise / Global
+  examples:
+  - Clubs
+  - leagues
+  - federations
+  archetypes:
+  - ARC-F
+  - ARC-H
+  specialist_ids:
+  - V40-S1
+  - V40-S2
+  - V40-S3
+  - V40-S4
+  - V40-S5
+  - V40-S6
+  playbook_ids:
+  - V40-E1
+  - V40-E2
+  - V40-E3
+  - V40-E4
+  - V40-E5
+- id: V41
+  number: 41
+  name: Creator economy & talent
+  slug: v41-creator-economy-talent
+  segment: Enterprise / Global
+  examples:
+  - Creators
+  - talent agencies
+  - MCNs
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V41-S1
+  - V41-S2
+  - V41-S3
+  - V41-S4
+  - V41-S5
+  playbook_ids:
+  - V41-E1
+  - V41-E2
+  - V41-E3
+  - V41-E4
+  - V41-E5
+- id: V42
+  number: 42
+  name: E-commerce & marketplaces
+  slug: v42-e-commerce-marketplaces
+  segment: Enterprise / Global
+  examples:
+  - D2C brands
+  - marketplaces
+  archetypes:
+  - ARC-J
+  - ARC-E
+  specialist_ids:
+  - V42-S1
+  - V42-S2
+  - V42-S3
+  - V42-S4
+  - V42-S5
+  - V42-S6
+  - V42-S7
+  playbook_ids:
+  - V42-E1
+  - V42-E2
+  - V42-E3
+  - V42-E4
+  - V42-E5
+- id: V43
+  number: 43
+  name: CPG / FMCG
+  slug: v43-cpg-fmcg
+  segment: Enterprise / Global
+  examples:
+  - Consumer goods brands
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V43-S1
+  - V43-S2
+  - V43-S3
+  - V43-S4
+  - V43-S5
+  playbook_ids:
+  - V43-E1
+  - V43-E2
+  - V43-E3
+  - V43-E4
+  - V43-E5
+- id: V44
+  number: 44
+  name: Manufacturing
+  slug: v44-manufacturing
+  segment: Enterprise / Global
+  examples:
+  - Discrete and process manufacturers
+  archetypes:
+  - ARC-D
+  - ARC-E
+  specialist_ids:
+  - V44-S1
+  - V44-S2
+  - V44-S3
+  - V44-S4
+  - V44-S5
+  - V44-S6
+  - V44-S7
+  - V44-S8
+  playbook_ids:
+  - V44-E1
+  - V44-E2
+  - V44-E3
+  - V44-E4
+  - V44-E5
+- id: V45
+  number: 45
+  name: Automotive & aerospace OEM/suppliers
+  slug: v45-automotive-aerospace-oem-suppliers
+  segment: Enterprise / Global
+  examples:
+  - OEMs
+  - tier suppliers
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V45-S1
+  - V45-S2
+  - V45-S3
+  - V45-S4
+  - V45-S5
+  playbook_ids:
+  - V45-E1
+  - V45-E2
+  - V45-E3
+  - V45-E4
+  - V45-E5
+- id: V46
+  number: 46
+  name: Power utilities
+  slug: v46-power-utilities
+  segment: Enterprise / Global
+  examples:
+  - Electric
+  - gas
+  - water utilities
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V46-S1
+  - V46-S2
+  - V46-S3
+  - V46-S4
+  - V46-S5
+  - V46-S6
+  playbook_ids:
+  - V46-E1
+  - V46-E2
+  - V46-E3
+  - V46-E4
+  - V46-E5
+- id: V47
+  number: 47
+  name: Renewables & EV charging (CPOs)
+  slug: v47-renewables-ev-charging-cpos
+  segment: Enterprise / Global
+  examples:
+  - Solar
+  - wind
+  - charge-point operators
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V47-S1
+  - V47-S2
+  - V47-S3
+  - V47-S4
+  - V47-S5
+  - V47-S6
+  playbook_ids:
+  - V47-E1
+  - V47-E2
+  - V47-E3
+  - V47-E4
+  - V47-E5
+- id: V48
+  number: 48
+  name: Oil, gas & mining
+  slug: v48-oil-gas-mining
+  segment: Enterprise / Global
+  examples:
+  - Upstream
+  - midstream
+  - mining operators
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V48-S1
+  - V48-S2
+  - V48-S3
+  - V48-S4
+  - V48-S5
+  - V48-S6
+  playbook_ids:
+  - V48-E1
+  - V48-E2
+  - V48-E3
+  - V48-E4
+  - V48-E5
+- id: V49
+  number: 49
+  name: Agriculture & food production
+  slug: v49-agriculture-food-production
+  segment: Enterprise / Global
+  examples:
+  - Farms
+  - cooperatives
+  - processors
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V49-S1
+  - V49-S2
+  - V49-S3
+  - V49-S4
+  - V49-S5
+  - V49-S6
+  playbook_ids:
+  - V49-E1
+  - V49-E2
+  - V49-E3
+  - V49-E4
+  - V49-E5
+- id: V50
+  number: 50
+  name: Airlines, rail & transit
+  slug: v50-airlines-rail-transit
+  segment: Enterprise / Global
+  examples:
+  - Airlines
+  - rail operators
+  - transit authorities
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V50-S1
+  - V50-S2
+  - V50-S3
+  - V50-S4
+  - V50-S5
+  - V50-S6
+  playbook_ids:
+  - V50-E1
+  - V50-E2
+  - V50-E3
+  - V50-E4
+  - V50-E5
+- id: V51
+  number: 51
+  name: Shipping, ports & enterprise 3PL
+  slug: v51-shipping-ports-enterprise-3pl
+  segment: Enterprise / Global
+  examples:
+  - Ocean carriers
+  - ports
+  - 3PLs
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V51-S1
+  - V51-S2
+  - V51-S3
+  - V51-S4
+  - V51-S5
+  - V51-S6
+  playbook_ids:
+  - V51-E1
+  - V51-E2
+  - V51-E3
+  - V51-E4
+  - V51-E5
+- id: V52
+  number: 52
+  name: Hotel chains & OTAs
+  slug: v52-hotel-chains-otas
+  segment: Enterprise / Global
+  examples:
+  - Hotel groups
+  - online travel agencies
+  archetypes:
+  - ARC-F
+  specialist_ids:
+  - V52-S1
+  - V52-S2
+  - V52-S3
+  - V52-S4
+  - V52-S5
+  - V52-S6
+  playbook_ids:
+  - V52-E1
+  - V52-E2
+  - V52-E3
+  - V52-E4
+  - V52-E5
+- id: V53
+  number: 53
+  name: Higher ed & K-12 institutions
+  slug: v53-higher-ed-k-12-institutions
+  segment: Enterprise / Global
+  examples:
+  - Universities
+  - colleges
+  - school systems
+  archetypes:
+  - ARC-H
+  specialist_ids:
+  - V53-S1
+  - V53-S2
+  - V53-S3
+  - V53-S4
+  - V53-S5
+  - V53-S6
+  - V53-S7
+  playbook_ids:
+  - V53-E1
+  - V53-E2
+  - V53-E3
+  - V53-E4
+  - V53-E5
+- id: V54
+  number: 54
+  name: Corporate training & edtech
+  slug: v54-corporate-training-edtech
+  segment: Enterprise / Global
+  examples:
+  - L&D platforms
+  - training providers
+  archetypes:
+  - ARC-H
+  specialist_ids:
+  - V54-S1
+  - V54-S2
+  - V54-S3
+  - V54-S4
+  - V54-S5
+  playbook_ids:
+  - V54-E1
+  - V54-E2
+  - V54-E3
+  - V54-E4
+  - V54-E5
+- id: V55
+  number: 55
+  name: Government & public sector
+  slug: v55-government-public-sector
+  segment: Enterprise / Global
+  examples:
+  - Municipal
+  - state
+  - national agencies
+  archetypes:
+  - ARC-C
+  - ARC-E
+  specialist_ids:
+  - V55-S1
+  - V55-S2
+  - V55-S3
+  - V55-S4
+  - V55-S5
+  - V55-S6
+  - V55-S7
+  playbook_ids:
+  - V55-E1
+  - V55-E2
+  - V55-E3
+  - V55-E4
+  - V55-E5
+- id: V56
+  number: 56
+  name: Nonprofits & faith organizations
+  slug: v56-nonprofits-faith-organizations
+  segment: Enterprise / Global
+  examples:
+  - Charities
+  - foundations
+  - congregations
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V56-S1
+  - V56-S2
+  - V56-S3
+  - V56-S4
+  - V56-S5
+  - V56-S6
+  playbook_ids:
+  - V56-E1
+  - V56-E2
+  - V56-E3
+  - V56-E4
+  - V56-E5
+- id: V57
+  number: 57
+  name: Enterprise HR & payroll
+  slug: v57-enterprise-hr-payroll
+  segment: Enterprise / Global
+  examples:
+  - In-house HR
+  - payroll bureaus
+  - PEOs
+  archetypes:
+  - ARC-E
+  specialist_ids:
+  - V57-S1
+  - V57-S2
+  - V57-S3
+  - V57-S4
+  - V57-S5
+  - V57-S6
+  playbook_ids:
+  - V57-E1
+  - V57-E2
+  - V57-E3
+  - V57-E4
+  - V57-E5
+- id: V58
+  number: 58
+  name: In-house legal & contracts
+  slug: v58-in-house-legal-contracts
+  segment: Enterprise / Global
+  examples:
+  - Corporate legal departments
+  archetypes:
+  - ARC-C
+  specialist_ids:
+  - V58-S1
+  - V58-S2
+  - V58-S3
+  - V58-S4
+  - V58-S5
+  - V58-S6
+  playbook_ids:
+  - V58-E1
+  - V58-E2
+  - V58-E3
+  - V58-E4
+  - V58-E5
+- id: V59
+  number: 59
+  name: Investment funds & PE/RE
+  slug: v59-investment-funds-pe-re
+  segment: Enterprise / Global
+  examples:
+  - PE
+  - VC
+  - real-estate funds
+  archetypes:
+  - ARC-C
+  specialist_ids:
+  - V59-S1
+  - V59-S2
+  - V59-S3
+  - V59-S4
+  - V59-S5
+  - V59-S6
+  playbook_ids:
+  - V59-E1
+  - V59-E2
+  - V59-E3
+  - V59-E4
+  - V59-E5
+- id: V60
+  number: 60
+  name: Capital markets & brokerage
+  slug: v60-capital-markets-brokerage
+  segment: Enterprise / Global
+  examples:
+  - Broker-dealers
+  - exchanges
+  - custodians
+  archetypes:
+  - ARC-C
+  specialist_ids:
+  - V60-S1
+  - V60-S2
+  - V60-S3
+  - V60-S4
+  - V60-S5
+  playbook_ids:
+  - V60-E1
+  - V60-E2
+  - V60-E3
+  - V60-E4
+  - V60-E5

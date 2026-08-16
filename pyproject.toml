@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adw"
+version = "2.0.0"
+description = "ADW master agent catalogue: 815 automation units carried by 14 mechanism-family engines"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+build = ["openpyxl>=3.1"]
+dev = ["pytest>=7.4", "openpyxl>=3.1"]
+
+[project.scripts]
+adw = "adw.cli:main"
+
+[tool.setuptools]
+packages = ["adw", "engines"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

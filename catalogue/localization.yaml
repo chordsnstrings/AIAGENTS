@@ -1,0 +1,111 @@
+config_fields:
+- field: Language set
+  key: language_set
+  global_instances:
+  - EN/ES (US)
+  - EN/FR (CA)
+  - DE/TR (DE)
+  - PT (BR)
+  - HI + regionals (IN)
+  - EN/AR/HI/UR (Gulf)
+  - JP
+  - KR
+- field: Messaging channel
+  key: messaging_channel
+  global_instances:
+  - WhatsApp (LatAm, India, Gulf, most EU)
+  - SMS/RCS + iMessage (US)
+  - LINE (JP/TH/TW)
+  - Zalo (VN)
+  - KakaoTalk (KR)
+  - WeChat (CN)
+  - Telegram (CIS)
+- field: Review surface
+  key: review_surface
+  global_instances:
+  - Google (default)
+  - Yelp (US)
+  - Trustpilot (UK/EU)
+  - Tabelog (JP)
+  - Dianping (CN)
+  - Yandex/2GIS (CIS)
+- field: Attach-to platforms
+  key: attach_to_platforms
+  global_instances:
+  - Booksy/Fresha
+  - OpenTable/TheFork
+  - Zocdoc/Doctolib/Practo
+  - Zillow/Rightmove/Bayut/99acres
+  - Angi/Checkatrade/Thumbtack
+- field: Payment rails
+  key: payment_rails
+  global_instances:
+  - Cards/ACH (US)
+  - SEPA + iDEAL (EU)
+  - UPI (IN)
+  - Pix (BR)
+  - M-Pesa (E. Africa)
+  - mada (KSA)
+  - FPS (UK)
+- field: Tax & filing calendar
+  key: tax_filing_calendar
+  global_instances:
+  - VAT / GST / sales tax / corporate tax dates per jurisdiction
+- field: Statutory date sets
+  key: statutory_date_sets
+  global_instances:
+  - Gas Safety-EPC-EICR (UK)
+  - TUV (DE)
+  - shaken (JP)
+  - MOT (UK)
+  - smog (CA)
+  - Ejari/RERA (UAE)
+- field: Regulator guardrails
+  key: regulator_guardrails
+  global_instances:
+  - 'Health: CQC/GMC, HIPAA, AHPRA, DHA'
+  - Legal advertising per bar
+  - 'Financial promotions: FCA/SEC/ESMA'
+- field: Seasonal calendar
+  key: seasonal_calendar
+  global_instances:
+  - Ramadan
+  - Diwali
+  - Lunar New Year
+  - Golden Week
+  - Black Friday
+  - monsoon
+  - tax season
+globalized_agents:
+- system_agent: Health-Marketing Guardrail
+  formerly: DHA Comms Guardrail
+  resolution: Advertising/claims rules resolved per regulator
+  key: health_marketing_guardrail
+- system_agent: Jurisdiction Tax Calendar
+  formerly: UAE CT/VAT Deadline Calendar
+  resolution: Filing dates per country pack
+  key: jurisdiction_tax_calendar
+- system_agent: Consular/Portal Slot Watcher
+  formerly: Embassy/ICP Slot Watcher
+  resolution: Any consular or government portal
+  key: consular_portal_slot_watcher
+- system_agent: Apostille & Legalization Chain
+  formerly: Attestation Chain Tracker
+  resolution: Multi-step legalization per jurisdiction
+  key: apostille_legalization_chain
+- system_agent: Listing & Tenancy Compliance Checker
+  formerly: RERA Compliance Checker
+  resolution: Fair housing, deposit protection, licensing per market
+  key: listing_tenancy_compliance_checker
+- system_agent: Vehicle Compliance Clock
+  formerly: RTA Registration/Test Reminder
+  resolution: MOT / TUV / shaken / smog / RTA per market
+  key: vehicle_compliance_clock
+- system_agent: Payor Eligibility Checker
+  formerly: Insurance Eligibility Checker (UAE payors)
+  resolution: US payors, NHS-vs-private, statutory DE/JP
+  key: payor_eligibility_checker
+- system_agent: Seasonal Surge Triage
+  formerly: AC Season Surge Triage
+  resolution: Heating winter / cooling summer per market
+  key: seasonal_surge_triage

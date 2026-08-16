@@ -1,0 +1,941 @@
+"""The engine contract.
+
+The catalogue's first standing rule is *config, not code*: fourteen engines carry
+all 815 units, and vertical and country differences resolve to configuration.
+This module is where that rule is made structural.
+
+An :class:`Engine` knows how one mechanism family behaves.  It does not know
+about any individual agent.  Given a catalogue record it *composes* a
+:class:`~adw.models.Unit`: it picks a profile, writes the mission, lays out the
+plan, names the artefacts, attaches the guardrails and declares which
+configuration keys the unit reads.  Adding an agent to the catalogue therefore
+means adding a row to the workbook, never a new class.
+
+Subclasses implement five hooks:
+
+``profiles``      the presets this family offers, in match order
+``base_plan``     the step skeleton every unit of this family runs
+``base_artifacts``the artefacts every unit of this family produces
+``mission_body``  family-specific mission prose
+``family_guardrails`` rules that apply to every unit of this family
+
+Everything else -- acceptance criteria, standing-rule guardrails, human gates,
+safety interlocks, provenance -- is assembled by :meth:`Engine.compose`, so it is
+identical across all fourteen families and cannot drift.
+"""
+
+from __future__ import annotations
+
+import re
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any, ClassVar, Iterable, Mapping, Sequence
+
+from adw.models import (
+    AcceptanceCriterion,
+    Artifact,
+    Capability,
+    ConfigKey,
+    Escalation,
+    Flags,
+    GateSeverity,
+    Guardrail,
+    HumanGate,
+    Scope,
+    Step,
+    StepKind,
+    Unit,
+    UnitType,
+)
+
+# --------------------------------------------------------------------------- #
+# profiles
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class Profile:
+    """A preset within a mechanism family.
+
+    Profiles are how one engine covers dozens of differently-named workers.  The
+    Front Desk's Receptionist, Eligibility Officer and Night Dispatcher are all
+    MF1 units; they differ by profile, and a profile is pure configuration.
+    """
+
+    name: str
+    summary: str
+    #: Lowercase substrings matched against the unit's name, system agent name
+    #: and function.  First profile with a hit wins, so order matters.
+    match: tuple[str, ...] = ()
+    steps: tuple[Step, ...] = ()
+    artifacts: tuple[Artifact, ...] = ()
+    tools: tuple[str, ...] = ()
+    config_keys: tuple[ConfigKey, ...] = ()
+    kpis: tuple[str, ...] = ()
+    channels: tuple[str, ...] = ()
+
+    def matches(self, haystack: str) -> bool:
+        return any(token in haystack for token in self.match)
+
+
+# --------------------------------------------------------------------------- #
+# standing-rule guardrails, applied to every unit of every family
+# --------------------------------------------------------------------------- #
+
+STANDING_GUARDRAILS: tuple[Guardrail, ...] = (
+    Guardrail(
+        id="SR-PROBABILISTIC",
+        rule=(
+            "Probabilistic components flag, collect and draft. They never clear, "
+            "diagnose, advise or approve."
+        ),
+        check=(
+            "No plan step of kind decide or act may perform a prohibited act "
+            "without a preceding blocking human gate."
+        ),
+    ),
+    Guardrail(
+        id="SR-OWNED-CHANNELS",
+        rule=(
+            "Growth and social output publishes only from the customer's own "
+            "connected accounts."
+        ),
+        check=(
+            "Every publish or send step names a channel held in the customer's "
+            "OAuth grant; no platform account owned by ADW is ever the sender."
+        ),
+    ),
+    Guardrail(
+        id="SR-CONFIG-NOT-CODE",
+        rule=(
+            "Vertical and country differences resolve to configuration; the unit "
+            "carries no market-specific logic."
+        ),
+        check=(
+            "Every market-dependent value the unit reads is declared in "
+            "config_keys and resolved from the active country pack."
+        ),
+    ),
+    Guardrail(
+        id="SR-AUDIT",
+        rule="Every artefact the unit produces is retained with its audit trail.",
+        check=(
+            "The plan ends in a record step and each declared artefact is written "
+            "with actor, timestamp and source."
+        ),
+    ),
+)
+
+#: Attached to units whose expected output names a number, a price or a quote.
+PRICING_GUARDRAIL = Guardrail(
+    id="GR-PUBLISHED-PRICES-ONLY",
+    rule="Money figures come from published pricing. The unit never invents a number.",
+    check=(
+        "Every figure in the artefact resolves to a row in the published price "
+        "book or to a quote already issued by the business."
+    ),
+    source="catalogue",
+)
+
+#: Attached to every safety-critical (diamond) unit.
+SAFETY_GUARDRAIL = Guardrail(
+    id="GR-SAFETY-INTERLOCK",
+    rule=(
+        "Safety-critical protocol: recognition and routing only. The unit "
+        "recognises the condition, executes the fixed steps and stops at the "
+        "human gate. It never resolves the underlying situation."
+    ),
+    check=(
+        "Interlock steps run first and cannot be skipped, reordered or deferred; "
+        "the plan terminates in a gate or stop step, never in a resolution."
+    ),
+    source="catalogue",
+)
+
+#: Attached to units that touch regulated advice surfaces.
+REGULATED_GUARDRAIL = Guardrail(
+    id="GR-REGULATED-SURFACE",
+    rule=(
+        "Regulated subject matter: the unit collects and routes, and never gives "
+        "advice that a licensed person must give."
+    ),
+    check=(
+        "Outbound copy is checked against the regulator guardrails in the active "
+        "country pack before it leaves the queue."
+    ),
+    source="country_pack",
+)
+
+#: Config keys every unit reads, whatever its family.
+UNIVERSAL_CONFIG_KEYS: tuple[ConfigKey, ...] = (
+    ConfigKey(
+        key="language_set",
+        description="Languages the unit must answer in, from the active country pack.",
+        required=True,
+    ),
+    ConfigKey(
+        key="messaging_channel",
+        description="Primary messaging rail for this market (WhatsApp, SMS/RCS, LINE, ...).",
+        required=True,
+    ),
+    ConfigKey(
+        key="business_hours",
+        description="Opening hours and out-of-hours policy for the business.",
+        resolved_by="owner",
+    ),
+    ConfigKey(
+        key="escalation_contacts",
+        description="Who receives a gate, by role, with an out-of-hours fallback.",
+        resolved_by="owner",
+        required=True,
+    ),
+)
+
+# Terms that mark a unit as sitting on a regulated advice surface.
+_REGULATED_MARKERS = (
+    "clinical",
+    "medical",
+    "patient",
+    "dental",
+    "prescri",
+    "legal",
+    "matter",
+    "advice",
+    "regulat",
+    "compliance",
+    "licence",
+    "license",
+    "statutory",
+    "kyc",
+    "aml",
+    "safeguard",
+    "payor",
+    "insurance",
+    "financial",
+    "tax",
+    "audit",
+    "visa",
+    "immigration",
+)
+
+#: Step-description markers that mean the unit puts something out into the world.
+#: Kept in step with ``adw.guardrails._PUBLISHING_STEP_MARKERS``: the engine uses
+#: them to attach the grant, the audit uses them to demand it.
+PUBLISHING_STEP_MARKERS: tuple[str, ...] = (
+    "publish",
+    "post to",
+    "send from",
+    "share to",
+    "upload to",
+)
+
+# Terms that mark a unit as handling money figures.
+_PRICING_MARKERS = (
+    "price",
+    "pricing",
+    "quote",
+    "estimate",
+    "invoice",
+    "payment",
+    "deposit",
+    "refund",
+    "fee",
+    "cost",
+    "tariff",
+    "rate",
+    "commission",
+    "revenue",
+    "cash",
+)
+
+
+# --------------------------------------------------------------------------- #
+# the engine
+# --------------------------------------------------------------------------- #
+
+
+class Engine(ABC):
+    """Base class for the fourteen mechanism-family engines."""
+
+    #: Mechanism family id, e.g. ``"MF1"``.
+    id: ClassVar[str]
+    #: Human name from the workbook, e.g. ``"Conversational intake & triage"``.
+    family: ClassVar[str]
+    #: One-line statement of what the family does.
+    what_it_does: ClassVar[str]
+    #: Capabilities every unit of this family holds.
+    capabilities: ClassVar[tuple[Capability, ...]] = ()
+    #: Tools every unit of this family is granted.
+    default_tools: ClassVar[tuple[str, ...]] = ()
+    #: Channels the family works over by default.
+    default_channels: ClassVar[tuple[str, ...]] = ()
+    #: KPIs reported for every unit of this family.
+    default_kpis: ClassVar[tuple[str, ...]] = ()
+    #: Config keys every unit of this family reads.
+    config_keys: ClassVar[tuple[ConfigKey, ...]] = ()
+    #: State object the family maintains, if any.
+    state_object: ClassVar[str] = ""
+
+    # -- hooks -------------------------------------------------------------
+    @property
+    @abstractmethod
+    def profiles(self) -> tuple[Profile, ...]:
+        """Presets offered by this family, in match order.
+
+        The last profile must have an empty ``match`` tuple: it is the fallback.
+        """
+
+    @abstractmethod
+    def base_plan(self, record: Mapping[str, Any]) -> tuple[Step, ...]:
+        """The step skeleton every unit of this family runs."""
+
+    @abstractmethod
+    def base_artifacts(self, record: Mapping[str, Any]) -> tuple[Artifact, ...]:
+        """Artefacts every unit of this family produces."""
+
+    @abstractmethod
+    def mission_body(self, record: Mapping[str, Any], profile: Profile) -> str:
+        """Family-specific mission prose, woven into the composed mission."""
+
+    def family_guardrails(self, record: Mapping[str, Any]) -> tuple[Guardrail, ...]:
+        """Rules that apply to every unit of this family.  Optional."""
+        return ()
+
+    def family_inputs(self, record: Mapping[str, Any]) -> tuple[str, ...]:
+        """Inputs every unit of this family consumes.  Optional."""
+        return ()
+
+    # -- profile selection --------------------------------------------------
+    def select_profile(self, record: Mapping[str, Any]) -> Profile:
+        haystack = " ".join(
+            str(part or "").lower()
+            for part in (
+                record.get("worker"),
+                record.get("system_agent"),
+                record.get("trigger"),
+                record.get("function"),
+                record.get("expected_output"),
+            )
+        )
+        for profile in self.profiles:
+            if profile.match and profile.matches(haystack):
+                return profile
+        fallback = self.profiles[-1]
+        if fallback.match:
+            raise AssertionError(
+                f"{self.id}: last profile {fallback.name!r} must be the unconditional fallback"
+            )
+        return fallback
+
+    # -- composition --------------------------------------------------------
+    def compose(self, record: Mapping[str, Any]) -> Unit:
+        """Turn one catalogue record into a fully-specified unit."""
+        profile = self.select_profile(record)
+        unit_type = UnitType(record["type"])
+        flags = Flags(**record["flags"])
+
+        scope = self._scope(record)
+        artifacts = self._artifacts(record, profile)
+        plan = self._plan(record, profile, flags)
+        gates = self._human_gates(record, flags)
+        guardrails = self._guardrails(record, flags)
+        acceptance = self._acceptance(record)
+        config_keys = self._config_keys(record, profile, plan)
+
+        return Unit(
+            id=record["id"],
+            type=unit_type,
+            scope=scope,
+            mechanism_family=self.id,
+            function=record["function"],
+            expected_output=record["expected_output"],
+            acceptance=acceptance,
+            flags=flags,
+            worker=record.get("worker"),
+            system_agent=record.get("system_agent"),
+            trigger=record.get("trigger"),
+            mission=self._mission(record, profile, flags, gates),
+            inputs=self._inputs(record, profile),
+            artifacts=artifacts,
+            plan=plan,
+            guardrails=guardrails,
+            human_gates=gates,
+            config_keys=config_keys,
+            tools=tuple(dict.fromkeys(self.default_tools + profile.tools)),
+            capabilities=self.capabilities,
+            kpis=tuple(dict.fromkeys(self.default_kpis + profile.kpis)),
+            channels=tuple(dict.fromkeys(self.default_channels + profile.channels)),
+            engine_profile=profile.name,
+            engine_config=self._engine_config(record, profile),
+            provenance={
+                "workbook": "ADW_MASTER_AGENT_CATALOGUE.xlsx",
+                "catalogue_version": "2",
+                "unit_type": record["type"],
+                "mechanism_family": self.id,
+                "engine": type(self).__name__,
+                "generated_by": "tools/generate_agents.py",
+            },
+            path=record["path"],
+        )
+
+    # -- composition parts --------------------------------------------------
+    def _scope(self, record: Mapping[str, Any]) -> Scope:
+        department = record.get("department") or {}
+        vertical = record.get("vertical") or {}
+        domain = record.get("domain") or {}
+        return Scope(
+            department_id=department.get("id"),
+            department_name=department.get("name"),
+            vertical_id=vertical.get("id"),
+            vertical_name=vertical.get("name"),
+            segment=vertical.get("segment"),
+            domain_id=domain.get("id"),
+            domain_name=domain.get("name"),
+            archetypes=tuple(record.get("archetypes") or ()),
+        )
+
+    def _artifacts(
+        self, record: Mapping[str, Any], profile: Profile
+    ) -> tuple[Artifact, ...]:
+        artifacts = list(self.base_artifacts(record)) + list(profile.artifacts)
+        artifacts.extend(derive_artifacts(record))
+        artifacts.append(
+            Artifact(
+                key="audit_trail",
+                name="Audit trail",
+                description=(
+                    "Every action, gate and message with actor, timestamp and source, "
+                    "retained for the life of the record."
+                ),
+                format="log",
+            )
+        )
+        seen: dict[str, Artifact] = {}
+        for artifact in artifacts:
+            seen.setdefault(artifact.key, artifact)
+        return tuple(seen.values())
+
+    def _plan(
+        self, record: Mapping[str, Any], profile: Profile, flags: Flags
+    ) -> tuple[Step, ...]:
+        steps = list(self.base_plan(record)) + list(profile.steps)
+
+        if flags.safety_critical:
+            # A diamond unit recognises and routes.  The interlock runs before
+            # anything else and the plan can only terminate at a gate.
+            steps = [
+                Step(
+                    id="interlock",
+                    name="Run the safety interlock",
+                    kind=StepKind.ACT,
+                    description=(
+                        "Recognise the condition and execute the fixed protocol steps "
+                        "before any commercial step. The interlock cannot be skipped, "
+                        "reordered or deferred, and no other step may run ahead of it."
+                    ),
+                    produces=("interlock_log",),
+                    interlock=True,
+                ),
+                *steps,
+            ]
+
+        steps.append(
+            Step(
+                id="record",
+                name="Record the artefacts",
+                kind=StepKind.RECORD,
+                description=(
+                    "Write every declared artefact to the system of record with its "
+                    "audit trail, then report the acceptance result."
+                ),
+                produces=("audit_trail",),
+            )
+        )
+
+        if flags.safety_critical:
+            steps.append(
+                Step(
+                    id="stop",
+                    name="Stop at the human gate",
+                    kind=StepKind.STOP,
+                    description=(
+                        "Hand the situation to the named human contact and stop. "
+                        "The unit does not resolve, clear or close the underlying "
+                        "condition under any circumstances."
+                    ),
+                )
+            )
+
+        # Renumber so ids are stable and ordered regardless of source.
+        return tuple(
+            Step(
+                id=f"{record['id'].lower()}-s{index:02d}-{step.id}",
+                name=step.name,
+                kind=step.kind,
+                description=step.description,
+                produces=step.produces,
+                interlock=step.interlock,
+            )
+            for index, step in enumerate(steps, start=1)
+        )
+
+    def _human_gates(
+        self, record: Mapping[str, Any], flags: Flags
+    ) -> tuple[HumanGate, ...]:
+        gates: list[HumanGate] = []
+        for raw in record.get("human_gates") or ():
+            gates.append(build_human_gate(raw, flags))
+
+        if flags.safety_critical and not any(
+            g.severity is GateSeverity.ABSOLUTE for g in gates
+        ):
+            gates.append(
+                HumanGate(
+                    decision="Resolution of the safety condition itself",
+                    severity=GateSeverity.ABSOLUTE,
+                    escalate_to=Escalation.EMERGENCY_SERVICES,
+                    note=(
+                        "Recognition and routing only. Escalation is the product; "
+                        "the unit stops here."
+                    ),
+                )
+            )
+
+        if not gates:
+            gates.append(
+                HumanGate(
+                    decision="Anything outside the configured policy bounds",
+                    severity=GateSeverity.BLOCKING,
+                    escalate_to=Escalation.APPROVAL_QUEUE,
+                    note=(
+                        "The workbook reserves no named decision for this unit; the "
+                        "policy boundary is still a gate."
+                    ),
+                )
+            )
+        return tuple(gates)
+
+    def _guardrails(
+        self, record: Mapping[str, Any], flags: Flags
+    ) -> tuple[Guardrail, ...]:
+        guardrails = list(STANDING_GUARDRAILS) + list(self.family_guardrails(record))
+        haystack = _haystack(record)
+        if flags.safety_critical:
+            guardrails.append(SAFETY_GUARDRAIL)
+        if any(marker in haystack for marker in _PRICING_MARKERS):
+            guardrails.append(PRICING_GUARDRAIL)
+        if any(marker in haystack for marker in _REGULATED_MARKERS):
+            guardrails.append(REGULATED_GUARDRAIL)
+        seen: dict[str, Guardrail] = {}
+        for guardrail in guardrails:
+            seen.setdefault(guardrail.id, guardrail)
+        return tuple(seen.values())
+
+    def _acceptance(self, record: Mapping[str, Any]) -> tuple[AcceptanceCriterion, ...]:
+        criteria = []
+        for index, clause in enumerate(record["acceptance_criteria"], start=1):
+            criteria.append(
+                AcceptanceCriterion(
+                    id=f"{record['id']}-AC{index}",
+                    criterion=clause,
+                    evidence=evidence_for(clause),
+                )
+            )
+        # Every unit is additionally accountable for its audit trail.
+        criteria.append(
+            AcceptanceCriterion(
+                id=f"{record['id']}-AC{len(criteria) + 1}",
+                criterion="Every action and gate is recorded with actor, timestamp and source",
+                evidence="audit_trail entries covering the full run",
+            )
+        )
+        return tuple(criteria)
+
+    def _config_keys(
+        self,
+        record: Mapping[str, Any],
+        profile: Profile,
+        plan: Sequence[Step] = (),
+    ) -> tuple[ConfigKey, ...]:
+        keys = list(UNIVERSAL_CONFIG_KEYS) + list(self.config_keys) + list(profile.config_keys)
+
+        # A unit that sends or publishes anything must name the grant it sends
+        # under, or the customer-owned-channels rule is unenforceable.
+        publishes = Capability.PUBLISH in self.capabilities or any(
+            marker in step_.description.lower()
+            for step_ in plan
+            for marker in PUBLISHING_STEP_MARKERS
+        )
+        if publishes:
+            keys.append(
+                ConfigKey(
+                    key="connected_accounts",
+                    description=(
+                        "OAuth grants for the customer's own accounts. Every publish "
+                        "and every send leaves from one of these; the platform never "
+                        "posts from an account it owns."
+                    ),
+                    resolved_by="owner",
+                    required=True,
+                )
+            )
+
+        if record.get("vertical"):
+            keys.append(
+                ConfigKey(
+                    key="vertical_overlay",
+                    description=(
+                        f"Vertical overlay for {record['vertical']['name']}: intervals, "
+                        "terminology, required fields and statutory dates."
+                    ),
+                    resolved_by="vertical",
+                    required=True,
+                )
+            )
+        haystack = _haystack(record)
+        if any(marker in haystack for marker in _REGULATED_MARKERS):
+            keys.append(
+                ConfigKey(
+                    key="regulator_guardrails",
+                    description=(
+                        "Advertising, claims and advice rules for this market's "
+                        "regulator, from the active country pack."
+                    ),
+                    required=True,
+                )
+            )
+        if any(marker in haystack for marker in _PRICING_MARKERS):
+            keys.append(
+                ConfigKey(
+                    key="payment_rails",
+                    description="Payment rails available in this market.",
+                )
+            )
+            keys.append(
+                ConfigKey(
+                    key="published_price_book",
+                    description="The only source of money figures this unit may quote.",
+                    resolved_by="owner",
+                    required=True,
+                )
+            )
+        seen: dict[str, ConfigKey] = {}
+        for key in keys:
+            seen.setdefault(key.key, key)
+        return tuple(seen.values())
+
+    def _inputs(self, record: Mapping[str, Any], profile: Profile) -> tuple[str, ...]:
+        inputs = list(self.family_inputs(record))
+        if record.get("trigger"):
+            inputs.insert(0, f"Trigger event: {record['trigger']}")
+        if record.get("vertical"):
+            inputs.append(f"Vertical overlay for {record['vertical']['name']}")
+        inputs.append("Active country pack")
+        inputs.append("Business profile: hours, services, policies, published prices")
+        return tuple(dict.fromkeys(inputs))
+
+    def _engine_config(
+        self, record: Mapping[str, Any], profile: Profile
+    ) -> dict[str, Any]:
+        return {
+            "profile": profile.name,
+            "profile_summary": profile.summary,
+            "state_object": self.state_object or None,
+            "recognition_only": bool(record["flags"]["safety_critical"]),
+            "revenue_critical": bool(record["flags"]["revenue_critical"]),
+        }
+
+    def _mission(
+        self,
+        record: Mapping[str, Any],
+        profile: Profile,
+        flags: Flags,
+        gates: Sequence[HumanGate],
+    ) -> str:
+        """Compose the unit's operating instructions.
+
+        The mission is the text an operator reads to understand what this unit
+        is for, and the text a model is given when it runs the unit.  It is
+        assembled identically for all 815 units so no unit can quietly acquire
+        authority the catalogue never granted it.
+        """
+        is_playbook = record["type"].startswith("playbook")
+        where = describe_scope(record)
+
+        lines: list[str] = []
+        if is_playbook:
+            lines.append(
+                f"You are the {record['trigger']} playbook for {where}. You are "
+                f"triggered by one event and nothing else: {record['trigger'].lower()}."
+            )
+        else:
+            worker = record["worker"]
+            system_agent = record["system_agent"]
+            lines.append(
+                f"You are the {worker} for {where}. In the build you are the "
+                f"{system_agent}; to the owner you are the {worker.lower()} they "
+                f"would otherwise have to hire."
+            )
+        lines.append("")
+        lines.append(f"WHAT YOU DO. {record['function'].rstrip('.')}.")
+        lines.append("")
+        lines.append(self.mission_body(record, profile).strip())
+        lines.append("")
+        lines.append(
+            "WHAT DONE LOOKS LIKE. " + record["expected_output"].rstrip(".") + "."
+        )
+        lines.append(
+            "That sentence is your acceptance test, not a description. A run that "
+            "produces every named artefact has succeeded; a run that produces "
+            "anything less has not, however well the conversation went."
+        )
+        lines.append("")
+
+        if flags.safety_critical:
+            lines.append(
+                "SAFETY INTERLOCK. This is a safety-critical protocol. You recognise "
+                "the condition, execute the fixed steps in order, and stop at the "
+                "human gate. Escalation is the product. You never resolve, clear or "
+                "close the underlying condition, and no commercial step -- booking, "
+                "quoting, upselling -- may run before the interlock has completed."
+            )
+            lines.append("")
+
+        lines.append(
+            "WHAT YOU NEVER DO. You flag, you collect and you draft. You never "
+            "clear, diagnose, advise or approve. Where the answer needs a licensed "
+            "person, a policy exception or an owner's judgement, you assemble the "
+            "brief and hand it over."
+        )
+        gate_lines = [f"  - {gate.decision} -> {gate.escalate_to.value}" for gate in gates]
+        lines.append("These decisions are reserved for a person:")
+        lines.extend(gate_lines)
+        lines.append("")
+        lines.append(
+            "CONFIGURATION. Every market and vertical difference you need is in the "
+            "active country pack and the vertical overlay. Read it; do not infer it, "
+            "and do not hard-code it."
+        )
+        if flags.revenue_critical:
+            lines.append("")
+            lines.append(
+                "This unit is revenue-critical. Latency is a defect: a slow correct "
+                "answer loses the job to whoever answered first."
+            )
+        return "\n".join(lines).strip() + "\n"
+
+
+# --------------------------------------------------------------------------- #
+# shared helpers
+# --------------------------------------------------------------------------- #
+
+
+def _haystack(record: Mapping[str, Any]) -> str:
+    return " ".join(
+        str(part or "").lower()
+        for part in (
+            record.get("worker"),
+            record.get("system_agent"),
+            record.get("trigger"),
+            record.get("function"),
+            record.get("expected_output"),
+            (record.get("vertical") or {}).get("name"),
+            (record.get("department") or {}).get("name"),
+        )
+    )
+
+
+def describe_scope(record: Mapping[str, Any]) -> str:
+    """Human phrase for where a unit applies."""
+    vertical = record.get("vertical")
+    department = record.get("department")
+    domain = record.get("domain")
+    if vertical:
+        return f"{vertical['name'].lower()} businesses"
+    if department:
+        return f"the {department['name']} of any business on the platform"
+    if domain:
+        return f"any business on the platform ({domain['name'].lower()} domain)"
+    return "any business on the platform"
+
+
+def evidence_for(clause: str) -> str:
+    """Name the evidence that proves one acceptance clause.
+
+    The workbook writes acceptance as prose.  This turns each clause into the
+    artefact or counter a reviewer can actually look at.
+    """
+    lowered = clause.lower()
+    table = (
+        (("transcript", "conversation", "chat", "thread"), "stored conversation transcript"),
+        (("call", "voicemail", "phone"), "call record with transcript and outcome"),
+        (("booking", "booked", "appointment", "slot", "rebook"), "calendar entry with confirmation id"),
+        (("dispatch", "route", "rota", "eta"), "dispatch record with window and assignee"),
+        (("invoice", "payment", "receipt", "deposit", "paid", "cash"), "payment ledger entry"),
+        (("quote", "estimate", "proposal", "price"), "issued document with its price-book references"),
+        (("document", "docs", "pack", "dossier", "file"), "document set with completeness check"),
+        (("photo", "image", "video", "before", "after"), "stored media with consent record"),
+        (("review", "nps", "testimonial", "rating"), "review record with source and timestamp"),
+        (("report", "digest", "brief", "summary", "card"), "delivered report with its generation timestamp"),
+        (("alert", "flag", "surfaced", "exception"), "alert record with the signal that raised it"),
+        (("reminder", "recall", "renewal", "notice", "chase"), "scheduled message log with delivery status"),
+        (("published", "posted", "live", "listing", "profile", "schema"), "live URL plus publication log"),
+        (("logged", "log", "recorded", "audit"), "audit trail entries"),
+        (("escalat", "handoff", "handover", "redirect"), "handover packet with recipient and time"),
+        (("consent", "permission", "signed"), "signed consent record"),
+        (("matched", "reconcil", "sync"), "reconciliation report with the exception list"),
+    )
+    for tokens, evidence in table:
+        if any(token in lowered for token in tokens):
+            return evidence
+    return "named artefact stored against the record"
+
+
+def derive_artifacts(record: Mapping[str, Any]) -> list[Artifact]:
+    """Turn the workbook's Expected output clauses into named artefacts.
+
+    The catalogue's legend calls the expected output "the named artifacts the
+    unit must produce - its acceptance test".  This reads those names back out
+    so each one becomes a first-class artefact with a key.
+    """
+    artifacts: list[Artifact] = []
+    for index, clause in enumerate(record.get("acceptance_criteria") or (), start=1):
+        key = re.sub(r"[^a-z0-9]+", "_", clause.lower()).strip("_")[:48] or f"output_{index}"
+        artifacts.append(
+            Artifact(
+                key=key,
+                name=clause,
+                description=(
+                    f"Named in the catalogue's expected output for {record['id']}: "
+                    f"{clause}."
+                ),
+                format="record",
+            )
+        )
+    return artifacts
+
+
+_GATE_ESCALATION_MARKERS: tuple[tuple[tuple[str, ...], Escalation], ...] = (
+    (("emergency", "evacuat", "999", "911", "ambulance", "fire", "police"), Escalation.EMERGENCY_SERVICES),
+    (("regulator", "notifiable", "statutory report", "authority", "ombudsman"), Escalation.REGULATOR_CONTACT),
+    (("clinician", "doctor", "dentist", "vet", "solicitor", "lawyer", "accountant",
+      "engineer", "surveyor", "pharmacist", "nurse", "licensed"), Escalation.NAMED_ROLE),
+    (("owner", "director", "partner", "principal"), Escalation.OWNER),
+)
+
+
+def build_human_gate(raw: str, flags: Flags) -> HumanGate:
+    """Turn a 'What stays human' cell into a typed gate."""
+    text = raw.strip()
+    lowered = text.lower()
+
+    if lowered.startswith("nothing"):
+        return HumanGate(
+            decision="No discretion exists - the protocol is absolute",
+            severity=GateSeverity.ABSOLUTE,
+            escalate_to=Escalation.EMERGENCY_SERVICES
+            if flags.safety_critical
+            else Escalation.OWNER,
+            note=text,
+        )
+
+    escalate_to = Escalation.APPROVAL_QUEUE
+    for markers, target in _GATE_ESCALATION_MARKERS:
+        if any(marker in lowered for marker in markers):
+            escalate_to = target
+            break
+
+    severity = GateSeverity.ABSOLUTE if flags.safety_critical else GateSeverity.BLOCKING
+    return HumanGate(decision=text, severity=severity, escalate_to=escalate_to)
+
+
+def step(
+    step_id: str,
+    name: str,
+    kind: StepKind,
+    description: str,
+    produces: Iterable[str] = (),
+    interlock: bool = False,
+) -> Step:
+    """Terse constructor used by the engine modules."""
+    return Step(
+        id=step_id,
+        name=name,
+        kind=kind,
+        description=description,
+        produces=tuple(produces),
+        interlock=interlock,
+    )
+
+
+def artifact(key: str, name: str, description: str, fmt: str = "record") -> Artifact:
+    """Terse constructor used by the engine modules."""
+    return Artifact(key=key, name=name, description=description, format=fmt)
+
+
+# --------------------------------------------------------------------------- #
+# registry
+# --------------------------------------------------------------------------- #
+
+_ENGINES: dict[str, Engine] = {}
+
+
+def register(engine_class: type[Engine]) -> type[Engine]:
+    """Class decorator that adds an engine to the process-wide registry."""
+    instance = engine_class()
+    if instance.id in _ENGINES:
+        raise ValueError(f"mechanism family {instance.id} already registered")
+    _ENGINES[instance.id] = instance
+    return engine_class
+
+
+def get_engine(mechanism_family: str) -> Engine:
+    if not _ENGINES:
+        load_engines()
+    try:
+        return _ENGINES[mechanism_family]
+    except KeyError:
+        raise KeyError(
+            f"no engine registered for {mechanism_family}; "
+            f"known families: {sorted(_ENGINES)}"
+        ) from None
+
+
+def all_engines() -> dict[str, Engine]:
+    if not _ENGINES:
+        load_engines()
+    return dict(sorted(_ENGINES.items(), key=lambda kv: int(kv[0][2:])))
+
+
+def load_engines() -> None:
+    """Import every ``engines.mfNN_*`` module so registration runs."""
+    import importlib
+    import pkgutil
+
+    import engines
+
+    for module in pkgutil.iter_modules(engines.__path__):
+        if module.name.startswith("mf"):
+            importlib.import_module(f"engines.{module.name}")
+
+
+__all__ = [
+    "Engine",
+    "PRICING_GUARDRAIL",
+    "PUBLISHING_STEP_MARKERS",
+    "Profile",
+    "REGULATED_GUARDRAIL",
+    "SAFETY_GUARDRAIL",
+    "STANDING_GUARDRAILS",
+    "UNIVERSAL_CONFIG_KEYS",
+    "all_engines",
+    "artifact",
+    "build_human_gate",
+    "derive_artifacts",
+    "describe_scope",
+    "evidence_for",
+    "get_engine",
+    "load_engines",
+    "register",
+    "step",
+]

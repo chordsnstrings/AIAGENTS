@@ -1,0 +1,128 @@
+- id: DEPT-01
+  name: Front Desk
+  slug: front-desk
+  prefix: A
+  unit_ids:
+  - A1
+  - A2
+  - A3
+  - A4
+  - A5
+  - A6
+  - A7
+  - A8
+  - A9
+  - A10
+  - A11
+  - A12
+  headcount: 12
+- id: DEPT-02
+  name: Owner's Office
+  slug: owner-s-office
+  prefix: B
+  unit_ids:
+  - B1
+  - B2
+  - B3
+  - B4
+  - B5
+  - B6
+  - B7
+  - B8
+  - B9
+  - B10
+  headcount: 10
+- id: DEPT-03
+  name: Customer Growth Team
+  slug: customer-growth-team
+  prefix: C
+  unit_ids:
+  - C1
+  - C2
+  - C3
+  - C4
+  - C5
+  - C6
+  - C7
+  headcount: 7
+- id: DEPT-04
+  name: Back Office
+  slug: back-office
+  prefix: D
+  unit_ids:
+  - D1
+  - D2
+  - D3
+  - D4
+  - D5
+  - D6
+  - D7
+  - D8
+  headcount: 8
+- id: DEPT-05
+  name: Visibility & Storefront
+  slug: visibility-storefront
+  prefix: E
+  unit_ids:
+  - E1
+  - E2
+  - E3
+  - E4
+  - E5
+  - E6
+  headcount: 6
+- id: DEPT-06
+  name: Switchboard
+  slug: switchboard
+  prefix: F
+  unit_ids:
+  - F1
+  - F2
+  - F3
+  - F4
+  - F5
+  - F6
+  headcount: 6
+- id: DEPT-07
+  name: Client Care
+  slug: client-care
+  prefix: G
+  unit_ids:
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  headcount: 5
+- id: DEPT-08
+  name: Finance Desk
+  slug: finance-desk
+  prefix: H
+  unit_ids:
+  - H1
+  - H2
+  - H3
+  headcount: 3
+- id: DEPT-09
+  name: Content Studio
+  slug: content-studio
+  prefix: I
+  unit_ids:
+  - I1
+  - I2
+  - I3
+  - I4
+  - I5
+  - I6
+  - I7
+  - I8
+  headcount: 8
+- id: DEPT-10
+  name: Partnerships
+  slug: partnerships
+  prefix: J
+  unit_ids:
+  - J1
+  - J2
+  - J3
+  headcount: 3
