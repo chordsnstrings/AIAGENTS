@@ -58,7 +58,7 @@ expected_output: At-risk list and retention offers out
 acceptance:
   - id: V5-E4-AC1
     criterion: At-risk list and retention offers out
-    evidence: named artefact stored against the record
+    evidence: worked list showing each item's state and owner
   - id: V5-E4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

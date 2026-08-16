@@ -52,7 +52,7 @@ expected_output: Action plan executed; incident recorded; parents contacted
 acceptance:
   - id: V13-E3-AC1
     criterion: Action plan executed
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V13-E3-AC2
     criterion: Incident recorded
     evidence: audit trail entries

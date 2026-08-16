@@ -53,7 +53,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: V29-E1-AC2
     criterion: Clock started
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V29-E1-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

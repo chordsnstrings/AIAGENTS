@@ -53,7 +53,7 @@ acceptance:
     evidence: document set with completeness check
   - id: V60-E4-AC2
     criterion: Clock met
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V60-E4-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

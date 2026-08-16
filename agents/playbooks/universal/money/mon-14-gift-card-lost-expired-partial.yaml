@@ -47,10 +47,10 @@ expected_output: Ledger-verified balance; reissue per policy
 acceptance:
   - id: MON-14-AC1
     criterion: Ledger-verified balance
-    evidence: named artefact stored against the record
+    evidence: ledger with its running balance and every movement
   - id: MON-14-AC2
     criterion: Reissue per policy
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: MON-14-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

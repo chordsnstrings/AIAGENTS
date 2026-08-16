@@ -52,7 +52,7 @@ acceptance:
     evidence: stored media with consent record
   - id: E5-AC2
     criterion: Profile completeness at 100%
-    evidence: document set with completeness check
+    evidence: live URL plus publication log
   - id: E5-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

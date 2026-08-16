@@ -50,7 +50,7 @@ acceptance:
     evidence: audit trail entries
   - id: CUS-02-AC2
     criterion: Policy applied
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: CUS-02-AC3
     criterion: Rebook offer sent
     evidence: calendar entry with confirmation id

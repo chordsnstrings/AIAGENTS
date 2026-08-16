@@ -50,7 +50,7 @@ expected_output: Reroute options plus impact statement
 acceptance:
   - id: V45-E3-AC1
     criterion: Reroute options plus impact statement
-    evidence: dispatch record with window and assignee
+    evidence: named artefact stored against the record
   - id: V45-E3-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

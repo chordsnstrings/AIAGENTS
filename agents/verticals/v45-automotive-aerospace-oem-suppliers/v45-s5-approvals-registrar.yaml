@@ -51,7 +51,7 @@ expected_output: Type-approval status per market
 acceptance:
   - id: V45-S5-AC1
     criterion: Type-approval status per market
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: V45-S5-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

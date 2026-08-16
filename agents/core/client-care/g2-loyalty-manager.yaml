@@ -48,7 +48,7 @@ expected_output: Running loyalty and membership balances; redemptions and renewa
 acceptance:
   - id: G2-AC1
     criterion: Running loyalty and membership balances
-    evidence: named artefact stored against the record
+    evidence: ledger with its running balance and every movement
   - id: G2-AC2
     criterion: Redemptions and renewals processed
     evidence: scheduled message log with delivery status

@@ -57,7 +57,7 @@ expected_output: Post-treatment check-ins per protocol
 acceptance:
   - id: V7-S5-AC1
     criterion: Post-treatment check-ins per protocol
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V7-S5-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

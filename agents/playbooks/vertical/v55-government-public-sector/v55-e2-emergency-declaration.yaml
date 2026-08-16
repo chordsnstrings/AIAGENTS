@@ -51,10 +51,10 @@ expected_output: Verified update cascade; rumours queued
 acceptance:
   - id: V55-E2-AC1
     criterion: Verified update cascade
-    evidence: named artefact stored against the record
+    evidence: verification result naming the rule checked and its source
   - id: V55-E2-AC2
     criterion: Rumours queued
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: V55-E2-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

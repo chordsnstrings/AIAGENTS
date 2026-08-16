@@ -51,10 +51,10 @@ acceptance:
     evidence: named artefact stored against the record
   - id: STA-02-AC2
     criterion: Open work reassigned
-    evidence: signed consent record
+    evidence: named artefact stored against the record
   - id: STA-02-AC3
     criterion: Exit checklist complete
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: STA-02-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -50,7 +50,7 @@ expected_output: Runbook executed; fallback paid
 acceptance:
   - id: V57-E4-AC1
     criterion: Runbook executed
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V57-E4-AC2
     criterion: Fallback paid
     evidence: payment ledger entry

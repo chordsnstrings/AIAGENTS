@@ -52,10 +52,10 @@ expected_output: Evacuation instructions delivered; emergency redirect logged
 acceptance:
   - id: V1-E1-AC1
     criterion: Evacuation instructions delivered
-    evidence: live URL plus publication log
+    evidence: delivery receipt with recipient and timestamp
   - id: V1-E1-AC2
     criterion: Emergency redirect logged
-    evidence: audit trail entries
+    evidence: handover packet with recipient and time
   - id: V1-E1-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

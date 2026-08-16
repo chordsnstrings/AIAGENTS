@@ -51,7 +51,7 @@ expected_output: Guarantee applied; backfill sprint; client managed
 acceptance:
   - id: V23-E1-AC1
     criterion: Guarantee applied
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V23-E1-AC2
     criterion: Backfill sprint
     evidence: named artefact stored against the record

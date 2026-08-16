@@ -51,7 +51,7 @@ expected_output: Windows docketed; options pack to the consultant
 acceptance:
   - id: V10-E1-AC1
     criterion: Windows docketed
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V10-E1-AC2
     criterion: Options pack to the consultant
     evidence: document set with completeness check

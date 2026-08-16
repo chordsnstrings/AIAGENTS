@@ -50,7 +50,7 @@ expected_output: Freeze, estate checklist, sensitive mode
 acceptance:
   - id: V31-E1-AC1
     criterion: Freeze, estate checklist, sensitive mode
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V31-E1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -51,7 +51,7 @@ expected_output: Valid patch-test and consent on file per treatment
 acceptance:
   - id: V5-S3-AC1
     criterion: Valid patch-test and consent on file per treatment
-    evidence: document set with completeness check
+    evidence: signed consent record
   - id: V5-S3-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

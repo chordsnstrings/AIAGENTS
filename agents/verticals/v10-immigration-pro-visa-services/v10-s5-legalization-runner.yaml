@@ -51,7 +51,7 @@ expected_output: Attestation chain tracked step to step
 acceptance:
   - id: V10-S5-AC1
     criterion: Attestation chain tracked step to step
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V10-S5-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

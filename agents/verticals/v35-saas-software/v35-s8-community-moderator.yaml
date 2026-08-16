@@ -51,7 +51,7 @@ expected_output: Policy-clean forums; action log
 acceptance:
   - id: V35-S8-AC1
     criterion: Policy-clean forums
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V35-S8-AC2
     criterion: Action log
     evidence: audit trail entries

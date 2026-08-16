@@ -56,7 +56,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: V52-E3-AC3
     criterion: Repriced
-    evidence: issued document with its price-book references
+    evidence: named artefact stored against the record
   - id: V52-E3-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

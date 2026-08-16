@@ -50,7 +50,7 @@ expected_output: Purchasers contacted; remedies processed
 acceptance:
   - id: V21-E5-AC1
     criterion: Purchasers contacted
-    evidence: scheduled message log with delivery status
+    evidence: named artefact stored against the record
   - id: V21-E5-AC2
     criterion: Remedies processed
     evidence: named artefact stored against the record

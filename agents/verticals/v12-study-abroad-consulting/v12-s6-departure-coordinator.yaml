@@ -52,7 +52,7 @@ expected_output: Pre-departure checklist completed
 acceptance:
   - id: V12-S6-AC1
     criterion: Pre-departure checklist completed
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V12-S6-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

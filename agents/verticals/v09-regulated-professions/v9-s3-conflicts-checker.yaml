@@ -51,7 +51,7 @@ expected_output: Conflict flags with detail, for human clearance
 acceptance:
   - id: V9-S3-AC1
     criterion: Conflict flags with detail, for human clearance
-    evidence: dispatch record with window and assignee
+    evidence: alert record with the signal that raised it
   - id: V9-S3-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

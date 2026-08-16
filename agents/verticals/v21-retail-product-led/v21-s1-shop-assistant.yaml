@@ -59,7 +59,7 @@ expected_output: Accurate stock and hours answers
 acceptance:
   - id: V21-S1-AC1
     criterion: Accurate stock and hours answers
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V21-S1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

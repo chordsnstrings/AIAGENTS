@@ -50,7 +50,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: MON-03-AC2
     criterion: Resolution options drafted
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: MON-03-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

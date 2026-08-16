@@ -51,7 +51,7 @@ expected_output: Corridor checklist tracked to complete
 acceptance:
   - id: V10-S2-AC1
     criterion: Corridor checklist tracked to complete
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V10-S2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -47,7 +47,7 @@ expected_output: Alternate-rail refund executed with trail
 acceptance:
   - id: MON-11-AC1
     criterion: Alternate-rail refund executed with trail
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: MON-11-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

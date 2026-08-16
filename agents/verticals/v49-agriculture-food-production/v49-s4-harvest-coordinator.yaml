@@ -51,7 +51,7 @@ expected_output: Crew and transport schedule per window
 acceptance:
   - id: V49-S4-AC1
     criterion: Crew and transport schedule per window
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V49-S4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -54,7 +54,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: FAC-01-AC3
     criterion: Customers notified
-    evidence: named artefact stored against the record
+    evidence: notification log with recipient, channel and delivery state
   - id: FAC-01-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

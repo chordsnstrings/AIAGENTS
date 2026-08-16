@@ -58,7 +58,7 @@ expected_output: Per-nationality requirement answers, logged
 acceptance:
   - id: V25-S2-AC1
     criterion: Per-nationality requirement answers, logged
-    evidence: audit trail entries
+    evidence: delivery receipt with recipient and timestamp
   - id: V25-S2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

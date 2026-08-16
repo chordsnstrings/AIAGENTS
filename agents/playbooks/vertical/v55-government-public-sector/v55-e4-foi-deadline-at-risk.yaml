@@ -51,7 +51,7 @@ expected_output: Ladder, status, exemption queue
 acceptance:
   - id: V55-E4-AC1
     criterion: Ladder, status, exemption queue
-    evidence: named artefact stored against the record
+    evidence: tracking record with the state at each checkpoint
   - id: V55-E4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

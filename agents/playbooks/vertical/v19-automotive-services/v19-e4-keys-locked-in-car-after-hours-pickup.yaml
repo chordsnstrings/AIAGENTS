@@ -52,7 +52,7 @@ expected_output: Verified secure release; log
 acceptance:
   - id: V19-E4-AC1
     criterion: Verified secure release
-    evidence: named artefact stored against the record
+    evidence: verification result naming the rule checked and its source
   - id: V19-E4-AC2
     criterion: Log
     evidence: audit trail entries

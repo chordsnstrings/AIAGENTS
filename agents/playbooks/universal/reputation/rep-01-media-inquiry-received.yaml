@@ -47,16 +47,16 @@ expected_output: Holding statement draft; owner alert; deadline tracked; nothing
 acceptance:
   - id: REP-01-AC1
     criterion: Holding statement draft
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: REP-01-AC2
     criterion: Owner alert
     evidence: alert record with the signal that raised it
   - id: REP-01-AC3
     criterion: Deadline tracked
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: REP-01-AC4
     criterion: Nothing sent
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: REP-01-AC5
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

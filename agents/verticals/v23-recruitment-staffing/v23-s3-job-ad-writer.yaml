@@ -52,7 +52,7 @@ expected_output: Postable job ads drafted
 acceptance:
   - id: V23-S3-AC1
     criterion: Postable job ads drafted
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: V23-S3-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

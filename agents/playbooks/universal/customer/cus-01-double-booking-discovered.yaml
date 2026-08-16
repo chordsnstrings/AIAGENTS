@@ -48,10 +48,10 @@ expected_output: 'Collision resolved: one party moved with credit; both confirme
 acceptance:
   - id: CUS-01-AC1
     criterion: 'Collision resolved: one party moved with credit'
-    evidence: named artefact stored against the record
+    evidence: ledger with its running balance and every movement
   - id: CUS-01-AC2
     criterion: Both confirmed
-    evidence: named artefact stored against the record
+    evidence: verification result naming the rule checked and its source
   - id: CUS-01-AC3
     criterion: Log kept
     evidence: audit trail entries

@@ -57,7 +57,7 @@ expected_output: Adverse events captured on the clock
 acceptance:
   - id: V29-S2-AC1
     criterion: Adverse events captured on the clock
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V29-S2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

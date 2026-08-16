@@ -52,7 +52,7 @@ expected_output: RFP answers assembled from the library
 acceptance:
   - id: V22-S2-AC1
     criterion: RFP answers assembled from the library
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V22-S2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

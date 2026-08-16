@@ -57,7 +57,7 @@ expected_output: Fare-rule answers, logged
 acceptance:
   - id: V50-S4-AC1
     criterion: Fare-rule answers, logged
-    evidence: audit trail entries
+    evidence: delivery receipt with recipient and timestamp
   - id: V50-S4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

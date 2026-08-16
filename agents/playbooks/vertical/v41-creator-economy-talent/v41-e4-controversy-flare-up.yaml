@@ -50,7 +50,7 @@ expected_output: Monitoring plus drafted options; posting paused
 acceptance:
   - id: V41-E4-AC1
     criterion: Monitoring plus drafted options
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: V41-E4-AC2
     criterion: Posting paused
     evidence: named artefact stored against the record

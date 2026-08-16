@@ -51,7 +51,7 @@ expected_output: Targeted release notes sent
 acceptance:
   - id: V35-S7-AC1
     criterion: Targeted release notes sent
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V35-S7-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

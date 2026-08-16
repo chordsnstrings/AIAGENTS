@@ -52,7 +52,7 @@ expected_output: Ops sequence executed and logged
 acceptance:
   - id: V40-S6-AC1
     criterion: Ops sequence executed and logged
-    evidence: audit trail entries
+    evidence: protocol checklist with every step timed and attributed
   - id: V40-S6-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

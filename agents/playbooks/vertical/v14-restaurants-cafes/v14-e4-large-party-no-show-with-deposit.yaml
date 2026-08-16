@@ -56,7 +56,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: V14-E4-AC3
     criterion: Offer sent
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V14-E4-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

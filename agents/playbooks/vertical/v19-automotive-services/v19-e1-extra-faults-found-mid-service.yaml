@@ -52,7 +52,7 @@ expected_output: Evidence sent; authorization captured before work
 acceptance:
   - id: V19-E1-AC1
     criterion: Evidence sent
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V19-E1-AC2
     criterion: Authorization captured before work
     evidence: stored media with consent record

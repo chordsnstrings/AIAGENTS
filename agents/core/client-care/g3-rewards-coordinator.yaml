@@ -52,7 +52,7 @@ expected_output: 'Two-sided reward ledger: issued, redeemed, revenue attributed'
 acceptance:
   - id: G3-AC1
     criterion: 'Two-sided reward ledger: issued, redeemed, revenue attributed'
-    evidence: named artefact stored against the record
+    evidence: ledger with its running balance and every movement
   - id: G3-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

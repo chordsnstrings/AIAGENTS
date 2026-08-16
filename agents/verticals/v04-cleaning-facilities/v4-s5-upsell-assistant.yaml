@@ -58,10 +58,10 @@ expected_output: Add-on offers sent; uptake tracked
 acceptance:
   - id: V4-S5-AC1
     criterion: Add-on offers sent
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V4-S5-AC2
     criterion: Uptake tracked
-    evidence: named artefact stored against the record
+    evidence: tracking record with the state at each checkpoint
   - id: V4-S5-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

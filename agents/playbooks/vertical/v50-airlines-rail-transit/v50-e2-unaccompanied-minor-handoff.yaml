@@ -52,7 +52,7 @@ expected_output: Verified custody chain, complete
 acceptance:
   - id: V50-E2-AC1
     criterion: Verified custody chain, complete
-    evidence: named artefact stored against the record
+    evidence: verification result naming the rule checked and its source
   - id: V50-E2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

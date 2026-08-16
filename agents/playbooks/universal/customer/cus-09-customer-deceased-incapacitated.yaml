@@ -52,7 +52,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: CUS-09-AC2
     criterion: Condolence draft
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: CUS-09-AC3
     criterion: Closure workflow complete
     evidence: named artefact stored against the record

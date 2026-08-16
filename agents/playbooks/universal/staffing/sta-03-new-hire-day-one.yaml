@@ -54,7 +54,7 @@ expected_output: Onboarding checklist executed; access and kit ready day one
 acceptance:
   - id: STA-03-AC1
     criterion: Onboarding checklist executed
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: STA-03-AC2
     criterion: Access and kit ready day one
     evidence: named artefact stored against the record

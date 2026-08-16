@@ -53,7 +53,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: V11-E2-AC2
     criterion: Parents notified
-    evidence: named artefact stored against the record
+    evidence: notification log with recipient, channel and delivery state
   - id: V11-E2-AC3
     criterion: Notes passed
     evidence: named artefact stored against the record

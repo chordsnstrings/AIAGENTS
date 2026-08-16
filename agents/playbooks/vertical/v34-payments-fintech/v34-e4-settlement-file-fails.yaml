@@ -53,7 +53,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: V34-E4-AC2
     criterion: Merchants notified
-    evidence: named artefact stored against the record
+    evidence: notification log with recipient, channel and delivery state
   - id: V34-E4-AC3
     criterion: Replayed
     evidence: named artefact stored against the record

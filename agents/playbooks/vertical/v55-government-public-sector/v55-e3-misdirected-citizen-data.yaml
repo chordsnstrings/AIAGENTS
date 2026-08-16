@@ -54,7 +54,7 @@ expected_output: Breach clock, containment, drafts
 acceptance:
   - id: V55-E3-AC1
     criterion: Breach clock, containment, drafts
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: V55-E3-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

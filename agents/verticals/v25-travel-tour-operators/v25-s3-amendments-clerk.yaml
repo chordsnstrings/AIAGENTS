@@ -52,7 +52,7 @@ expected_output: Changes processed per fare rules
 acceptance:
   - id: V25-S3-AC1
     criterion: Changes processed per fare rules
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V25-S3-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

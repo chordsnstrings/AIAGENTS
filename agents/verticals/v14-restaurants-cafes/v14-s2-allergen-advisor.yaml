@@ -57,7 +57,7 @@ expected_output: Accurate allergen answers, logged
 acceptance:
   - id: V14-S2-AC1
     criterion: Accurate allergen answers, logged
-    evidence: audit trail entries
+    evidence: delivery receipt with recipient and timestamp
   - id: V14-S2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

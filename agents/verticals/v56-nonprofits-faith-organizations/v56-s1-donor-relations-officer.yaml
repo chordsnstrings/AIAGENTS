@@ -59,7 +59,7 @@ expected_output: Giving journeys and lapse saves; retention report
 acceptance:
   - id: V56-S1-AC1
     criterion: Giving journeys and lapse saves
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V56-S1-AC2
     criterion: Retention report
     evidence: delivered report with its generation timestamp

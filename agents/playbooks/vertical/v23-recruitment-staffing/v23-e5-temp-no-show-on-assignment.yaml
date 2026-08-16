@@ -51,13 +51,13 @@ expected_output: Cover sent; client told in minutes; score updated
 acceptance:
   - id: V23-E5-AC1
     criterion: Cover sent
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V23-E5-AC2
     criterion: Client told in minutes
-    evidence: named artefact stored against the record
+    evidence: notification log with recipient, channel and delivery state
   - id: V23-E5-AC3
     criterion: Score updated
-    evidence: named artefact stored against the record
+    evidence: scored record showing each component that produced the score
   - id: V23-E5-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

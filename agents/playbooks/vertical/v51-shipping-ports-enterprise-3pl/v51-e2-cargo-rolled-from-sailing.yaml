@@ -56,7 +56,7 @@ acceptance:
     evidence: dispatch record with window and assignee
   - id: V51-E2-AC3
     criterion: Penalties tracked
-    evidence: named artefact stored against the record
+    evidence: tracking record with the state at each checkpoint
   - id: V51-E2-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

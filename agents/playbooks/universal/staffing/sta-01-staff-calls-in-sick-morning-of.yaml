@@ -48,7 +48,7 @@ expected_output: 'Rebuilt day: cover assigned; customers re-slotted and notified
 acceptance:
   - id: STA-01-AC1
     criterion: 'Rebuilt day: cover assigned'
-    evidence: signed consent record
+    evidence: named artefact stored against the record
   - id: STA-01-AC2
     criterion: Customers re-slotted and notified by priority
     evidence: calendar entry with confirmation id

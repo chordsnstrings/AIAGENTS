@@ -59,7 +59,7 @@ expected_output: Written eligibility result per corridor rules
 acceptance:
   - id: V10-S1-AC1
     criterion: Written eligibility result per corridor rules
-    evidence: named artefact stored against the record
+    evidence: verification result naming the rule checked and its source
   - id: V10-S1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

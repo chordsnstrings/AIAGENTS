@@ -55,7 +55,7 @@ acceptance:
     evidence: stored media with consent record
   - id: V8-E4-AC2
     criterion: Condolence sent
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V8-E4-AC3
     criterion: Reminders off forever
     evidence: scheduled message log with delivery status

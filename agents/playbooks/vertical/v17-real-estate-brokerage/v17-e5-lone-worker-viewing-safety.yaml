@@ -50,7 +50,7 @@ expected_output: Check-in protocol log; escalation on a miss
 acceptance:
   - id: V17-E5-AC1
     criterion: Check-in protocol log
-    evidence: audit trail entries
+    evidence: protocol checklist with every step timed and attributed
   - id: V17-E5-AC2
     criterion: Escalation on a miss
     evidence: handover packet with recipient and time

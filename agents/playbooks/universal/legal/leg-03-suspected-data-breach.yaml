@@ -52,13 +52,13 @@ expected_output: Incident clock started; scope assessment; notification drafts h
 acceptance:
   - id: LEG-03-AC1
     criterion: Incident clock started
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: LEG-03-AC2
     criterion: Scope assessment
     evidence: named artefact stored against the record
   - id: LEG-03-AC3
     criterion: Notification drafts held for the decision
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: LEG-03-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

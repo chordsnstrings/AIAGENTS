@@ -53,10 +53,10 @@ expected_output: Isolation executed; IR and insurer notified
 acceptance:
   - id: V36-E5-AC1
     criterion: Isolation executed
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V36-E5-AC2
     criterion: IR and insurer notified
-    evidence: named artefact stored against the record
+    evidence: notification log with recipient, channel and delivery state
   - id: V36-E5-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

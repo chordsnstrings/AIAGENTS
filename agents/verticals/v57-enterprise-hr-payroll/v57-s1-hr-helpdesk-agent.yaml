@@ -59,7 +59,7 @@ expected_output: Handbook-grounded answers, logged
 acceptance:
   - id: V57-S1-AC1
     criterion: Handbook-grounded answers, logged
-    evidence: audit trail entries
+    evidence: delivery receipt with recipient and timestamp
   - id: V57-S1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

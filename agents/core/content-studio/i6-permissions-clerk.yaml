@@ -48,7 +48,7 @@ expected_output: Signed usage permissions on file per customer asset
 acceptance:
   - id: I6-AC1
     criterion: Signed usage permissions on file per customer asset
-    evidence: document set with completeness check
+    evidence: signed consent record
   - id: I6-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

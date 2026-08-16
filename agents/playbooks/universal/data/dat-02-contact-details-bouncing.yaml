@@ -53,7 +53,7 @@ expected_output: Re-verified contacts; bounce flags cleared
 acceptance:
   - id: DAT-02-AC1
     criterion: Re-verified contacts
-    evidence: named artefact stored against the record
+    evidence: verification result naming the rule checked and its source
   - id: DAT-02-AC2
     criterion: Bounce flags cleared
     evidence: alert record with the signal that raised it

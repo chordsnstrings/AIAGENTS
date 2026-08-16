@@ -52,7 +52,7 @@ expected_output: Retainer renewals opened early
 acceptance:
   - id: V22-S5-AC1
     criterion: Retainer renewals opened early
-    evidence: dispatch record with window and assignee
+    evidence: scheduled message log with delivery status
   - id: V22-S5-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

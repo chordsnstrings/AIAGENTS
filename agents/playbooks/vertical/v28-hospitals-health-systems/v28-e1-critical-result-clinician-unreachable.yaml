@@ -52,7 +52,7 @@ expected_output: Acknowledged escalation chain, fully logged
 acceptance:
   - id: V28-E1-AC1
     criterion: Acknowledged escalation chain, fully logged
-    evidence: audit trail entries
+    evidence: handover packet with recipient and time
   - id: V28-E1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

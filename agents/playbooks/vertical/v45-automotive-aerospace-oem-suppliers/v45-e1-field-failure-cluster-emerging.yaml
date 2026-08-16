@@ -50,7 +50,7 @@ expected_output: Early-warning statistics plus containment draft
 acceptance:
   - id: V45-E1-AC1
     criterion: Early-warning statistics plus containment draft
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: V45-E1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

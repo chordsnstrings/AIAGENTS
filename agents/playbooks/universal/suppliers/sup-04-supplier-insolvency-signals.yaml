@@ -50,7 +50,7 @@ acceptance:
     evidence: delivered report with its generation timestamp
   - id: SUP-04-AC2
     criterion: Pre-qualified alternates list
-    evidence: named artefact stored against the record
+    evidence: worked list showing each item's state and owner
   - id: SUP-04-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

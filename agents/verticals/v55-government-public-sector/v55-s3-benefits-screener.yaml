@@ -58,7 +58,7 @@ expected_output: Rule-based screening results; decisions human
 acceptance:
   - id: V55-S3-AC1
     criterion: Rule-based screening results
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V55-S3-AC2
     criterion: Decisions human
     evidence: named artefact stored against the record

@@ -54,7 +54,7 @@ acceptance:
     evidence: alert record with the signal that raised it
   - id: V6-E3-AC2
     criterion: Dignity-preserving resolution messages
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V6-E3-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

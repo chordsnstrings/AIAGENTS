@@ -52,7 +52,7 @@ expected_output: Scored lead record (need, urgency, budget, channel) pushed to p
 acceptance:
   - id: A2-AC1
     criterion: Scored lead record (need, urgency, budget, channel) pushed to pipeline with next action
-    evidence: named artefact stored against the record
+    evidence: scored record showing each component that produced the score
   - id: A2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

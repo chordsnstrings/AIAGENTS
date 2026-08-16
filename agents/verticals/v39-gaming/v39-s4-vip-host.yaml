@@ -57,7 +57,7 @@ expected_output: High-value players retained; touch log
 acceptance:
   - id: V39-S4-AC1
     criterion: High-value players retained
-    evidence: dispatch record with window and assignee
+    evidence: named artefact stored against the record
   - id: V39-S4-AC2
     criterion: Touch log
     evidence: audit trail entries

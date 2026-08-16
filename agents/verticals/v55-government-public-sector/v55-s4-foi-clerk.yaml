@@ -52,7 +52,7 @@ expected_output: Statutory-clock collation plus exemption queue
 acceptance:
   - id: V55-S4-AC1
     criterion: Statutory-clock collation plus exemption queue
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V55-S4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

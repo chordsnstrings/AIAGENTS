@@ -51,7 +51,7 @@ acceptance:
     evidence: document set with completeness check
   - id: LEG-01-AC2
     criterion: Gap list with days remaining
-    evidence: named artefact stored against the record
+    evidence: worked list showing each item's state and owner
   - id: LEG-01-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

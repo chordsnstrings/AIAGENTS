@@ -50,7 +50,7 @@ expected_output: Refund and controls per platform rules
 acceptance:
   - id: V39-E5-AC1
     criterion: Refund and controls per platform rules
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V39-E5-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

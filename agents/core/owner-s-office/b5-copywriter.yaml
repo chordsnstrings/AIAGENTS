@@ -48,7 +48,7 @@ expected_output: Draft posts and pages in the owner's voice, queued for approval
 acceptance:
   - id: B5-AC1
     criterion: Draft posts and pages in the owner's voice, queued for approval
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: B5-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

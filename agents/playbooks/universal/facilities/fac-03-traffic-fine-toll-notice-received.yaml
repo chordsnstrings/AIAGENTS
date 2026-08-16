@@ -49,10 +49,10 @@ expected_output: Driver attributed; rebill or appeal drafted per policy
 acceptance:
   - id: FAC-03-AC1
     criterion: Driver attributed
-    evidence: named artefact stored against the record
+    evidence: ledger with its running balance and every movement
   - id: FAC-03-AC2
     criterion: Rebill or appeal drafted per policy
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: FAC-03-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

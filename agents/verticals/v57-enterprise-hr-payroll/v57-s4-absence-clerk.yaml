@@ -51,7 +51,7 @@ expected_output: Entitlements tracked; approvals routed
 acceptance:
   - id: V57-S4-AC1
     criterion: Entitlements tracked
-    evidence: named artefact stored against the record
+    evidence: tracking record with the state at each checkpoint
   - id: V57-S4-AC2
     criterion: Approvals routed
     evidence: dispatch record with window and assignee

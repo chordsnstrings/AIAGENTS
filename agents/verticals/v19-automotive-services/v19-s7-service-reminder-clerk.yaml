@@ -53,7 +53,7 @@ expected_output: Interval-based service recalls out
 acceptance:
   - id: V19-S7-AC1
     criterion: Interval-based service recalls out
-    evidence: call record with transcript and outcome
+    evidence: scheduled message log with delivery status
   - id: V19-S7-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

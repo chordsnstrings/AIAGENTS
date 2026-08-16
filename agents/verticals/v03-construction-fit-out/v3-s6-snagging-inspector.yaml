@@ -52,7 +52,7 @@ expected_output: Snag list assigned, evidenced, closed out
 acceptance:
   - id: V3-S6-AC1
     criterion: Snag list assigned, evidenced, closed out
-    evidence: signed consent record
+    evidence: worked list showing each item's state and owner
   - id: V3-S6-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

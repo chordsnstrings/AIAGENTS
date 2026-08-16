@@ -58,7 +58,7 @@ expected_output: Delivery plus print-upsell revenue
 acceptance:
   - id: V24-S6-AC1
     criterion: Delivery plus print-upsell revenue
-    evidence: live URL plus publication log
+    evidence: delivery receipt with recipient and timestamp
   - id: V24-S6-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

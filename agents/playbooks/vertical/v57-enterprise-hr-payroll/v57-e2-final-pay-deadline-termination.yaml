@@ -50,7 +50,7 @@ expected_output: Deadline computed; payment sprint executed
 acceptance:
   - id: V57-E2-AC1
     criterion: Deadline computed
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V57-E2-AC2
     criterion: Payment sprint executed
     evidence: payment ledger entry

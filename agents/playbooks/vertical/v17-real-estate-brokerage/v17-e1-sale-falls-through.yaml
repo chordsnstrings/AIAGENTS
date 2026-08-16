@@ -56,7 +56,7 @@ acceptance:
     evidence: call record with transcript and outcome
   - id: V17-E1-AC3
     criterion: Chain informed
-    evidence: named artefact stored against the record
+    evidence: notification log with recipient, channel and delivery state
   - id: V17-E1-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

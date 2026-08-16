@@ -50,7 +50,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: DAT-05-AC2
     criterion: Rules learned
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: DAT-05-AC3
     criterion: Error rate down
     evidence: named artefact stored against the record

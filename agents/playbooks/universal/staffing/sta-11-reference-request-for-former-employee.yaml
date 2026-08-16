@@ -47,7 +47,7 @@ expected_output: Factual reference letter drafted per policy
 acceptance:
   - id: STA-11-AC1
     criterion: Factual reference letter drafted per policy
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: STA-11-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

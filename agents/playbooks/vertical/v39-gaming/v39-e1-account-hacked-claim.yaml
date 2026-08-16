@@ -50,7 +50,7 @@ expected_output: Verified recovery plus rollback restore
 acceptance:
   - id: V39-E1-AC1
     criterion: Verified recovery plus rollback restore
-    evidence: named artefact stored against the record
+    evidence: verification result naming the rule checked and its source
   - id: V39-E1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -51,10 +51,10 @@ expected_output: Rerouted; samples triaged
 acceptance:
   - id: V30-E5-AC1
     criterion: Rerouted
-    evidence: dispatch record with window and assignee
+    evidence: named artefact stored against the record
   - id: V30-E5-AC2
     criterion: Samples triaged
-    evidence: named artefact stored against the record
+    evidence: scored record showing each component that produced the score
   - id: V30-E5-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

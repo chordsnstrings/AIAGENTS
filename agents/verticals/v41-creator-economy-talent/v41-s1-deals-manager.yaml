@@ -59,7 +59,7 @@ expected_output: Triaged deals; negotiation within bounds; contracts in
 acceptance:
   - id: V41-S1-AC1
     criterion: Triaged deals
-    evidence: named artefact stored against the record
+    evidence: scored record showing each component that produced the score
   - id: V41-S1-AC2
     criterion: Negotiation within bounds
     evidence: named artefact stored against the record

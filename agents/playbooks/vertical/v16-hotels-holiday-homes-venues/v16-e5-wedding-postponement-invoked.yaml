@@ -50,7 +50,7 @@ expected_output: Clause applied; dates re-papered
 acceptance:
   - id: V16-E5-AC1
     criterion: Clause applied
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V16-E5-AC2
     criterion: Dates re-papered
     evidence: named artefact stored against the record

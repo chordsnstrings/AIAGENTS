@@ -53,10 +53,10 @@ acceptance:
     evidence: audit trail entries
   - id: V9-E2-AC2
     criterion: Discharge tracked
-    evidence: named artefact stored against the record
+    evidence: tracking record with the state at each checkpoint
   - id: V9-E2-AC3
     criterion: Weekly outstanding list
-    evidence: named artefact stored against the record
+    evidence: worked list showing each item's state and owner
   - id: V9-E2-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

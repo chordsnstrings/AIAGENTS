@@ -52,7 +52,7 @@ expected_output: Recall notices tracked to closure
 acceptance:
   - id: V30-S4-AC1
     criterion: Recall notices tracked to closure
-    evidence: call record with transcript and outcome
+    evidence: scheduled message log with delivery status
   - id: V30-S4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

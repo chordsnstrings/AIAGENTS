@@ -54,7 +54,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: V3-E5-AC2
     criterion: Cost attributed
-    evidence: named artefact stored against the record
+    evidence: ledger with its running balance and every movement
   - id: V3-E5-AC3
     criterion: Closure evidenced
     evidence: named artefact stored against the record

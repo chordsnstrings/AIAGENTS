@@ -48,7 +48,7 @@ expected_output: Stale-deal list with one-tap next actions; nothing silently age
 acceptance:
   - id: B2-AC1
     criterion: Stale-deal list with one-tap next actions
-    evidence: named artefact stored against the record
+    evidence: worked list showing each item's state and owner
   - id: B2-AC2
     criterion: Nothing silently ages out
     evidence: named artefact stored against the record

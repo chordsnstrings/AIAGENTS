@@ -55,7 +55,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: V12-E1-AC2
     criterion: University informed
-    evidence: named artefact stored against the record
+    evidence: notification log with recipient, channel and delivery state
   - id: V12-E1-AC3
     criterion: Consult booked
     evidence: calendar entry with confirmation id

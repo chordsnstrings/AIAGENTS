@@ -51,7 +51,7 @@ expected_output: Restricted publication mode enforced
 acceptance:
   - id: V55-E1-AC1
     criterion: Restricted publication mode enforced
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V55-E1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

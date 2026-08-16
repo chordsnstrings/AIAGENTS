@@ -57,7 +57,7 @@ expected_output: Criteria-scored inbound list
 acceptance:
   - id: V59-S5-AC1
     criterion: Criteria-scored inbound list
-    evidence: named artefact stored against the record
+    evidence: scored record showing each component that produced the score
   - id: V59-S5-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

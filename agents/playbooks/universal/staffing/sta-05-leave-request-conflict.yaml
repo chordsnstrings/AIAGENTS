@@ -48,7 +48,7 @@ expected_output: Conflict options per policy; decision logged
 acceptance:
   - id: STA-05-AC1
     criterion: Conflict options per policy
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: STA-05-AC2
     criterion: Decision logged
     evidence: audit trail entries

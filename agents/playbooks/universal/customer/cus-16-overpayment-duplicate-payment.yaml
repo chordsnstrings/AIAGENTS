@@ -48,13 +48,13 @@ expected_output: Refund or credit executed; confirmation sent; books balanced
 acceptance:
   - id: CUS-16-AC1
     criterion: Refund or credit executed
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: CUS-16-AC2
     criterion: Confirmation sent
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: CUS-16-AC3
     criterion: Books balanced
-    evidence: named artefact stored against the record
+    evidence: ledger with its running balance and every movement
   - id: CUS-16-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

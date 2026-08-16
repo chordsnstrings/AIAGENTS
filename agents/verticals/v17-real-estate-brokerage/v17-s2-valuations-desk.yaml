@@ -57,7 +57,7 @@ expected_output: Valuation requests answered in minutes
 acceptance:
   - id: V17-S2-AC1
     criterion: Valuation requests answered in minutes
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V17-S2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

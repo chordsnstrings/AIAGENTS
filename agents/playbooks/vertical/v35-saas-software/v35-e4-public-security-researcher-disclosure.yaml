@@ -51,7 +51,7 @@ expected_output: Intake, triage, response clock met
 acceptance:
   - id: V35-E4-AC1
     criterion: Intake, triage, response clock met
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V35-E4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -52,7 +52,7 @@ expected_output: Proactive status updates; fewer calls
 acceptance:
   - id: V26-S3-AC1
     criterion: Proactive status updates
-    evidence: named artefact stored against the record
+    evidence: tracking record with the state at each checkpoint
   - id: V26-S3-AC2
     criterion: Fewer calls
     evidence: call record with transcript and outcome

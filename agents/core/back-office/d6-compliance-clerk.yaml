@@ -51,7 +51,7 @@ acceptance:
     evidence: alert record with the signal that raised it
   - id: D6-AC2
     criterion: Nothing lapses unseen
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: D6-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

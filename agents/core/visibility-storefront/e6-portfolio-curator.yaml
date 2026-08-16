@@ -48,7 +48,7 @@ expected_output: Consented before/after portfolio entries auto-added from job ph
 acceptance:
   - id: E6-AC1
     criterion: Consented before/after portfolio entries auto-added from job photos
-    evidence: stored media with consent record
+    evidence: signed consent record
   - id: E6-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

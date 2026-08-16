@@ -50,7 +50,7 @@ expected_output: Safe-state instructions issued; return visit booked
 acceptance:
   - id: V1-E4-AC1
     criterion: Safe-state instructions issued
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V1-E4-AC2
     criterion: Return visit booked
     evidence: calendar entry with confirmation id

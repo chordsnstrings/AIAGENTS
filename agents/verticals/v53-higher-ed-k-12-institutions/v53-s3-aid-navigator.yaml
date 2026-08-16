@@ -57,7 +57,7 @@ expected_output: Aid steps completed per student
 acceptance:
   - id: V53-S3-AC1
     criterion: Aid steps completed per student
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V53-S3-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

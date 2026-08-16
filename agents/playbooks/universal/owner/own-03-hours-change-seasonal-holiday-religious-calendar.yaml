@@ -48,7 +48,7 @@ expected_output: Hours cascaded to every surface from one instruction
 acceptance:
   - id: OWN-03-AC1
     criterion: Hours cascaded to every surface from one instruction
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: OWN-03-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

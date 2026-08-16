@@ -51,7 +51,7 @@ expected_output: Pre-breach alert plus reroute options
 acceptance:
   - id: V26-E3-AC1
     criterion: Pre-breach alert plus reroute options
-    evidence: dispatch record with window and assignee
+    evidence: alert record with the signal that raised it
   - id: V26-E3-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

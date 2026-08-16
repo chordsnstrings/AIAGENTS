@@ -48,7 +48,7 @@ expected_output: Deduplicated contact records with RFM scores feeding every camp
 acceptance:
   - id: G1-AC1
     criterion: Deduplicated contact records with RFM scores feeding every campaign
-    evidence: named artefact stored against the record
+    evidence: scored record showing each component that produced the score
   - id: G1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

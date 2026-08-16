@@ -805,34 +805,68 @@ def describe_scope(record: Mapping[str, Any]) -> str:
     return "any business on the platform"
 
 
+#: Acceptance clause vocabulary mapped to the evidence a reviewer would actually
+#: look at.  Tokens are matched as word *prefixes* -- "report" catches
+#: "reported" and "reporting" -- but never mid-word, because substring matching
+#: here reads "de-LIVE-red" as publication and "re-CALL" as a phone call.
+#: Ordered most specific first; the first hit wins.
+_EVIDENCE_TABLE: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("transcript", "conversation", "chat", "thread"), "stored conversation transcript"),
+    (("call", "voicemail", "phone"), "call record with transcript and outcome"),
+    (("booking", "booked", "appointment", "slot", "rebook"), "calendar entry with confirmation id"),
+    (("dispatch", "route", "rota", "eta"), "dispatch record with window and assignee"),
+    (("invoice", "payment", "receipt", "deposit", "paid", "cash"), "payment ledger entry"),
+    (("quote", "estimate", "proposal", "price"), "issued document with its price-book references"),
+    # Ahead of the generic document entry: a signed permission is a consent
+    # record first and a file second.
+    (("consent", "permission", "signed"), "signed consent record"),
+    (("document", "docs", "pack", "dossier", "file"), "document set with completeness check"),
+    (("photo", "image", "video", "before", "after"), "stored media with consent record"),
+    (("review", "nps", "testimonial", "rating"), "review record with source and timestamp"),
+    (("report", "digest", "brief", "summary", "card"), "delivered report with its generation timestamp"),
+    (("alert", "flag", "surfaced", "exception"), "alert record with the signal that raised it"),
+    (("reminder", "recall", "renewal", "notice", "chase"), "scheduled message log with delivery status"),
+    (("published", "posted", "live", "listing", "profile", "schema"), "live URL plus publication log"),
+    (("escalat", "handoff", "handover", "redirect"), "handover packet with recipient and time"),
+    (("matched", "reconcil", "sync"), "reconciliation report with the exception list"),
+    (("deliver", "sent", "instruction", "message", "answer"), "delivery receipt with recipient and timestamp"),
+    (("protocol", "executed", "checklist", "step", "evacuat", "interlock"),
+     "protocol checklist with every step timed and attributed"),
+    (("draft", "approval", "queued", "pending"),
+     "draft held in the approval queue with its version history"),
+    (("score", "scored", "scoring", "segment", "rfm", "ranked", "graded", "triaged"),
+     "scored record showing each component that produced the score"),
+    (("ledger", "balance", "credit", "reward", "commission", "attributed"),
+     "ledger with its running balance and every movement"),
+    (("verified", "verification", "validated", "checked", "eligib", "confirmed"),
+     "verification result naming the rule checked and its source"),
+    (("notified", "informed", "broadcast", "told", "published to"),
+     "notification log with recipient, channel and delivery state"),
+    (("policy", "rule", "threshold", "applied", "enforced", "compliance"),
+     "policy decision recording the rule applied and its inputs"),
+    (("clock", "deadline", "interval", "sla", "window", "on time", "lapse"),
+     "clock record with start, target and actual dates"),
+    (("tracked", "traced", "monitored", "status", "progress"),
+     "tracking record with the state at each checkpoint"),
+    (("queue", "list", "roster", "register", "backlog", "worked"),
+     "worked list showing each item's state and owner"),
+    (("logged", "log", "recorded", "audit"), "audit trail entries"),
+)
+
+_EVIDENCE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
+    (re.compile(r"\b(?:" + "|".join(tokens) + r")", re.IGNORECASE), evidence)
+    for tokens, evidence in _EVIDENCE_TABLE
+)
+
+
 def evidence_for(clause: str) -> str:
     """Name the evidence that proves one acceptance clause.
 
     The workbook writes acceptance as prose.  This turns each clause into the
     artefact or counter a reviewer can actually look at.
     """
-    lowered = clause.lower()
-    table = (
-        (("transcript", "conversation", "chat", "thread"), "stored conversation transcript"),
-        (("call", "voicemail", "phone"), "call record with transcript and outcome"),
-        (("booking", "booked", "appointment", "slot", "rebook"), "calendar entry with confirmation id"),
-        (("dispatch", "route", "rota", "eta"), "dispatch record with window and assignee"),
-        (("invoice", "payment", "receipt", "deposit", "paid", "cash"), "payment ledger entry"),
-        (("quote", "estimate", "proposal", "price"), "issued document with its price-book references"),
-        (("document", "docs", "pack", "dossier", "file"), "document set with completeness check"),
-        (("photo", "image", "video", "before", "after"), "stored media with consent record"),
-        (("review", "nps", "testimonial", "rating"), "review record with source and timestamp"),
-        (("report", "digest", "brief", "summary", "card"), "delivered report with its generation timestamp"),
-        (("alert", "flag", "surfaced", "exception"), "alert record with the signal that raised it"),
-        (("reminder", "recall", "renewal", "notice", "chase"), "scheduled message log with delivery status"),
-        (("published", "posted", "live", "listing", "profile", "schema"), "live URL plus publication log"),
-        (("logged", "log", "recorded", "audit"), "audit trail entries"),
-        (("escalat", "handoff", "handover", "redirect"), "handover packet with recipient and time"),
-        (("consent", "permission", "signed"), "signed consent record"),
-        (("matched", "reconcil", "sync"), "reconciliation report with the exception list"),
-    )
-    for tokens, evidence in table:
-        if any(token in lowered for token in tokens):
+    for pattern, evidence in _EVIDENCE_PATTERNS:
+        if pattern.search(clause):
             return evidence
     return "named artefact stored against the record"
 

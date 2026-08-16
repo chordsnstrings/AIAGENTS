@@ -51,7 +51,7 @@ expected_output: Cross-service opportunity list
 acceptance:
   - id: V9-S6-AC1
     criterion: Cross-service opportunity list
-    evidence: named artefact stored against the record
+    evidence: worked list showing each item's state and owner
   - id: V9-S6-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

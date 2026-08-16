@@ -51,7 +51,7 @@ expected_output: Completed history and consent before arrival
 acceptance:
   - id: V7-S4-AC1
     criterion: Completed history and consent before arrival
-    evidence: stored media with consent record
+    evidence: signed consent record
   - id: V7-S4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -59,7 +59,7 @@ expected_output: Ladder executed; legal pack at threshold
 acceptance:
   - id: V18-E5-AC1
     criterion: Ladder executed
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V18-E5-AC2
     criterion: Legal pack at threshold
     evidence: document set with completeness check

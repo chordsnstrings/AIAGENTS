@@ -50,7 +50,7 @@ expected_output: Evidenced requote pack prepared
 acceptance:
   - id: V2-E3-AC1
     criterion: Evidenced requote pack prepared
-    evidence: issued document with its price-book references
+    evidence: document set with completeness check
   - id: V2-E3-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

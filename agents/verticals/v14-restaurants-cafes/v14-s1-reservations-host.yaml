@@ -51,7 +51,7 @@ expected_output: Confirmed covers with notes
 acceptance:
   - id: V14-S1-AC1
     criterion: Confirmed covers with notes
-    evidence: named artefact stored against the record
+    evidence: verification result naming the rule checked and its source
   - id: V14-S1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

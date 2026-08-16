@@ -59,7 +59,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: STA-12-AC3
     criterion: Close-out sent
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: STA-12-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

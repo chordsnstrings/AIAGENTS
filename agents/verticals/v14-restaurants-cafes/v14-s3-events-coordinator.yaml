@@ -59,7 +59,7 @@ expected_output: High-value enquiries answered in minutes; quotes out
 acceptance:
   - id: V14-S3-AC1
     criterion: High-value enquiries answered in minutes
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V14-S3-AC2
     criterion: Quotes out
     evidence: issued document with its price-book references

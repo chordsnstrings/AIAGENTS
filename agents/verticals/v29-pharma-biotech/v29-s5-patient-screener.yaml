@@ -57,7 +57,7 @@ expected_output: Protocol pre-screen results
 acceptance:
   - id: V29-S5-AC1
     criterion: Protocol pre-screen results
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V29-S5-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

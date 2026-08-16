@@ -53,7 +53,7 @@ expected_output: Proactive outage and ETR messages
 acceptance:
   - id: V46-S1-AC1
     criterion: Proactive outage and ETR messages
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V46-S1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -52,10 +52,10 @@ expected_output: Stop-work executed; notification clock; evidence preserved
 acceptance:
   - id: V48-E1-AC1
     criterion: Stop-work executed
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V48-E1-AC2
     criterion: Notification clock
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V48-E1-AC3
     criterion: Evidence preserved
     evidence: named artefact stored against the record

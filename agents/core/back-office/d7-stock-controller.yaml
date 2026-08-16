@@ -48,7 +48,7 @@ expected_output: Reorder prompts at thresholds; stockout near-misses logged
 acceptance:
   - id: D7-AC1
     criterion: Reorder prompts at thresholds
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: D7-AC2
     criterion: Stockout near-misses logged
     evidence: audit trail entries

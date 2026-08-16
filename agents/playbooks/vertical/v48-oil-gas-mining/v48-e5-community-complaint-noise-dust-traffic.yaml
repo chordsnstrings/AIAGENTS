@@ -50,7 +50,7 @@ expected_output: Licence-condition log plus response draft
 acceptance:
   - id: V48-E5-AC1
     criterion: Licence-condition log plus response draft
-    evidence: audit trail entries
+    evidence: draft held in the approval queue with its version history
   - id: V48-E5-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

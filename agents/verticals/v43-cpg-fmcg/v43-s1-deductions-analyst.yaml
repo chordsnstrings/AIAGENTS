@@ -54,7 +54,7 @@ expected_output: Validated or disputed deductions; recovered cash
 acceptance:
   - id: V43-S1-AC1
     criterion: Validated or disputed deductions
-    evidence: named artefact stored against the record
+    evidence: verification result naming the rule checked and its source
   - id: V43-S1-AC2
     criterion: Recovered cash
     evidence: payment ledger entry

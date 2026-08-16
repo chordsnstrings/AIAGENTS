@@ -50,7 +50,7 @@ expected_output: Order processed on the clock; notices per rules
 acceptance:
   - id: V31-E2-AC1
     criterion: Order processed on the clock
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V31-E2-AC2
     criterion: Notices per rules
     evidence: scheduled message log with delivery status

@@ -51,7 +51,7 @@ expected_output: Dispute case opened and tracked
 acceptance:
   - id: V31-S3-AC1
     criterion: Dispute case opened and tracked
-    evidence: named artefact stored against the record
+    evidence: tracking record with the state at each checkpoint
   - id: V31-S3-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

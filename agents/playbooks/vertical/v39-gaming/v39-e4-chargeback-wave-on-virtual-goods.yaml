@@ -53,7 +53,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: V39-E4-AC2
     criterion: Clawbacks per policy
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V39-E4-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

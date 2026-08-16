@@ -57,7 +57,7 @@ expected_output: Broker answers from the product base
 acceptance:
   - id: V33-S7-AC1
     criterion: Broker answers from the product base
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V33-S7-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

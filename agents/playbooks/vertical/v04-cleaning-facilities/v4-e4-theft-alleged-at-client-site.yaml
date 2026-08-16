@@ -54,7 +54,7 @@ expected_output: Incident record and on-site roster produced
 acceptance:
   - id: V4-E4-AC1
     criterion: Incident record and on-site roster produced
-    evidence: named artefact stored against the record
+    evidence: worked list showing each item's state and owner
   - id: V4-E4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

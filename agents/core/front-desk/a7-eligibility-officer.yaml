@@ -52,7 +52,7 @@ expected_output: Pass/fail eligibility result with reasons, logged to the contac
 acceptance:
   - id: A7-AC1
     criterion: Pass/fail eligibility result with reasons, logged to the contact
-    evidence: audit trail entries
+    evidence: verification result naming the rule checked and its source
   - id: A7-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

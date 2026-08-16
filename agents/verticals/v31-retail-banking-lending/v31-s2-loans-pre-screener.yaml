@@ -57,7 +57,7 @@ expected_output: Rule-based, compliant pre-qual result
 acceptance:
   - id: V31-S2-AC1
     criterion: Rule-based, compliant pre-qual result
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V31-S2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

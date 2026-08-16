@@ -54,7 +54,7 @@ acceptance:
     evidence: reconciliation report with the exception list
   - id: V56-S2-AC2
     criterion: Drafted applications
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: V56-S2-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

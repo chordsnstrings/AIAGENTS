@@ -53,10 +53,10 @@ acceptance:
     evidence: scheduled message log with delivery status
   - id: V58-E1-AC2
     criterion: Acknowledgements tracked
-    evidence: named artefact stored against the record
+    evidence: tracking record with the state at each checkpoint
   - id: V58-E1-AC3
     criterion: Preservation verified
-    evidence: named artefact stored against the record
+    evidence: verification result naming the rule checked and its source
   - id: V58-E1-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

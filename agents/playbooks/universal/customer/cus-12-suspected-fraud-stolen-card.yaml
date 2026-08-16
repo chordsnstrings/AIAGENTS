@@ -50,7 +50,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: CUS-12-AC2
     criterion: Verification result
-    evidence: named artefact stored against the record
+    evidence: verification result naming the rule checked and its source
   - id: CUS-12-AC3
     criterion: Fraud log entry
     evidence: audit trail entries

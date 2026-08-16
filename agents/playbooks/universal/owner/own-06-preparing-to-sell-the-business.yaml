@@ -48,7 +48,7 @@ expected_output: Diligence data room built from operating history
 acceptance:
   - id: OWN-06-AC1
     criterion: Diligence data room built from operating history
-    evidence: review record with source and timestamp
+    evidence: named artefact stored against the record
   - id: OWN-06-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

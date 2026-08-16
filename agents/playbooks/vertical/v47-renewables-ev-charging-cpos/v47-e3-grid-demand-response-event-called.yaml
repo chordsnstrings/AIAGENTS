@@ -50,7 +50,7 @@ expected_output: Contracted load-shed executed; revenue logged
 acceptance:
   - id: V47-E3-AC1
     criterion: Contracted load-shed executed
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V47-E3-AC2
     criterion: Revenue logged
     evidence: audit trail entries

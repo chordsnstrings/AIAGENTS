@@ -54,10 +54,10 @@ acceptance:
     evidence: named artefact stored against the record
   - id: V6-E2-AC2
     criterion: Members notified
-    evidence: named artefact stored against the record
+    evidence: notification log with recipient, channel and delivery state
   - id: V6-E2-AC3
     criterion: Credits per rule
-    evidence: named artefact stored against the record
+    evidence: ledger with its running balance and every movement
   - id: V6-E2-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

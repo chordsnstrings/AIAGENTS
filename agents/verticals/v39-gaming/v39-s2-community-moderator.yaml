@@ -51,7 +51,7 @@ expected_output: Policy actions logged
 acceptance:
   - id: V39-S2-AC1
     criterion: Policy actions logged
-    evidence: audit trail entries
+    evidence: policy decision recording the rule applied and its inputs
   - id: V39-S2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

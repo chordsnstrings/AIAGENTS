@@ -60,7 +60,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: V47-S2-AC2
     criterion: Credits issued
-    evidence: named artefact stored against the record
+    evidence: ledger with its running balance and every movement
   - id: V47-S2-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

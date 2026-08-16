@@ -52,7 +52,7 @@ expected_output: Per-site schedule and completion status
 acceptance:
   - id: V4-S2-AC1
     criterion: Per-site schedule and completion status
-    evidence: named artefact stored against the record
+    evidence: tracking record with the state at each checkpoint
   - id: V4-S2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

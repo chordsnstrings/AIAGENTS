@@ -53,7 +53,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: V47-E1-AC2
     criterion: Credit issued
-    evidence: named artefact stored against the record
+    evidence: ledger with its running balance and every movement
   - id: V47-E1-AC3
     criterion: Fault escalated
     evidence: handover packet with recipient and time

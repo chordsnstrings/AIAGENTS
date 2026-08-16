@@ -48,7 +48,7 @@ expected_output: Approval queue with edit/approve/send; audit trail of every dec
 acceptance:
   - id: B3-AC1
     criterion: Approval queue with edit/approve/send
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: B3-AC2
     criterion: Audit trail of every decision
     evidence: audit trail entries

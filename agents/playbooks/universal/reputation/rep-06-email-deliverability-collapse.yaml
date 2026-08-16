@@ -53,7 +53,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: REP-06-AC3
     criterion: Fixes executed
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: REP-06-AC4
     criterion: Report
     evidence: delivered report with its generation timestamp

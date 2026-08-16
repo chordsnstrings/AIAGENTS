@@ -51,7 +51,7 @@ expected_output: Rule-based compensation processed
 acceptance:
   - id: V50-S2-AC1
     criterion: Rule-based compensation processed
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V50-S2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -50,7 +50,7 @@ expected_output: Status-only reply; clinician callback booked
 acceptance:
   - id: V7-E3-AC1
     criterion: Status-only reply
-    evidence: named artefact stored against the record
+    evidence: tracking record with the state at each checkpoint
   - id: V7-E3-AC2
     criterion: Clinician callback booked
     evidence: call record with transcript and outcome

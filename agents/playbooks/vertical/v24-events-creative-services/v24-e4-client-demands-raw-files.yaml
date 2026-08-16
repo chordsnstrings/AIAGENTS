@@ -51,7 +51,7 @@ expected_output: Policy stated; priced option offered
 acceptance:
   - id: V24-E4-AC1
     criterion: Policy stated
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V24-E4-AC2
     criterion: Priced option offered
     evidence: issued document with its price-book references

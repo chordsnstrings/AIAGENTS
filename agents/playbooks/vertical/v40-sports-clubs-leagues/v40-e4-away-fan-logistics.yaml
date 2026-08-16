@@ -59,7 +59,7 @@ expected_output: Fixture information service delivered
 acceptance:
   - id: V40-E4-AC1
     criterion: Fixture information service delivered
-    evidence: live URL plus publication log
+    evidence: delivery receipt with recipient and timestamp
   - id: V40-E4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -52,7 +52,7 @@ expected_output: Every comment and DM answered inside SLA; sales DMs become pipe
 acceptance:
   - id: I4-AC1
     criterion: Every comment and DM answered inside SLA
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: I4-AC2
     criterion: Sales DMs become pipeline leads
     evidence: named artefact stored against the record

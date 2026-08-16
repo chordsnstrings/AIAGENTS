@@ -50,7 +50,7 @@ expected_output: Template cascade, delivery verified
 acceptance:
   - id: V53-E4-AC1
     criterion: Template cascade, delivery verified
-    evidence: live URL plus publication log
+    evidence: delivery receipt with recipient and timestamp
   - id: V53-E4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

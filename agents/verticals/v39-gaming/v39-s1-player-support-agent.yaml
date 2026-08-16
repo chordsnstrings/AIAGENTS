@@ -59,7 +59,7 @@ expected_output: Account and purchase issues resolved
 acceptance:
   - id: V39-S1-AC1
     criterion: Account and purchase issues resolved
-    evidence: scheduled message log with delivery status
+    evidence: named artefact stored against the record
   - id: V39-S1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

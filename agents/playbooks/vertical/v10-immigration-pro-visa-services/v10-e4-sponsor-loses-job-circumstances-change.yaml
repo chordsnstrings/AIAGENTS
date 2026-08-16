@@ -50,7 +50,7 @@ expected_output: Materiality checklist plus disclosure items
 acceptance:
   - id: V10-E4-AC1
     criterion: Materiality checklist plus disclosure items
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V10-E4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

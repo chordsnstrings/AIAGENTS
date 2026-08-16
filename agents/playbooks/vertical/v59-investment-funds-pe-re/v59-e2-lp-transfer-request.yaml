@@ -53,7 +53,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: V59-E2-AC2
     criterion: Registers updated
-    evidence: named artefact stored against the record
+    evidence: worked list showing each item's state and owner
   - id: V59-E2-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

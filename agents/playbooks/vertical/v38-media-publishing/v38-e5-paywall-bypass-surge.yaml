@@ -50,7 +50,7 @@ expected_output: Countermeasures within policy
 acceptance:
   - id: V38-E5-AC1
     criterion: Countermeasures within policy
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V38-E5-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

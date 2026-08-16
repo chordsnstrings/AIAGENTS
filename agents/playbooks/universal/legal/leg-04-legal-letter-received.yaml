@@ -50,7 +50,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: LEG-04-AC2
     criterion: Deadline docketed
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: LEG-04-AC3
     criterion: Owner alerted same-hour
     evidence: alert record with the signal that raised it

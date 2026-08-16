@@ -51,7 +51,7 @@ expected_output: Status page plus gated notification drafts
 acceptance:
   - id: V35-E1-AC1
     criterion: Status page plus gated notification drafts
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: V35-E1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

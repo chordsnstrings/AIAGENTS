@@ -47,7 +47,7 @@ expected_output: Fee applied or waived per rule; slot refilled; record kept
 acceptance:
   - id: CUS-04-AC1
     criterion: Fee applied or waived per rule
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: CUS-04-AC2
     criterion: Slot refilled
     evidence: calendar entry with confirmation id

@@ -50,10 +50,10 @@ expected_output: Response sent; site rules reissued; log kept
 acceptance:
   - id: V2-E1-AC1
     criterion: Response sent
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V2-E1-AC2
     criterion: Site rules reissued
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V2-E1-AC3
     criterion: Log kept
     evidence: audit trail entries

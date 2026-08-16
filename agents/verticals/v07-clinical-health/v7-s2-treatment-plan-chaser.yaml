@@ -51,7 +51,7 @@ expected_output: Unbooked recommended-treatment list, contacted
 acceptance:
   - id: V7-S2-AC1
     criterion: Unbooked recommended-treatment list, contacted
-    evidence: calendar entry with confirmation id
+    evidence: worked list showing each item's state and owner
   - id: V7-S2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

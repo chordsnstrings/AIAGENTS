@@ -50,10 +50,10 @@ expected_output: Policy applied by delta; comms drafted
 acceptance:
   - id: V21-E1-AC1
     criterion: Policy applied by delta
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V21-E1-AC2
     criterion: Comms drafted
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: V21-E1-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

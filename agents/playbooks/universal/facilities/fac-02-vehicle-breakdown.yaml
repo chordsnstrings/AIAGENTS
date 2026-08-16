@@ -50,7 +50,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: FAC-02-AC2
     criterion: Jobs reassigned
-    evidence: signed consent record
+    evidence: named artefact stored against the record
   - id: FAC-02-AC3
     criterion: ETAs reissued
     evidence: dispatch record with window and assignee

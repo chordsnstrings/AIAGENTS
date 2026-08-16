@@ -53,7 +53,7 @@ acceptance:
     evidence: dispatch record with window and assignee
   - id: STA-09-AC2
     criterion: Clocks docketed
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: STA-09-AC3
     criterion: Nothing else
     evidence: named artefact stored against the record

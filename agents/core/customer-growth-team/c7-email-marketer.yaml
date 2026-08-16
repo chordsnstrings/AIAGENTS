@@ -52,7 +52,7 @@ expected_output: Approved campaigns sent from the owner's own mailbox; opens, re
 acceptance:
   - id: C7-AC1
     criterion: Approved campaigns sent from the owner's own mailbox
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: C7-AC2
     criterion: Opens, replies, bookings reported
     evidence: calendar entry with confirmation id

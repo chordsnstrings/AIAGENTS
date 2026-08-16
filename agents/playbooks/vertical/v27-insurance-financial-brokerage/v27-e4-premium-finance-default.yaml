@@ -50,7 +50,7 @@ expected_output: Lapse warnings; reinstatement options presented
 acceptance:
   - id: V27-E4-AC1
     criterion: Lapse warnings
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V27-E4-AC2
     criterion: Reinstatement options presented
     evidence: named artefact stored against the record

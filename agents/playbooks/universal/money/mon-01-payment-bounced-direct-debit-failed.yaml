@@ -54,7 +54,7 @@ expected_output: Retry ladder executed; card updated; pause flag at threshold
 acceptance:
   - id: MON-01-AC1
     criterion: Retry ladder executed
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: MON-01-AC2
     criterion: Card updated
     evidence: delivered report with its generation timestamp

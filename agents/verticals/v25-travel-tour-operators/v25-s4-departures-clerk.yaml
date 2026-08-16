@@ -52,7 +52,7 @@ expected_output: Pre-travel checklist completed per traveller
 acceptance:
   - id: V25-S4-AC1
     criterion: Pre-travel checklist completed per traveller
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V25-S4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -54,7 +54,7 @@ acceptance:
     evidence: stored media with consent record
   - id: V4-E3-AC2
     criterion: Billing per rule
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: V4-E3-AC3
     criterion: Reschedule
     evidence: named artefact stored against the record

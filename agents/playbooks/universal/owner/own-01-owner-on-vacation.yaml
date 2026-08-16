@@ -48,13 +48,13 @@ expected_output: 'Away mode active: rules enforced; digest only; queue kept'
 acceptance:
   - id: OWN-01-AC1
     criterion: 'Away mode active: rules enforced'
-    evidence: named artefact stored against the record
+    evidence: policy decision recording the rule applied and its inputs
   - id: OWN-01-AC2
     criterion: Digest only
     evidence: delivered report with its generation timestamp
   - id: OWN-01-AC3
     criterion: Queue kept
-    evidence: named artefact stored against the record
+    evidence: worked list showing each item's state and owner
   - id: OWN-01-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

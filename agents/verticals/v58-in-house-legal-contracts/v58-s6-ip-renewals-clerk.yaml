@@ -51,7 +51,7 @@ expected_output: Deadlines met per office
 acceptance:
   - id: V58-S6-AC1
     criterion: Deadlines met per office
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V58-S6-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

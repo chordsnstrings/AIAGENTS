@@ -50,7 +50,7 @@ acceptance:
     evidence: document set with completeness check
   - id: REP-05-AC2
     criterion: Status tracked
-    evidence: named artefact stored against the record
+    evidence: tracking record with the state at each checkpoint
   - id: REP-05-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

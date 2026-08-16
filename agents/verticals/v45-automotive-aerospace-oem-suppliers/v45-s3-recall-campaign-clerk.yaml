@@ -51,7 +51,7 @@ expected_output: Affected units tracked to completion
 acceptance:
   - id: V45-S3-AC1
     criterion: Affected units tracked to completion
-    evidence: named artefact stored against the record
+    evidence: tracking record with the state at each checkpoint
   - id: V45-S3-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

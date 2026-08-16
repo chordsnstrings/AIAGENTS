@@ -58,7 +58,7 @@ expected_output: Milestone check-ins sent; responses logged
 acceptance:
   - id: V6-S5-AC1
     criterion: Milestone check-ins sent
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V6-S5-AC2
     criterion: Responses logged
     evidence: audit trail entries

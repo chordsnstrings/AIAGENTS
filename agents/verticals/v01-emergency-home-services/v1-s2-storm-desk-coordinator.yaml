@@ -57,7 +57,7 @@ expected_output: Surge queue triaged by vulnerability; honest waits published
 acceptance:
   - id: V1-S2-AC1
     criterion: Surge queue triaged by vulnerability
-    evidence: named artefact stored against the record
+    evidence: scored record showing each component that produced the score
   - id: V1-S2-AC2
     criterion: Honest waits published
     evidence: live URL plus publication log

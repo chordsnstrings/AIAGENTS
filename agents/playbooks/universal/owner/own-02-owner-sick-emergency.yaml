@@ -47,7 +47,7 @@ expected_output: Immediate away mode plus deputy notified
 acceptance:
   - id: OWN-02-AC1
     criterion: Immediate away mode plus deputy notified
-    evidence: named artefact stored against the record
+    evidence: notification log with recipient, channel and delivery state
   - id: OWN-02-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

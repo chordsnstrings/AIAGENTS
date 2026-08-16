@@ -51,7 +51,7 @@ expected_output: Settlement breaks worked
 acceptance:
   - id: V47-S6-AC1
     criterion: Settlement breaks worked
-    evidence: named artefact stored against the record
+    evidence: worked list showing each item's state and owner
   - id: V47-S6-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

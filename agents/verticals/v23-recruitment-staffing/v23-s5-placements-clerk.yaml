@@ -52,7 +52,7 @@ expected_output: Guarantee periods tracked; replacements triggered
 acceptance:
   - id: V23-S5-AC1
     criterion: Guarantee periods tracked
-    evidence: named artefact stored against the record
+    evidence: tracking record with the state at each checkpoint
   - id: V23-S5-AC2
     criterion: Replacements triggered
     evidence: named artefact stored against the record

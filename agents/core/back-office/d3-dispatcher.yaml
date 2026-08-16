@@ -54,7 +54,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: D3-AC3
     criterion: Changes broadcast
-    evidence: named artefact stored against the record
+    evidence: notification log with recipient, channel and delivery state
   - id: D3-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

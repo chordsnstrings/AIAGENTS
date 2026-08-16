@@ -47,7 +47,7 @@ expected_output: Access and role remap executed; documented trail
 acceptance:
   - id: OWN-08-AC1
     criterion: Access and role remap executed
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: OWN-08-AC2
     criterion: Documented trail
     evidence: document set with completeness check

@@ -54,7 +54,7 @@ acceptance:
     evidence: stored media with consent record
   - id: CUS-15-AC2
     criterion: Insurer FNOL draft
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: CUS-15-AC3
     criterion: Aftercare scheduled
     evidence: stored media with consent record

@@ -50,7 +50,7 @@ expected_output: Cure clock, remedies, communications
 acceptance:
   - id: V59-E4-AC1
     criterion: Cure clock, remedies, communications
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V59-E4-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

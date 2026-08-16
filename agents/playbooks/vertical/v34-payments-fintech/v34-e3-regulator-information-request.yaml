@@ -50,10 +50,10 @@ expected_output: Data pull plus legal queue; deadline met
 acceptance:
   - id: V34-E3-AC1
     criterion: Data pull plus legal queue
-    evidence: named artefact stored against the record
+    evidence: worked list showing each item's state and owner
   - id: V34-E3-AC2
     criterion: Deadline met
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V34-E3-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

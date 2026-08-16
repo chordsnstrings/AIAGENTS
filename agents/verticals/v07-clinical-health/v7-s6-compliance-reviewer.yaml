@@ -51,7 +51,7 @@ expected_output: Marketing checked against health rules; blockers flagged
 acceptance:
   - id: V7-S6-AC1
     criterion: Marketing checked against health rules
-    evidence: named artefact stored against the record
+    evidence: verification result naming the rule checked and its source
   - id: V7-S6-AC2
     criterion: Blockers flagged
     evidence: alert record with the signal that raised it

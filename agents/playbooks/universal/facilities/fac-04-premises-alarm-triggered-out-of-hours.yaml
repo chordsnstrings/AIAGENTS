@@ -47,7 +47,7 @@ expected_output: Keyholder cascade executed; event log
 acceptance:
   - id: FAC-04-AC1
     criterion: Keyholder cascade executed
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: FAC-04-AC2
     criterion: Event log
     evidence: audit trail entries

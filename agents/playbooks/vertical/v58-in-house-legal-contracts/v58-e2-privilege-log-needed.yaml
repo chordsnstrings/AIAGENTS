@@ -50,7 +50,7 @@ expected_output: Metadata compilation for counsel
 acceptance:
   - id: V58-E2-AC1
     criterion: Metadata compilation for counsel
-    evidence: dispatch record with window and assignee
+    evidence: named artefact stored against the record
   - id: V58-E2-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -51,7 +51,7 @@ expected_output: Retailer item forms completed
 acceptance:
   - id: V43-S5-AC1
     criterion: Retailer item forms completed
-    evidence: dispatch record with window and assignee
+    evidence: named artefact stored against the record
   - id: V43-S5-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -53,7 +53,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: LEG-09-AC3
     criterion: Response drafted
-    evidence: named artefact stored against the record
+    evidence: draft held in the approval queue with its version history
   - id: LEG-09-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

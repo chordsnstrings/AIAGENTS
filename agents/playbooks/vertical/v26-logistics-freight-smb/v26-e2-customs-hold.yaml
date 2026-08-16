@@ -57,7 +57,7 @@ acceptance:
     evidence: named artefact stored against the record
   - id: V26-E2-AC3
     criterion: Cost clock visible
-    evidence: named artefact stored against the record
+    evidence: clock record with start, target and actual dates
   - id: V26-E2-AC4
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

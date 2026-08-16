@@ -57,7 +57,7 @@ expected_output: Jurisdiction-aware policy answers
 acceptance:
   - id: V57-S6-AC1
     criterion: Jurisdiction-aware policy answers
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V57-S6-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

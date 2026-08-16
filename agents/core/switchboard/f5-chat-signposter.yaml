@@ -52,7 +52,7 @@ acceptance:
     evidence: stored conversation transcript
   - id: F5-AC2
     criterion: Enquiries channel-attributed
-    evidence: named artefact stored against the record
+    evidence: ledger with its running balance and every movement
   - id: F5-AC3
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

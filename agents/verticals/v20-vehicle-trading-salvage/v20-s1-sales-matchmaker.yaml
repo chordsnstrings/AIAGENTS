@@ -57,7 +57,7 @@ expected_output: Buyer-to-stock matches sent
 acceptance:
   - id: V20-S1-AC1
     criterion: Buyer-to-stock matches sent
-    evidence: named artefact stored against the record
+    evidence: delivery receipt with recipient and timestamp
   - id: V20-S1-AC2
     criterion: Every action and gate is recorded with actor, timestamp and source
     evidence: audit_trail entries covering the full run

@@ -53,7 +53,7 @@ expected_output: Poison-line protocol done; slot held; notes captured
 acceptance:
   - id: V8-E1-AC1
     criterion: Poison-line protocol done
-    evidence: named artefact stored against the record
+    evidence: protocol checklist with every step timed and attributed
   - id: V8-E1-AC2
     criterion: Slot held
     evidence: calendar entry with confirmation id

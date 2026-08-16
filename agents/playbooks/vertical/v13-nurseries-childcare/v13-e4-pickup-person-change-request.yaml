@@ -50,7 +50,7 @@ expected_output: Verified change; record updated
 acceptance:
   - id: V13-E4-AC1
     criterion: Verified change
-    evidence: named artefact stored against the record
+    evidence: verification result naming the rule checked and its source
   - id: V13-E4-AC2
     criterion: Record updated
     evidence: named artefact stored against the record
