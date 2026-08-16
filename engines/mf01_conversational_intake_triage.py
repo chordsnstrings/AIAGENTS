@@ -97,7 +97,8 @@ _PROFILE_NOTES: Mapping[str, str] = {
     "thread_continuity": (
         "One contact, one thread: you resolve identity before you open anything, "
         "carry the context across the channel, language or second party, and "
-        "never make someone repeat what you already hold"
+        "never make someone repeat what you already hold -- which rail and which "
+        "language you switch into is market configuration, never your preference"
     ),
     "human_handover": (
         "You hand over on the first trigger rather than trying one more turn, and "
@@ -1385,9 +1386,10 @@ class ConversationalIntakeTriageEngine(Engine):
         almost nothing else.
         """
         lines = [
-            "HOW YOU WORK. You run one thread per contact and you open by understanding "
-            "what is actually being asked, not by pushing the request into the first "
-            "category that fits. You gather the structured detail the next step needs one "
+            "HOW YOU WORK. You run one thread per contact, on whichever rails the active "
+            "country pack names, and you open by understanding what is actually being "
+            "asked rather than pushing the request into the first category that fits. "
+            "You gather the structured detail the next step needs one "
             "question at a time, in the contact's language, and you stop the moment the "
             "record is complete enough to route -- an interrogation loses the job as surely "
             "as a guess does.",
@@ -1405,8 +1407,8 @@ class ConversationalIntakeTriageEngine(Engine):
         if vertical:
             lines.append(
                 f"You are working {vertical['name'].lower()} requests, so the terminology, "
-                "the required fields, the intervals and the statutory dates come from that "
-                "overlay and not from your own sense of the trade."
+                "the required fields, the intervals and the statutory dates come from the "
+                "vertical overlay and the country pack, never from your own sense of the trade."
             )
 
         if record["type"].startswith("playbook"):

@@ -20,7 +20,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Iterable, Sequence
+
+import yaml
 
 from adw.models import (
     PROHIBITED_ACT_MARKERS,
@@ -28,6 +31,7 @@ from adw.models import (
     GateSeverity,
     StepKind,
     Unit,
+    describes_publishing,
 )
 
 
@@ -165,19 +169,14 @@ def check_probabilistic_authority(unit: Unit) -> list[Violation]:
 # rule 2 -- customer-owned channels
 # --------------------------------------------------------------------------- #
 
-#: Kept in step with ``engines.base.PUBLISHING_STEP_MARKERS``: the engine attaches
-#: the connected-accounts grant on these markers, and this check demands it.
-_PUBLISHING_STEP_MARKERS = ("publish", "post to", "send from", "share to", "upload to")
-
-
 def check_owned_channels(unit: Unit) -> list[Violation]:
     violations: list[Violation] = []
     rule = "growth and social publish only from the customer's connected accounts"
 
+    # Detection is shared with the engine layer via describes_publishing, so the
+    # side that attaches the grant and the side that demands it cannot drift.
     publishes = Capability.PUBLISH in unit.capabilities or any(
-        marker in s.description.lower()
-        for s in unit.plan
-        for marker in _PUBLISHING_STEP_MARKERS
+        describes_publishing(s.description) for s in unit.plan
     )
     if not publishes:
         return violations
@@ -203,15 +202,35 @@ def check_owned_channels(unit: Unit) -> list[Violation]:
 # rule 1 -- config, not code
 # --------------------------------------------------------------------------- #
 
+def _load_deglobalised_terms() -> dict[str, str]:
+    """The agent names the workbook retired, mapped to their replacements.
+
+    Read from the Localization sheet rather than hard-coded, so the check stays
+    in step with the workbook: globalise another agent there and this check
+    starts guarding the old name on the next build.
+
+    Only the retired *names* are guarded, never the domain vocabulary inside
+    them.  "Attestation Chain Tracker" was a UAE-anchored agent name and is
+    banned; "attestation" is what the process is called in half the world's
+    jurisdictions and is perfectly fine.
+    """
+    path = Path(__file__).resolve().parent.parent / "catalogue" / "localization.yaml"
+    if not path.exists():  # the audit must still run without the catalogue
+        return {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    terms: dict[str, str] = {}
+    for entry in data.get("globalized_agents", ()):
+        former = str(entry.get("formerly", "")).strip()
+        # Drop a trailing parenthetical qualifier: the banned thing is the name.
+        former = re.sub(r"\s*\(.*\)$", "", former).strip()
+        if former:
+            terms[former.lower()] = entry["system_agent"]
+    return terms
+
+
 #: Names the workbook explicitly globalised.  A spec that still contains one has
-#: hard-coded a market, which is exactly what the localisation sheet removed.
-_DEGLOBALISED_TERMS = {
-    "dha": "Health-Marketing Guardrail (was DHA Comms Guardrail)",
-    "rera": "Listing & Tenancy Compliance Checker (was RERA Compliance Checker)",
-    "icp": "Consular/Portal Slot Watcher (was Embassy/ICP Slot Watcher)",
-    "uae ct": "Jurisdiction Tax Calendar (was UAE CT/VAT Deadline Calendar)",
-    "attestation chain": "Apostille & Legalization Chain",
-}
+#: hard-coded a market, which is exactly what the Localization sheet removed.
+_DEGLOBALISED_TERMS = _load_deglobalised_terms()
 
 #: Market-specific values that belong in a country pack, not in a spec body.
 _MARKET_LITERALS = (
@@ -223,9 +242,20 @@ _MARKET_LITERALS = (
     "ramadan", "diwali", "golden week",
 )
 
-# Fields where naming a market is legitimate: the catalogue itself uses these
-# names when describing what a config key resolves.
-_CONFIG_CONTEXT = ("country pack", "config", "per market", "localis", "localiz")
+# Contexts where naming a market is legitimate: the catalogue itself enumerates
+# instances when it is describing what a config key resolves to. "MOT / TUV /
+# shaken / smog per market" is the config-not-code rule being followed, not
+# broken.
+_CONFIG_CONTEXT = (
+    "country pack",
+    "config",
+    "per market",
+    "per regulator",
+    "per jurisdiction",
+    "localis",
+    "localiz",
+    "active pack",
+)
 
 
 def check_config_not_code(unit: Unit) -> list[Violation]:

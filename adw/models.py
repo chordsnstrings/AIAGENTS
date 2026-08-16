@@ -16,6 +16,7 @@ independent:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Mapping, Sequence
@@ -123,6 +124,38 @@ PROHIBITED_ACT_MARKERS: Mapping[str, tuple[str, ...]] = {
     "advise": ("advise the customer", "legal advice", "financial advice", "medical advice"),
     "approve": ("approve the", "grant approval", "authorise payment", "authorize payment"),
 }
+
+#: Nouns that turn "published" into an adjective about the business's own
+#: reference data.  "Quote only from the published price book" is the pricing
+#: rule being obeyed, not an act of publishing to a channel, and conflating the
+#: two would attach a connected-accounts grant to units that never publish --
+#: which would make the customer-owned-channels rule mean nothing.
+_PUBLISHED_AS_ADJECTIVE = (
+    "price", "prices", "pricing", "terms", "policy", "policies", "criteria",
+    "rate", "rates", "tariff", "tariffs", "hours", "fee", "fees", "schedule",
+)
+
+#: Matches a step that puts something out into the world on the customer's
+#: behalf.  Shared by ``engines.base`` (which attaches the grant) and
+#: ``adw.guardrails`` (which demands it), so the two cannot drift apart.
+PUBLISHING_STEP_PATTERN = re.compile(
+    # The noun may sit a couple of words after "published" -- "the published
+    # cancellation fees" is still reference data, not an act of publishing.
+    r"\bpublish(?:es|ed|ing)?\b(?!(?:\s+[\w-]+){0,2}\s+(?:"
+    + "|".join(_PUBLISHED_AS_ADJECTIVE)
+    + r")\b)"
+    r"|\bpost(?:s|ed|ing)?\s+(?:it\s+)?to\b"
+    r"|\bsend(?:s|ing)?\s+from\b"
+    r"|\bshare(?:s|d|ing)?\s+to\b"
+    r"|\bupload(?:s|ed|ing)?\s+to\b"
+    r"|\bgoes?\s+live\s+on\b",
+    re.IGNORECASE,
+)
+
+
+def describes_publishing(text: str) -> bool:
+    """True when a step description publishes or sends on the customer's behalf."""
+    return bool(PUBLISHING_STEP_PATTERN.search(text or ""))
 
 
 # --------------------------------------------------------------------------- #
@@ -579,6 +612,8 @@ __all__ = [
     "PERMITTED_ACTS",
     "PROHIBITED_ACTS",
     "PROHIBITED_ACT_MARKERS",
+    "PUBLISHING_STEP_PATTERN",
+    "describes_publishing",
     "RunContext",
     "Scope",
     "Step",

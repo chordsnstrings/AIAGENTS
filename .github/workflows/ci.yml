@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      # Everything under catalogue/, agents/, packs/ and docs/ is generated.
+      # A workbook edit that was never rebuilt must not be able to land.
+      - name: Catalogue is in step with the workbook
+        run: python3 tools/build_catalogue.py --check
+
+      - name: Specs are in step with the catalogue and the engines
+        run: python3 tools/generate_agents.py --check
+
+      # The three standing rules and the diamond legend, enforced.
+      - name: Standing-rule audit
+        run: python3 -m adw audit --severity error
+
+      - name: Engine profile coverage
+        run: python3 tools/check_engine.py
+
+      - name: Tests
+        run: python3 -m pytest -q

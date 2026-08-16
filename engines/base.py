@@ -46,6 +46,7 @@ from adw.models import (
     StepKind,
     Unit,
     UnitType,
+    describes_publishing,
 )
 
 # --------------------------------------------------------------------------- #
@@ -216,17 +217,6 @@ _REGULATED_MARKERS = (
     "audit",
     "visa",
     "immigration",
-)
-
-#: Step-description markers that mean the unit puts something out into the world.
-#: Kept in step with ``adw.guardrails._PUBLISHING_STEP_MARKERS``: the engine uses
-#: them to attach the grant, the audit uses them to demand it.
-PUBLISHING_STEP_MARKERS: tuple[str, ...] = (
-    "publish",
-    "post to",
-    "send from",
-    "share to",
-    "upload to",
 )
 
 # Terms that mark a unit as handling money figures.
@@ -562,9 +552,7 @@ class Engine(ABC):
         # A unit that sends or publishes anything must name the grant it sends
         # under, or the customer-owned-channels rule is unenforceable.
         publishes = Capability.PUBLISH in self.capabilities or any(
-            marker in step_.description.lower()
-            for step_ in plan
-            for marker in PUBLISHING_STEP_MARKERS
+            describes_publishing(step_.description) for step_ in plan
         )
         if publishes:
             keys.append(
@@ -922,7 +910,6 @@ def load_engines() -> None:
 __all__ = [
     "Engine",
     "PRICING_GUARDRAIL",
-    "PUBLISHING_STEP_MARKERS",
     "Profile",
     "REGULATED_GUARDRAIL",
     "SAFETY_GUARDRAIL",
