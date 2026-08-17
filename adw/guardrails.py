@@ -20,6 +20,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
+from functools import lru_cache
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -125,6 +126,61 @@ def check_safety_protocol(unit: Unit) -> list[Violation]:
 # --------------------------------------------------------------------------- #
 # rule 3 -- flag, collect, draft; never clear, diagnose, advise, approve
 # --------------------------------------------------------------------------- #
+
+
+def check_mission_is_self_contained(unit: Unit) -> list[Violation]:
+    """The mission is the only field that reaches a runtime.
+
+    At execution time the mission becomes the system prompt; the rest of the
+    spec -- artefact list, config keys, acceptance criteria -- is not in front
+    of the model. So a contract stated only in the YAML is a contract the model
+    never sees. Driven through an external model, a unit whose mission did not
+    name its artefacts invented its own set and produced no audit trail at all,
+    which breaks everything downstream keyed on the declared keys.
+    """
+    violations: list[Violation] = []
+    rule = "mission carries the whole contract"
+    mission = unit.mission
+
+    missing = [a.key for a in unit.artifacts if a.key not in mission]
+    if missing:
+        violations.append(
+            Violation(
+                unit.id,
+                rule,
+                Severity.ERROR,
+                f"mission does not name {len(missing)} declared artefact key(s): {missing[:4]}",
+            )
+        )
+
+    unnamed = [a.name for a in unit.artifacts if a.name not in mission]
+    if unnamed:
+        violations.append(
+            Violation(
+                unit.id,
+                rule,
+                Severity.ERROR,
+                f"mission does not name {len(unnamed)} artefact(s) by name: {unnamed[:3]}",
+            )
+        )
+
+    # The anti-fabrication rule is what stops a unit reciting a jurisdiction
+    # value it recognises from training instead of reading the pack.
+    lowered = mission.lower()
+    if "from your own knowledge" not in lowered:
+        violations.append(
+            Violation(unit.id, rule, Severity.ERROR, "mission omits the anti-fabrication rule")
+        )
+    if "a gate, not a gap" not in lowered:
+        violations.append(
+            Violation(
+                unit.id,
+                rule,
+                Severity.ERROR,
+                "mission does not say a missing setting is a gate rather than a gap to fill",
+            )
+        )
+    return violations
 
 
 def check_hard_interlock(unit: Unit) -> list[Violation]:
@@ -300,6 +356,65 @@ _CONFIG_CONTEXT = (
 )
 
 
+@lru_cache(maxsize=1)
+def _pack_keys() -> tuple[frozenset[str], tuple[str, ...]]:
+    """Every key each country pack answers, and the pack codes.
+
+    Returns the keys present in *every* pack, plus the pack codes, so the two
+    halves of the resolution rule can be checked separately: a key required by a
+    unit has to be answerable wherever that unit runs, not just somewhere.
+    """
+    packs_dir = Path(__file__).resolve().parent.parent / "packs" / "countries"
+    if not packs_dir.exists():
+        return frozenset(), ()
+    per_pack: list[set[str]] = []
+    codes: list[str] = []
+    for path in sorted(packs_dir.glob("*.yaml")):
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        keys = set(data) | set(data.get("settings") or {})
+        keys.discard("settings")
+        per_pack.append(keys)
+        codes.append(path.stem.upper())
+    if not per_pack:
+        return frozenset(), ()
+    return frozenset(set.intersection(*per_pack)), tuple(codes)
+
+
+def check_config_resolves(unit: Unit) -> list[Violation]:
+    """A declared config key must actually resolve to something.
+
+    Declaring a key is a promise that a value exists to be read. Where it does
+    not, the unit reaches runtime, finds nothing, and fills the hole from the
+    model's own knowledge -- which is exactly the hard-coding the config-not-code
+    rule exists to prevent, only now it is non-deterministic. Declaring the key
+    without populating it is worse than not declaring it, because the spec reads
+    as though the value is handled.
+    """
+    violations: list[Violation] = []
+    rule = "declared config resolves"
+    universal, codes = _pack_keys()
+    if not codes:  # no packs on disk; nothing to check against
+        return violations
+
+    for key in unit.config_keys:
+        if key.resolved_by != "country_pack":
+            continue
+        if key.key in universal:
+            continue
+        severity = Severity.ERROR if key.required else Severity.WARNING
+        violations.append(
+            Violation(
+                unit.id,
+                rule,
+                severity,
+                f"config key {key.key!r} is declared"
+                + (" and required" if key.required else "")
+                + " but no country pack defines it",
+            )
+        )
+    return violations
+
+
 def check_config_not_code(unit: Unit) -> list[Violation]:
     violations: list[Violation] = []
     rule = "config, not code"
@@ -402,11 +517,13 @@ def check_structure(unit: Unit) -> list[Violation]:
 
 CHECKS = (
     check_structure,
+    check_mission_is_self_contained,
     check_probabilistic_authority,
     check_safety_protocol,
     check_hard_interlock,
     check_owned_channels,
     check_config_not_code,
+    check_config_resolves,
 )
 
 
@@ -441,7 +558,9 @@ __all__ = [
     "audit",
     "audit_unit",
     "check_config_not_code",
+    "check_config_resolves",
     "check_hard_interlock",
+    "check_mission_is_self_contained",
     "check_owned_channels",
     "check_probabilistic_authority",
     "check_safety_protocol",

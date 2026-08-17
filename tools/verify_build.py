@@ -24,7 +24,13 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from adw.guardrails import audit, errors, warnings  # noqa: E402
 from adw.models import UnitType  # noqa: E402
-from adw.registry import AGENTS_DIR, Catalogue, Registry, available_country_packs  # noqa: E402
+from adw.registry import (  # noqa: E402
+    AGENTS_DIR,
+    Catalogue,
+    Registry,
+    available_country_packs,
+    load_country_pack,
+)
 from adw.router import coverage  # noqa: E402
 from engines.base import all_engines, load_engines  # noqa: E402
 
@@ -127,6 +133,30 @@ def main(argv: list[str] | None = None) -> int:
     thin = [u.id for u in registry if len(u.mission.split()) < 120]
     report.check("every mission is substantive (120+ words)", not thin, f"{len(thin)} thin: {thin[:5]}")
 
+    # The mission is the system prompt at runtime; the rest of the spec is not
+    # in front of the model. A contract stated only in YAML is not a contract.
+    unnamed = [
+        u.id
+        for u in registry
+        if any(a.key not in u.mission or a.name not in u.mission for a in u.artifacts)
+    ]
+    report.check(
+        "every mission names all its artefacts by key and name",
+        not unnamed,
+        f"{len(unnamed)} missions incomplete: {unnamed[:5]}",
+    )
+    unwarned = [
+        u.id
+        for u in registry
+        if "from your own knowledge" not in u.mission.lower()
+        or "a gate, not a gap" not in u.mission.lower()
+    ]
+    report.check(
+        "every mission carries the anti-fabrication rule",
+        not unwarned,
+        f"{len(unwarned)} missions missing it: {unwarned[:5]}",
+    )
+
     missions = Counter(u.mission for u in registry)
     duplicated = [m for m, n in missions.items() if n > 1]
     report.check(
@@ -210,6 +240,35 @@ def main(argv: list[str] | None = None) -> int:
     )
     packs = available_country_packs()
     report.check("country packs present", len(packs) >= 20, f"{len(packs)} packs")
+
+    # Declaring a config key is a promise that a value exists to be read. Where
+    # it does not, the unit reaches runtime, finds nothing, and fills the hole
+    # from the model's own knowledge -- non-deterministically.
+    declared = {k.key for u in registry for k in u.config_keys if k.resolved_by == "country_pack"}
+    required = {
+        k.key for u in registry for k in u.config_keys
+        if k.resolved_by == "country_pack" and k.required
+    }
+    answered = [set(load_country_pack(c).settings) for c in packs]
+    everywhere = set.intersection(*answered) if answered else set()
+    anywhere = set.union(*answered) if answered else set()
+    report.check(
+        "every country_pack key resolves in at least one pack",
+        declared <= anywhere,
+        f"unresolved: {sorted(declared - anywhere)[:6]}",
+    )
+    report.check(
+        "every required country_pack key resolves in every pack",
+        required <= everywhere,
+        f"missing somewhere: {sorted(required - everywhere)[:6]}",
+    )
+    missing_emergency = [c for c in packs if not load_country_pack(c).get("emergency_routing")]
+    report.check(
+        "every pack states its own emergency routing",
+        not missing_emergency,
+        str(missing_emergency),
+    )
+    print(f"         {len(declared)} country_pack keys declared, {len(everywhere)} answered by every pack")
 
     # -- 7. reproducibility ------------------------------------------------
     report.section("7. Reproducibility - nothing hand-edited")

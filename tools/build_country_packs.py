@@ -25,6 +25,9 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("PyYAML is required: pip install pyyaml")
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import pack_data  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = REPO_ROOT / "packs" / "countries"
 
@@ -466,6 +469,42 @@ PACKS: dict[str, dict[str, Any]] = {
 }
 
 
+def resolved_settings(code: str, pack: dict[str, Any]) -> dict[str, Any]:
+    """Everything this market answers, beyond the nine Localization fields.
+
+    Built as baseline-then-override so a key can never be silently absent: the
+    defaults supply the platform's cross-market position, the per-market tables
+    replace it where the jurisdiction differs, and the keys in
+    ``REQUIRED_PER_MARKET`` have no baseline at all -- a market that fails to
+    state one fails the build rather than shipping a plausible default. An
+    emergency number is the case that forces this: a default emergency number is
+    a wrong emergency number.
+    """
+    settings: dict[str, Any] = dict(pack_data.DEFAULTS)
+
+    routing = pack_data.EMERGENCY_ROUTING.get(code)
+    if routing is None:
+        raise AssertionError(
+            f"country pack {code} has no emergency_routing. This key has no default: "
+            "state it for the market or remove the pack."
+        )
+    settings["emergency_routing"] = {**routing, "script": pack_data.EMERGENCY_SCRIPT}
+
+    weekend = pack.get("settings", {}).get("weekend", ["saturday", "sunday"])
+    timezone = pack_data._TIMEZONE[code]
+    settings["working_calendar"] = pack_data.working_calendar(code, weekend, timezone)
+    settings["timezone"] = timezone
+    settings["contactable_hours"] = pack_data._CONTACTABLE_HOURS[code]
+    settings["consent_basis"] = pack_data._CONSENT_BASIS[code]
+    settings["tax_display_rules"] = pack_data._TAX_DISPLAY[code]
+    settings["statutory_clocks"] = pack_data._STATUTORY_CLOCKS.get(
+        code, pack_data._STATUTORY_CLOCKS_DEFAULT
+    )
+
+    settings.update(pack.get("settings", {}))
+    return settings
+
+
 def build() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     written = []
@@ -473,11 +512,15 @@ def build() -> int:
         missing = [f for f in REQUIRED_FIELDS if f not in pack]
         if missing:
             raise AssertionError(f"country pack {code} is missing: {missing}")
+        settings = resolved_settings(code, pack)
+        absent = [k for k in pack_data.REQUIRED_PER_MARKET if k not in settings]
+        if absent:
+            raise AssertionError(f"country pack {code} is missing per-market keys: {absent}")
         document = {
             "code": code,
             "name": pack["name"],
             **{field: pack[field] for field in REQUIRED_FIELDS},
-            "settings": pack.get("settings", {}),
+            "settings": settings,
         }
         path = OUT_DIR / f"{code.lower()}.yaml"
         with path.open("w", encoding="utf-8") as handle:
@@ -493,6 +536,7 @@ def build() -> int:
         written.append(code)
     print(f"wrote {len(written)} country packs to {OUT_DIR}")
     print("  " + " ".join(sorted(written)))
+    print(f"  keys answered per pack: {len(REQUIRED_FIELDS) + len(resolved_settings('US', PACKS['US']))}")
     return 0
 
 

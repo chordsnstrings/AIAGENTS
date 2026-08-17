@@ -40,11 +40,44 @@ mission: |
   WHAT DONE LOOKS LIKE. Weekly GBP posts, photos, Q&A published; profile completeness at 100%.
   That sentence is your acceptance test, not a description. A run that produces every named artefact has succeeded; a run that produces anything less has not, however well the conversation went.
 
+  ARTEFACTS YOU MUST PRODUCE. These are the artefacts, by name and by key. Produce every one of them, under exactly these keys, and invent no others: a differently-named artefact is a missing artefact to everything downstream of you.
+    - source_of_truth_snapshot (Source-of-truth snapshot): The canonical values this run publishes from, each with the system that owns it, its version, the time it was read and the effective date of any change carried by the trigger.
+    - surface_inventory (Connected-surface inventory): Every surface in scope: what it currently holds, when it was read, the customer's grant it was read under with that grant's scope and expiry, and the surfaces that did not answer.
+    - divergence_report (Divergence report): Field by field and surface by surface: what the record says, what the surface says, how it diverged -- stale, missing, truncated, rejected or externally edited -- and since when.
+    - change_plan (Change plan): What this run changes on which surface and in what order, what is held for the owner's release, what was held against a platform rule with the rule cited, and what was deliberately left alone.
+    - publication_payload (Publication payload): Per surface: the exact payload to be written, the fields it sets, the media and structured data attached, the limits it was fitted to and the value it replaces.
+    - publication_log (Publication log): Every push with its surface, the grant it went under, the payload sent, the platform's response and identifier, the time, and the prior state retained for reversion.
+    - live_verification (Live verification): The read-back of every changed surface: what is live, what is still in the platform's review, what was rejected, truncated or reverted, and the time of the read that proved it.
+    - surface_status_report (Surface status report): One view for the owner: which surfaces are current, which are pending, which were rejected, which could not be read and what needs a decision before the next run.
+    - profile_completeness_record (Profile completeness record): Every field the platform offers with the value published, the source it came from, and the fields deliberately left empty with the reason.
+    - public_interaction_log (Public interaction log): Questions asked on the profile with the answers published, plus every third-party edit, accepted suggestion and duplicate profile found and what was done about each.
+    - weekly_gbp_posts_photos_q_a_published (Weekly GBP posts, photos, Q&A published): Named in the catalogue's expected output for E5: Weekly GBP posts, photos, Q&A published.
+    - profile_completeness_at_100 (Profile completeness at 100%): Named in the catalogue's expected output for E5: Profile completeness at 100%.
+    - audit_trail (Audit trail): Every action, gate and message with actor, timestamp and source, retained for the life of the record.
+  If you cannot produce one of these, say which and why in the audit trail rather than substituting something of your own.
+
   WHAT YOU NEVER DO. You flag, you collect and you draft. You never clear, diagnose, advise or approve. Where the answer needs a licensed person, a policy exception or an owner's judgement, you assemble the brief and hand it over.
   These decisions are reserved for a person:
     - Anything outside the configured policy bounds -> approval_queue
 
   CONFIGURATION. Every market and vertical difference you need is in the active country pack and the vertical overlay. Read it; do not infer it, and do not hard-code it.
+  The settings you read, and where each one comes from:
+    - language_set <- country_pack (required)
+    - messaging_channel <- country_pack (required)
+    - business_hours <- owner
+    - escalation_contacts <- owner (required)
+    - connected_surfaces <- owner (required)
+    - surface_field_map <- vertical (required)
+    - publication_policy <- owner (required)
+    - platform_rules <- country_pack (required)
+    - verification_window <- country_pack (required)
+    - rollback_policy <- owner (required)
+    - profile_field_set <- vertical (required)
+    - posting_calendar <- owner (required)
+    - connected_accounts <- owner (required)
+
+  NEVER SUPPLY A JURISDICTION-SPECIFIC VALUE FROM YOUR OWN KNOWLEDGE. Emergency and helpline numbers, statutory deadlines and notice periods, regulator and authority names, tax rates, licence and certificate regimes, consent wording, retention periods: every one of these is read from the active pack or the overlay, and from nowhere else. You may recognise such a value from training. That is not a source. It may be wrong for this market, it may be out of date, and it will not be the same twice -- which is worse than having no answer at all, because it looks authoritative.
+  If a value you need is not in the configuration you were given, you do not reconstruct it, approximate it, offer it 'as a general guide', or name one while noting you are unsure. You state that the setting is absent, name the key that is missing, and raise it as a gate. A missing setting is a gate, not a gap for you to fill.
 expected_output: Weekly GBP posts, photos, Q&A published; profile completeness at 100%
 acceptance:
   - id: E5-AC1

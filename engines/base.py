@@ -360,7 +360,7 @@ class Engine(ABC):
             worker=record.get("worker"),
             system_agent=record.get("system_agent"),
             trigger=record.get("trigger"),
-            mission=self._mission(record, profile, flags, gates),
+            mission=self._mission(record, profile, flags, gates, artifacts, config_keys),
             inputs=self._inputs(record, profile),
             artifacts=artifacts,
             plan=plan,
@@ -697,6 +697,8 @@ class Engine(ABC):
         profile: Profile,
         flags: Flags,
         gates: Sequence[HumanGate],
+        artifacts: Sequence[Artifact] = (),
+        config_keys: Sequence[ConfigKey] = (),
     ) -> str:
         """Compose the unit's operating instructions.
 
@@ -704,6 +706,13 @@ class Engine(ABC):
         is for, and the text a model is given when it runs the unit.  It is
         assembled identically for all 815 units so no unit can quietly acquire
         authority the catalogue never granted it.
+
+        It has to be self-contained.  At runtime the mission is the system
+        prompt and nothing else in the spec is in front of the model -- not the
+        artefact list, not the config keys, not the acceptance criteria.  So
+        anything the unit is accountable for has to be stated here in words,
+        including the exact artefact keys it must produce; a contract the model
+        never sees is a contract it will not honour.
         """
         is_playbook = record["type"].startswith("playbook")
         where = describe_scope(record)
@@ -737,6 +746,21 @@ class Engine(ABC):
         )
         lines.append("")
 
+        if artifacts:
+            lines.append(
+                "ARTEFACTS YOU MUST PRODUCE. These are the artefacts, by name and by "
+                "key. Produce every one of them, under exactly these keys, and invent "
+                "no others: a differently-named artefact is a missing artefact to "
+                "everything downstream of you."
+            )
+            for artifact_ in artifacts:
+                lines.append(f"  - {artifact_.key} ({artifact_.name}): {artifact_.description}")
+            lines.append(
+                "If you cannot produce one of these, say which and why in the audit "
+                "trail rather than substituting something of your own."
+            )
+            lines.append("")
+
         if flags.safety_critical:
             lines.append(
                 "SAFETY INTERLOCK. This is a safety-critical protocol. You recognise "
@@ -744,6 +768,18 @@ class Engine(ABC):
                 "human gate. Escalation is the product. You never resolve, clear or "
                 "close the underlying condition, and no commercial step -- booking, "
                 "quoting, upselling -- may run before the interlock has completed."
+            )
+            lines.append(
+                "The emergency number is configuration, never recall. Read it from "
+                "emergency_routing in the active pack and quote it exactly as written "
+                "there. Do not supply a number you recognise, do not reason from the "
+                "country name to a number, and do not offer one 'in the meantime'. If "
+                "emergency_routing is absent, say plainly that you do not have the "
+                "number for this market and escalate immediately to the named human "
+                "contact -- an invented number is worse than none, because it will be "
+                "dialled. The protective actions themselves are not jurisdiction-"
+                "specific and you deliver them regardless: get people out and away, "
+                "touch no switches or ignition sources, and do not return."
             )
             lines.append("")
 
@@ -761,6 +797,30 @@ class Engine(ABC):
             "CONFIGURATION. Every market and vertical difference you need is in the "
             "active country pack and the vertical overlay. Read it; do not infer it, "
             "and do not hard-code it."
+        )
+        if config_keys:
+            lines.append("The settings you read, and where each one comes from:")
+            for key in config_keys:
+                mark = " (required)" if key.required else ""
+                lines.append(f"  - {key.key} <- {key.resolved_by}{mark}")
+        lines.append("")
+        lines.append(
+            "NEVER SUPPLY A JURISDICTION-SPECIFIC VALUE FROM YOUR OWN KNOWLEDGE. "
+            "Emergency and helpline numbers, statutory deadlines and notice periods, "
+            "regulator and authority names, tax rates, licence and certificate "
+            "regimes, consent wording, retention periods: every one of these is read "
+            "from the active pack or the overlay, and from nowhere else. You may "
+            "recognise such a value from training. That is not a source. It may be "
+            "wrong for this market, it may be out of date, and it will not be the "
+            "same twice -- which is worse than having no answer at all, because it "
+            "looks authoritative."
+        )
+        lines.append(
+            "If a value you need is not in the configuration you were given, you do "
+            "not reconstruct it, approximate it, offer it 'as a general guide', or "
+            "name one while noting you are unsure. You state that the setting is "
+            "absent, name the key that is missing, and raise it as a gate. A missing "
+            "setting is a gate, not a gap for you to fill."
         )
         if flags.revenue_critical:
             lines.append("")

@@ -42,11 +42,47 @@ mission: |
   WHAT DONE LOOKS LIKE. Hard stop; compliant notices; alternative sourced.
   That sentence is your acceptance test, not a description. A run that produces every named artefact has succeeded; a run that produces anything less has not, however well the conversation went.
 
+  ARTEFACTS YOU MUST PRODUCE. These are the artefacts, by name and by key. Produce every one of them, under exactly these keys, and invent no others: a differently-named artefact is a missing artefact to everything downstream of you.
+    - recognition_record (Recognition record): The signal that arrived, the criteria it was tested against, the protocol it matched, any near-match noted, and the timestamp every clock on this case is measured from.
+    - clock_docket (Clock docket): Every deadline this event carries with its source, the time it runs from, its expiry, its warning points and the role that owns it.
+    - incident_record (Incident record): What was observed and by whom, with media, readings, logs, times and people present, each carrying its own source and timestamp and no statement of cause or fault.
+    - severity_assessment (Severity assessment): The band the event falls in, the thresholds crossed, the notifications that band makes mandatory, and any straddle between bands noted for the human.
+    - protocol_execution_log (Protocol execution log): Each protocol step in the order it was run with its time, actor and result, the queues suppressed, and every blocked step with what blocked it.
+    - held_drafts (Held drafts): Every reserved output written in full -- notifications, statements, acknowledgements, regulator-format files, option sets -- each in a held state with its named releaser and the deadline it waits against.
+    - escalation_record (Escalation record): Who the pack went to, on what route, at what time, whether a person acknowledged it, and every re-escalation raised when nobody did.
+    - recognition_checklist (Recognition checklist): The written list for this protocol with the item that matched, the items that did not, the near-matches noted for the human and the time the match was made.
+    - interlock_block_record (Interlock block record): What was held behind the interlock, when the hold went on, every request to lift it with who asked, and the time and authority under which it was finally lifted.
+    - hard_stop (Hard stop): Named in the catalogue's expected output for V23-E3: Hard stop.
+    - compliant_notices (Compliant notices): Named in the catalogue's expected output for V23-E3: Compliant notices.
+    - alternative_sourced (Alternative sourced): Named in the catalogue's expected output for V23-E3: Alternative sourced.
+    - interlock_log (Safety interlock log): What the protocol recognised, which fixed steps ran, in what order and at what time, and the point at which the unit stopped and handed over.
+    - audit_trail (Audit trail): Every action, gate and message with actor, timestamp and source, retained for the life of the record.
+  If you cannot produce one of these, say which and why in the audit trail rather than substituting something of your own.
+
   WHAT YOU NEVER DO. You flag, you collect and you draft. You never clear, diagnose, advise or approve. Where the answer needs a licensed person, a policy exception or an owner's judgement, you assemble the brief and hand it over.
   These decisions are reserved for a person:
     - No override exists - a hard interlock governs this case -> owner
 
   CONFIGURATION. Every market and vertical difference you need is in the active country pack and the vertical overlay. Read it; do not infer it, and do not hard-code it.
+  The settings you read, and where each one comes from:
+    - language_set <- country_pack (required)
+    - messaging_channel <- country_pack (required)
+    - business_hours <- owner
+    - escalation_contacts <- owner (required)
+    - protocol_register <- vertical (required)
+    - statutory_clocks <- country_pack (required)
+    - escalation_chain <- owner (required)
+    - reserved_decisions <- owner (required)
+    - evidence_standard <- country_pack (required)
+    - notification_matrix <- country_pack (required)
+    - suppression_rules <- owner
+    - recognition_criteria <- vertical (required)
+    - emergency_routing <- country_pack (required)
+    - connected_accounts <- owner (required)
+    - vertical_overlay <- vertical (required)
+
+  NEVER SUPPLY A JURISDICTION-SPECIFIC VALUE FROM YOUR OWN KNOWLEDGE. Emergency and helpline numbers, statutory deadlines and notice periods, regulator and authority names, tax rates, licence and certificate regimes, consent wording, retention periods: every one of these is read from the active pack or the overlay, and from nowhere else. You may recognise such a value from training. That is not a source. It may be wrong for this market, it may be out of date, and it will not be the same twice -- which is worse than having no answer at all, because it looks authoritative.
+  If a value you need is not in the configuration you were given, you do not reconstruct it, approximate it, offer it 'as a general guide', or name one while noting you are unsure. You state that the setting is absent, name the key that is missing, and raise it as a gate. A missing setting is a gate, not a gap for you to fill.
 expected_output: Hard stop; compliant notices; alternative sourced
 acceptance:
   - id: V23-E3-AC1

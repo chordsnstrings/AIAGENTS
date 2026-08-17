@@ -40,6 +40,246 @@ seasonal_calendar:
 - Summer AC peak
 - Back to school
 settings:
+  evidence_standard: 'Capture at the time of the event, never reconstructed afterwards: what happened,
+    when, where, who was present, who recorded it, and the system that produced each item. Photographs
+    carry their timestamp and location; statements are in the witness''s own words and taken separately;
+    readings carry the instrument and its calibration date. Retain for the longer of seven years, the
+    limitation period in regulator_guardrails, or any contractual period in the vertical overlay.'
+  evidence_retention: Every observation is stored with its source, its timestamp and the actor who recorded
+    it, and kept for the longer of seven years or the limitation period that applies to the matter under
+    regulator_guardrails. Originals are never overwritten; corrections are appended.
+  evidence_retention_window: Quotes, approvals, signatures and delivery proof remain retrievable for seven
+    years, or longer where the vertical overlay or regulator_guardrails requires it.
+  notification_matrix: 'For every event class: the customer first where they are affected, then the owner,
+    then any third party under contract, then any regulator named in regulator_guardrails. Safety events
+    go to the human contact immediately and in parallel, never in sequence. Each notification records
+    recipient, channel, time sent and delivery state. Which notifications are mandatory rather than courteous
+    is set by regulator_guardrails for this market.'
+  document_validity_rules: An item counts when it is legible at full page width, unexpired at the date
+    of filing, issued by a body the vertical overlay accepts, and complete including every page and both
+    sides where the document has them. Scans are colour, unedited and unwatermarked. Expiry is measured
+    at the filing date, not the collection date. Anything failing these is chased, never accepted with
+    a note.
+  submission_deadlines: 'Each pack type carries its deadline in the vertical overlay; this pack sets how
+    it is counted (see statutory_clocks and working_calendar) and the internal lead time: an incomplete
+    pack is escalated at 50% of the remaining window, and again at 80%, rather than at the deadline itself.'
+  tolerance_and_rounding: 'Absorb without raising a break: rounding to the minor unit of the currency,
+    documented currency-conversion spreads, and known settlement timing offsets inside the settlement_calendar
+    window. Anything above 1% of the transaction or the equivalent of 50 units of the pack currency, whichever
+    is lower, raises a break. Tolerances are never applied cumulatively to hide a trend.'
+  citation_style: Name the source, its date and its version, and link to it where the contact can open
+    it. A position without a citation is not shown to a contact.
+  deadline_rules: See statutory_clocks for how a period is counted in this market. Service is effective
+    when delivery is evidenced, not when the message is sent.
+  standards_and_clause_sets: The standards and licence conditions the business is held to come from the
+    vertical overlay and from regulator_guardrails; each clause is evidenced against evidence_standard
+    and cited with its version and effective date.
+  capture_policy: Every third-party reading is stored with its source system, the time it was taken and
+    the identifier of the record it was taken against, and retained per evidence_retention so it can still
+    be produced in a dispute.
+  adverse_action_wording: A negative result states the decision, the specific reason, the evidence relied
+    on, the route to challenge it and the time limit on that route. It never states or implies a diagnosis,
+    a judgement of character, or a conclusion the business is not qualified to reach. Wording required
+    by a regulator overrides this and comes from regulator_guardrails.
+  scheme_rules: The adjudication or statutory scheme governing a dispute comes from regulator_guardrails
+    for this market; its deadlines run under statutory_clocks and its evidence bar under evidence_standard.
+    Failing to respond inside a scheme deadline is treated as a breach and escalated, never allowed to
+    lapse silently.
+  claim_rules: No superlative, guarantee, outcome or comparative claim is made without evidence held on
+    file and dated. Testimonials are real, attributed, unedited in substance and accompanied by any typicality
+    qualifier. Endorsements disclose the material connection. Anything a regulator in regulator_guardrails
+    restricts is not said at all.
+  statutory_clock_calendar: Statutory response windows run under statutory_clocks and are adjusted against
+    working_calendar before any due date is published.
+  platform_rules: Each surface's own policy governs content, uniqueness, media, disclosure and volume.
+    Where a push would breach one, the push is held and the conflict is surfaced; the platform's rule
+    is never worked around, and no content is published from an account the customer does not own.
+  verification_window: 'A change is read back on the surface before it is called live: within 1 hour for
+    an API-backed surface and within 72 hours for one that reviews submissions. A change still pending
+    in the platform''s own queue is reported as pending, never as live.'
+  media_consent_policy: Written consent before an identifiable person, a customer's premises or their
+    property is stored, re-used or shown, recorded against the asset with its date, scope and expiry.
+    Consent for one use is not consent for another. Withdrawal removes the asset from every surface it
+    reached.
+  media_retention: Originals are held per evidence_retention and derivatives no longer than the consent
+    that permits them. Faces of non-consenting people, vehicle plates, documents and third-party property
+    are redacted before any media leaves the record.
+  risk_typologies: 'Patterns and thresholds that raise a flag come from regulator_guardrails and the vertical
+    overlay, and every flag cites the rule id that raised it. A flag is a flag: the unit never concludes
+    that a typology is or is not made out.'
+  referral_route: Flags go to the compliance contact in escalation_contacts inside one working day, and
+    to the statutory route named in regulator_guardrails inside that route's own deadline. The unit refers;
+    it does not decide.
+  monitored_surfaces: The surfaces in review_surface and messaging_channel for this market, plus any community
+    or group named in the vertical overlay, checked hourly during a live comms window and daily otherwise.
+  forecast_thresholds: Work is held or re-sequenced rather than attempted when the feeds in the vertical
+    overlay report conditions beyond their stated thresholds. Where no threshold is set for a condition,
+    the unit holds and asks rather than proceeding.
+  verification_standard: Two independent factors before any account detail is discussed, at least one
+    of which is not the channel the contact arrived on. A failed verification ends the disclosure, not
+    the conversation.
+  disclosure_handling_rules: What may be asked and what must be recorded come from the vertical overlay;
+    nothing about an identified individual is shared outside the people named in escalation_contacts,
+    and special-category information is recorded once, minimally, and never repeated in an outbound message.
+  presentation_windows: The window to present or correct documents comes from the instrument or the lane
+    in the vertical overlay; the unit runs the clock under statutory_clocks, states what accrues per day
+    once missed, and names who bears it.
+  consent_wording: State who is collecting, for what purpose, on what basis under consent_basis, how long
+    it is kept, and how to withdraw. Withdrawal must be as easy as giving it.
+  travel_time_model: 'Estimate from the routing provider in the vertical overlay with live traffic where
+    available, then add a buffer: 15 minutes urban, 25 minutes where access, parking or site sign-in is
+    involved, 40 minutes where a crossing, ferry or controlled access is on the route. Never publish an
+    ETA tighter than the estimate.'
+  dispute_hold_rules: A contested amount is held, not pursued, while the dispute is open, and the response
+    deadlines come from scheme_rules. Collection activity on a held amount is a breach.
+  claim_notification_windows: Notification windows come from the policy or carrier contract in the vertical
+    overlay. The unit notifies at the earliest point the facts are known, states what is not yet known
+    rather than waiting for it, and never lets a window pass unnotified because the file is incomplete.
+  protocol_clock: Every signal class starts its clock on detection, not on triage, and carries the deadline
+    set in the vertical overlay. The clock is never restarted by an internal handover.
+  settlement_calendar: Settlement cycles and cut-offs come from the payment_rails in use and the vertical
+    overlay. A break is closed by the next cut-off after it is raised, or escalated.
+  breach_notification_rules: Thresholds, recipients and clocks come from regulator_guardrails for this
+    market. The unit assembles the notification and starts the clock; whether to notify is a human decision,
+    and the unit escalates it immediately rather than assessing it.
+  claim_rule_set: Entitlement rules come from the policy, scheme or statute named in the vertical overlay,
+    cited with their version. The unit computes the position those rules produce and never states the
+    outcome.
+  verification_standards: Identity, address, ownership, control and source of funds are proven to the
+    standard in regulator_guardrails before a relationship opens, with the accepted document classes and
+    their validity taken from document_validity_rules.
+  rule_book: The rule set an item is tested against comes from regulator_guardrails or the vertical overlay,
+    cited with its version and effective date. An untested item is reported as untested, never as passing.
+  consent_forms: Permission wording, its version history, its validity period and who is competent to
+    give it come from the vertical overlay; where the subject cannot consent for themselves, the authorised
+    person and the evidence of their authority are recorded before anything proceeds.
+  estate_document_checklist: The documents an estate or authorised representative must produce come from
+    the vertical overlay for this market. Nothing is released, and no balance or detail is disclosed,
+    until the authority is evidenced and a human has approved the release.
+  disclosure_limits: Each document type states only what the vertical overlay permits it to state. Where
+    the record holds more than the document may show, the extra is withheld and the requester is told
+    a fuller record exists and how to request it properly.
+  certificate_regimes: Which tests and certificates apply to each asset class, how often they fall due
+    and who may issue them come from statutory_date_sets for this market and the vertical overlay. The
+    unit tracks and reminds; it never certifies.
+  reportable_event_criteria: What counts as reportable comes from regulator_guardrails for this market.
+    Where an event is arguably reportable, it is escalated as reportable and a human decides.
+  reporting_deadlines: Deadlines for each reportable event type come from regulator_guardrails and run
+    under statutory_clocks. The clock starts at the moment of awareness.
+  channel_switch_policy: Offer a switch to the market's primary messaging_channel when the thread needs
+    documents, a signature or continuity across days; carry the full context across; never start a new
+    thread that loses history.
+  aging_ladder: Day 1 a neutral reminder, day 7 a restatement with the payment link, day 14 a notice of
+    the contractual consequence, day 30 escalation to a human. Tone stays factual throughout. Any fee
+    is the one in the published terms and is applied only where those terms allow it.
+  working_time_rules: Maximum hours, minimum rest, breaks, staffing ratios, lone-working rules and the
+    qualification each shift requires come from regulator_guardrails and the vertical overlay. A roster
+    that breaches one is not published; it is escalated.
+  exit_policy: Notice periods, final billing, returns and data handling on exit come from the contract
+    in the vertical overlay. Data is returned in a portable format before it is deleted, and deletion
+    is confirmed in writing.
+  notice_service_rules: Form, channel and minimum period come from the contract or statute in the vertical
+    overlay; service is proved by delivery evidence retained under evidence_retention, and the period
+    runs under statutory_clocks.
+  filing_obligations: Which returns are owed, to which office and on what frequency come from tax_filing_calendar
+    for this market and the vertical overlay. The unit tracks and prepares; a human files.
+  identity_keys: Match on the national identifier where the market has one, then on normalised email,
+    then on E.164 phone, then on normalised name plus date of birth plus postcode. Exact on identifiers,
+    normalised on contact fields, fuzzy only on name, and never fuzzy alone.
+  review_surfaces: The surfaces listed in review_surface for this market, in the order given there.
+  chase_ladder: Three automated touches at 3, 7 and 14 days, each restating the amount, the reason and
+    the route to dispute it, then a human. Automated chasing stops entirely once a dispute is raised or
+    hardship is disclosed.
+  call_recording_policy: Announce recording before it starts, in the languages in language_set, and state
+    the purpose and retention. Whether one-party or all-party consent applies comes from regulator_guardrails
+    for this market; where a caller refuses, the call continues unrecorded or is transferred, and the
+    refusal is logged.
+  voice_disclosure: State that the caller is speaking to an automated assistant in the first turn, before
+    anything is collected, in the languages in language_set, and offer a route to a person at any point.
+  recording_retention: Audio and transcripts are held per evidence_retention, with payment details and
+    special-category content redacted before storage. An erasure request is actioned against both the
+    audio and the transcript.
+  signature_requirements: Signer identity, signing order, witnessing, cooling-off notices and the copies
+    each party receives come from the contract type in the vertical overlay and from regulator_guardrails.
+    An unsigned or out-of-order document is not treated as executed.
+  pay_rules: Rates, premiums, statutory additions and deductions and the order they are calculated in
+    come from the vertical overlay and regulator_guardrails for this market. The unit computes and presents;
+    a human approves before anything is paid.
+  statutory_limits: Ratios, duty hours, rest periods and qualification requirements come from regulator_guardrails
+    and the vertical overlay. A breach is surfaced immediately, not averaged away across a period.
+  authorisation_types: Which permissions an activity requires, the authority for each, the documents each
+    application needs and the statutory response time come from the vertical overlay and statutory_date_sets
+    for this market.
+  employment_advertising_rules: Pay transparency, protected characteristics, statutory notices and right-to-work
+    wording come from regulator_guardrails for this market. No advert states or implies a preference on
+    a protected characteristic, and no advert is published without the statutory notices that market requires.
+  client_money_rules: Money held for another party is held separately, never used for the business's own
+    purposes, and reconciled at the frequency regulator_guardrails mandates for this market. A shortfall
+    is escalated the same day.
+  same_day_clock: A break is surfaced to the owner inside four working hours of detection, and immediately
+    to the out-of-hours contact in escalation_contacts where it opens outside working_calendar hours.
+  notifiable_breach_route: Which breaches are reportable, to which body and inside what deadline come
+    from regulator_guardrails for this market. The unit assembles and escalates; a human decides and reports.
+  media_consent: Written consent before an identifiable person appears in any asset, held against the
+    asset with its scope and expiry, per media_consent_policy.
+  reporting_period_rules: The as-at date, reporting period, required tables and mandated disclosures come
+    from regulator_guardrails and the vertical overlay, with each figure carrying its basis of preparation
+    and its source system.
+  synthetic_media_disclosure: Generated imagery, video and voice are labelled as generated wherever they
+    are published, in the languages in language_set. Where a market or a surface requires specific wording
+    it comes from regulator_guardrails and platform_rules; where neither specifies, the label is still
+    applied.
+  data_sharing_consent: A record is shared with an advertising platform only where consent_basis permits
+    it for that purpose, and never where a suppression or objection flag is set. The suppression state
+    overrides every other signal on the record.
+  financing_providers: Providers, their products, eligibility rules and the agreed commission come from
+    the business record. The unit presents offers and discloses the commercial relationship per referral_disclosure;
+    it never recommends one, and never states eligibility.
+  referral_disclosure: The commercial relationship and any commission are disclosed alongside the offer,
+    before the customer acts on it, in the languages in language_set and to the standard regulator_guardrails
+    sets for this market.
+  confidentiality_rules: Nothing about a named individual is confirmed or disclosed in public, including
+    whether they are a customer. Public replies move to a private channel before any detail is discussed.
+  caller_authentication: 'A calling agent is identified by a credential issued to it, rate-limited per
+    credential, revocable without a deploy, and recorded on every call. An unauthenticated caller sees
+    published information only: never availability against a named person, never a price outside the published
+    price book, and never anything about an identified customer.'
+  rail_link_format: Deep links are built for the primary channel in messaging_channel for this market,
+    prefilled with the business identifier and the thread reference, with a web fallback for any device
+    that cannot open the rail.
+  directory_set: The directories and aggregators in attach_to_platforms for this market, with the primary
+    listing feeding the rest so name, address and phone are corrected once.
+  portfolio_consent_scope: Consent before a customer's job, premises or likeness is shown, recorded per
+    media_consent_policy with its scope and expiry. Withdrawal removes the asset from every surface it
+    reached and is confirmed back to the customer.
+  emergency_routing:
+    general: '112'
+    police: 112 (155)
+    fire: 112 (110)
+    ambulance: '112'
+    poison: 114 (Ulusal Zehir Danisma Merkezi)
+    gas_leak: 187 (dogalgaz acil / ariza)
+    electricity: 186 (elektrik ariza)
+    confirm_locally: []
+    script: 'Deliver the protective actions first and without waiting for anyone: get everyone out and
+      away from the building, touch no switches, plugs, lights or ignition sources, do not use a doorbell
+      or a phone inside, leave doors open on the way out if it is safe to, and do not go back in. Then
+      give the number exactly as written in this pack. Quote no number that is not written here. If the
+      entry you need says there is no national line, say that, give the general number, and escalate to
+      the named human contact immediately.'
+  working_calendar: Working days are Monday to Friday with a saturday/sunday weekend. Time zone Europe/Istanbul.
+    Public holidays for TR come from the holiday calendar on the business record and are treated as non-working
+    days. Quiet hours are those outside contactable_hours. Every due date and every send is adjusted against
+    this calendar before it is published or scheduled.
+  timezone: Europe/Istanbul
+  contactable_hours: 09:00-20:00; no commercial messages on Sundays or public holidays.
+  consent_basis: 'KVKK plus IYS: commercial electronic messages must be registered in the IYS system with
+    consent recorded there; opt-out via IYS honoured.'
+  tax_display_rules: Prices shown inclusive of KDV to consumers.
+  statutory_clocks: Periods are counted in calendar days unless the governing instrument says working
+    days; the day of the triggering event is not counted; a deadline falling on a non-working day in this
+    market's working_calendar moves to the next working day. Specific intervals come from the vertical
+    overlay, not from this pack, and never from recall.
   date_format: DD.MM.YYYY
   currency: TRY
   week_starts: monday
