@@ -269,16 +269,35 @@ EMERGENCY_ROUTING: dict[str, dict[str, Any]] = {
 }
 
 #: Appended to every emergency_routing entry. The protective actions are not
-#: jurisdiction-specific, so they are stated once and are always available even
-#: where a number is not.
+#: jurisdiction-specific and depend on no number being known, so they are stated
+#: once and are always available even where a number is not.
 EMERGENCY_SCRIPT = (
-    "Deliver the protective actions first and without waiting for anyone: get "
-    "everyone out and away from the building, touch no switches, plugs, lights "
-    "or ignition sources, do not use a doorbell or a phone inside, leave doors "
-    "open on the way out if it is safe to, and do not go back in. Then give the "
-    "number exactly as written in this pack. Quote no number that is not written "
-    "here. If the entry you need says there is no national line, say that, give "
-    "the general number, and escalate to the named human contact immediately."
+    "Deliver the protective actions first and without waiting for anyone, and "
+    "note that none of them require knowing any number: get everyone out and "
+    "away from the building, touch no switches, plugs, lights or ignition "
+    "sources, do not use a doorbell or a phone inside, leave doors open on the "
+    "way out if it is safe to, and do not go back in. Then give the number "
+    "exactly as written in this pack. Quote no number that is not written here. "
+    "If the entry you need says there is no national line, say that, give the "
+    "general number from this pack, and escalate to the named human contact "
+    "immediately."
+)
+
+#: What to say when this pack -- or any pack -- was not loaded. Kept here rather
+#: than left to the unit because the answer to "what do I say when I have no
+#: configuration" is itself configuration, and a unit improvising it under
+#: pressure is the failure mode that produced a recalled number in the first
+#: place. Contains no digits by design.
+EMERGENCY_ABSENT_SCRIPT = (
+    "Use this exact shape when emergency_routing is not loaded. It contains no "
+    "digits and needs none. (1) The protective actions above, in full. (2) 'Call "
+    "your local emergency number now -- your phone can reach emergency services "
+    "through its emergency-call function without you needing to know the "
+    "number.' (3) The named human contact from escalation_contacts. (4) The "
+    "gate: state that emergency_routing is absent for this market and that the "
+    "case is escalated. Do not name a number for any country, do not offer one "
+    "conditionally, and do not add one after refusing -- a refusal followed by "
+    "digits has supplied the digits."
 )
 
 

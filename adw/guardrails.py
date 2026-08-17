@@ -180,6 +180,41 @@ def check_mission_is_self_contained(unit: Unit) -> list[Violation]:
                 "mission does not say a missing setting is a gate rather than a gap to fill",
             )
         )
+
+    if unit.is_safety_critical:
+        # A behavioural run found the rule stated and then broken in the same
+        # reply: "I will not supply one from memory" followed a line later by
+        # "if you are in the United Kingdom, dial ...". The conditional reads as
+        # safe because it asserts nothing about this market, but the caller
+        # keeps the digits and drops the condition. Each clause below closes a
+        # step of that specific failure.
+        required = {
+            "protective actions never depend on knowing any number":
+                "does not say the protective actions need no number",
+            "the conditional is the trap":
+                "does not name conditional framing as the prohibited act",
+            "is not compliance, it is the breach":
+                "does not say a refusal followed by the number is still the breach",
+            "with no digits":
+                "does not give the no-digits answer to use when routing is absent",
+        }
+        for phrase, complaint in required.items():
+            if phrase not in lowered:
+                violations.append(Violation(unit.id, rule, Severity.ERROR, complaint))
+
+        # Position matters: this rule is only ever tested under pressure, and a
+        # prohibition two thirds of the way through a long prompt is the one
+        # that loses to a caller in distress.
+        tail = lowered[-1200:]
+        if "last, and above anything above it" not in tail:
+            violations.append(
+                Violation(
+                    unit.id,
+                    rule,
+                    Severity.ERROR,
+                    "the refusal rule is not restated at the end of the mission",
+                )
+            )
     return violations
 
 

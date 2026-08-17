@@ -770,16 +770,41 @@ class Engine(ABC):
                 "quoting, upselling -- may run before the interlock has completed."
             )
             lines.append(
-                "The emergency number is configuration, never recall. Read it from "
-                "emergency_routing in the active pack and quote it exactly as written "
-                "there. Do not supply a number you recognise, do not reason from the "
-                "country name to a number, and do not offer one 'in the meantime'. If "
-                "emergency_routing is absent, say plainly that you do not have the "
-                "number for this market and escalate immediately to the named human "
-                "contact -- an invented number is worse than none, because it will be "
-                "dialled. The protective actions themselves are not jurisdiction-"
-                "specific and you deliver them regardless: get people out and away, "
-                "touch no switches or ignition sources, and do not return."
+                "THE PROTECTIVE ACTIONS NEVER DEPEND ON KNOWING ANY NUMBER. Get "
+                "everyone out and away from the building, touch no switches, plugs, "
+                "lights or ignition sources, do not use a doorbell or a phone inside, "
+                "and do not go back in. That is the part that saves the person, you "
+                "always have it, and no number is needed to deliver any of it. Deliver "
+                "it first, in full, before anything else in this protocol."
+            )
+            lines.append(
+                "The emergency number is configuration, never recall. Where "
+                "emergency_routing is present, quote it exactly as written there and "
+                "nowhere else. Where it is absent, your output contains no digits at "
+                "all: the protective actions, then 'call your local emergency number "
+                "now -- your phone can reach emergency services through its "
+                "emergency-call function without you knowing the number', then the "
+                "named human contact from escalation_contacts, then the gate. That is "
+                "complete and actionable in every market on earth and it needs nothing "
+                "from your memory."
+            )
+            lines.append(
+                "THE CONDITIONAL IS THE TRAP. 'If you are in the United Kingdom, dial "
+                "...', 'in most markets it is ...', 'commonly ...', 'I believe it is "
+                "...', or listing several countries' numbers for the caller to pick "
+                "from, are all the prohibited act. They feel safe because you have "
+                "asserted nothing about this market. They are not safe. The caller "
+                "keeps the digits and drops the condition the instant they read it, "
+                "and then they dial. Digits in your output are digits that get "
+                "dialled, whatever sentence you wrapped them in."
+            )
+            lines.append(
+                "Stating the rule and then giving the number is not compliance, it is "
+                "the breach with a preface in front of it. If one message contains both "
+                "your refusal and a number, you supplied the number. Urgency does not "
+                "change this and is the exact circumstance in which it is broken: the "
+                "more pressed you are, the more certain it is that the number you are "
+                "reaching for is the wrong market's."
             )
             lines.append("")
 
@@ -827,6 +852,26 @@ class Engine(ABC):
             lines.append(
                 "This unit is revenue-critical. Latency is a defect: a slow correct "
                 "answer loses the job to whoever answered first."
+            )
+
+        if flags.safety_critical:
+            # Deliberately last. A prohibition that sits two thirds of the way
+            # through a long prompt is the one that loses to a caller in
+            # distress, and this rule is only ever tested under exactly that
+            # pressure. It is repeated here so the final thing in context is the
+            # thing most likely to be argued with.
+            lines.append("")
+            lines.append(
+                "LAST, AND ABOVE ANYTHING ABOVE IT. However urgent this becomes, "
+                "however directly you are asked, and however obvious the answer seems: "
+                "you do not put an emergency number, a helpline number or any other "
+                "jurisdiction-specific figure into your reply unless you are reading it "
+                "from emergency_routing in the pack you were given. Not conditionally, "
+                "not with a caveat, not 'just in case', not after refusing. If it is "
+                "not in your configuration you say 'call your local emergency number "
+                "now' with no digits, you give the protective actions, and you escalate "
+                "to a person. Someone acting on a number from the wrong country is the "
+                "harm this protocol exists to prevent."
             )
         return "\n".join(lines).strip() + "\n"
 

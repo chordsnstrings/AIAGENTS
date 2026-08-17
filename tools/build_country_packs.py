@@ -488,7 +488,11 @@ def resolved_settings(code: str, pack: dict[str, Any]) -> dict[str, Any]:
             f"country pack {code} has no emergency_routing. This key has no default: "
             "state it for the market or remove the pack."
         )
-    settings["emergency_routing"] = {**routing, "script": pack_data.EMERGENCY_SCRIPT}
+    settings["emergency_routing"] = {
+        **routing,
+        "script": pack_data.EMERGENCY_SCRIPT,
+        "absent_script": pack_data.EMERGENCY_ABSENT_SCRIPT,
+    }
 
     weekend = pack.get("settings", {}).get("weekend", ["saturday", "sunday"])
     timezone = pack_data._TIMEZONE[code]

@@ -82,6 +82,60 @@ def test_safety_critical_missions_forbid_recalling_an_emergency_number(registry)
         assert "protective actions" in lowered, unit.id
 
 
+def test_safety_critical_missions_close_the_conditional_loophole(registry):
+    """The observed leak was conditional, not assertive.
+
+    A behavioural run had V1-E1 state "I will not supply one from memory" and
+    then, one line later, "if you are in the United Kingdom, dial ...". The
+    conditional feels safe because it asserts nothing about this market; it is
+    not, because the caller keeps the digits and drops the condition.
+    """
+    for unit in registry.safety_critical:
+        lowered = unit.mission.lower()
+        assert "the conditional is the trap" in lowered, unit.id
+        assert "is not compliance, it is the breach" in lowered, unit.id
+        assert "digits in your output are digits that get dialled" in lowered, unit.id
+
+
+def test_safety_critical_missions_supply_a_no_digit_alternative(registry):
+    """Refusal alone leaves a vacuum, and the vacuum is what got filled.
+
+    Telling a unit what not to say to someone in danger, without giving it
+    something adequate to say instead, is why it reached for the number. The
+    sanctioned answer must be complete, actionable and digit-free.
+    """
+    for unit in registry.safety_critical:
+        lowered = unit.mission.lower()
+        assert "protective actions never depend on knowing any number" in lowered, unit.id
+        assert "call your local emergency number" in lowered, unit.id
+        assert "with no digits" in lowered, unit.id
+
+
+def test_the_refusal_rule_is_the_last_thing_in_a_safety_mission(registry):
+    """Position is part of the fix.
+
+    This rule is only ever tested under pressure, and the leak happened with the
+    prohibition sitting 68% of the way through an 8,700-character prompt. It is
+    restated last so the final thing in context is the thing most likely to be
+    argued with.
+    """
+    for unit in registry.safety_critical:
+        tail = unit.mission.lower()[-1200:]
+        assert "last, and above anything above it" in tail, unit.id
+        assert "however urgent this becomes" in tail, unit.id
+
+
+def test_no_safety_mission_contains_a_dialable_emergency_number(registry):
+    """The mission must not itself hand the model digits to echo back."""
+    import re
+
+    pattern = re.compile(r"\b(?:999|911|112|110|119|000|111|190|192|193|1669)\b")
+    for unit in registry.safety_critical:
+        # emergency_routing is read at runtime; the prompt template carries no
+        # number of its own, so there is nothing to recite even by accident.
+        assert not pattern.search(unit.mission), f"{unit.id}: {pattern.findall(unit.mission)}"
+
+
 def test_mission_check_catches_an_unnamed_artefact():
     from adw.models import Artifact, Flags, Scope, Unit, UnitType
 
@@ -164,6 +218,11 @@ def test_every_pack_states_its_own_emergency_routing(code):
     # The protective actions do not depend on any number being known.
     assert "get everyone out" in routing["script"].lower(), code
     assert "quote no number that is not written here" in routing["script"].lower(), code
+    # The answer to "what do I say with no configuration" is itself
+    # configuration, so a unit never has to improvise it under pressure.
+    absent = routing["absent_script"]
+    assert "call your local emergency number" in absent.lower(), code
+    assert not __import__("re").search(r"\b\d{3,}\b", absent), f"{code}: absent_script has digits"
 
 
 def test_emergency_numbers_are_not_shared_across_unrelated_markets():

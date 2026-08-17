@@ -271,12 +271,20 @@ settings:
     confirm_locally:
     - gas_leak
     - electricity
-    script: 'Deliver the protective actions first and without waiting for anyone: get everyone out and
-      away from the building, touch no switches, plugs, lights or ignition sources, do not use a doorbell
-      or a phone inside, leave doors open on the way out if it is safe to, and do not go back in. Then
-      give the number exactly as written in this pack. Quote no number that is not written here. If the
-      entry you need says there is no national line, say that, give the general number, and escalate to
-      the named human contact immediately.'
+    script: 'Deliver the protective actions first and without waiting for anyone, and note that none of
+      them require knowing any number: get everyone out and away from the building, touch no switches,
+      plugs, lights or ignition sources, do not use a doorbell or a phone inside, leave doors open on
+      the way out if it is safe to, and do not go back in. Then give the number exactly as written in
+      this pack. Quote no number that is not written here. If the entry you need says there is no national
+      line, say that, give the general number from this pack, and escalate to the named human contact
+      immediately.'
+    absent_script: 'Use this exact shape when emergency_routing is not loaded. It contains no digits and
+      needs none. (1) The protective actions above, in full. (2) ''Call your local emergency number now
+      -- your phone can reach emergency services through its emergency-call function without you needing
+      to know the number.'' (3) The named human contact from escalation_contacts. (4) The gate: state
+      that emergency_routing is absent for this market and that the case is escalated. Do not name a number
+      for any country, do not offer one conditionally, and do not add one after refusing -- a refusal
+      followed by digits has supplied the digits.'
   working_calendar: Working days are Monday to Friday with a saturday/sunday weekend. Time zone America/New_York
     (business may sit in any of six zones - read the site record). Public holidays for US come from the
     holiday calendar on the business record and are treated as non-working days. Quiet hours are those
