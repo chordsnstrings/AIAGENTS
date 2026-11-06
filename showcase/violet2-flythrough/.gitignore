@@ -1,1 +1,3 @@
 node_modules/
+# the built bundle is committed so the page runs from a plain checkout
+!dist/
