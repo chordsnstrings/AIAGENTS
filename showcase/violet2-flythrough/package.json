@@ -5,7 +5,8 @@
   "scripts": {
     "build": "esbuild src/main.js --bundle --minify --format=esm --target=es2020 --outfile=dist/app.js --legal-comments=none",
     "dev": "esbuild src/main.js --bundle --format=esm --outfile=dist/app.js --sourcemap --watch",
-    "serve": "python3 -m http.server 8080"
+    "serve": "python3 -m http.server 8080",
+    "bake": "node scripts/bake-gi.mjs"
   },
   "license": "UNLICENSED",
   "dependencies": {
@@ -15,5 +16,8 @@
     "three": "^0.187.0"
   },
   "private": true,
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "three-mesh-bvh": "^0.9.18"
+  }
 }

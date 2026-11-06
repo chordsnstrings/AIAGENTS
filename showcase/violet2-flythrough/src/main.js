@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { Builder, meshes } from './builder.js';
 import { buildShell } from './house.js';
 import { buildInterior, makeKit } from './interior.js';
@@ -12,10 +11,14 @@ import { DronePath, DroneRig } from './path.js';
 import { createPost } from './post.js';
 import { initUI } from './ui.js';
 import { makeDust } from './volumetric.js';
+import { createGI } from './gi.js';
 
 const params = new URLSearchParams(location.search);
 const STILL = params.has('p');
 const FIXED_P = parseFloat(params.get('p') || '0');
+// baked volume -> page units: lamps at dusk, and a fill factor on daylight for the bounces past
+// the two the bake traces (light walls keep interreflecting)
+const GI_LAMP = 0.45, GI_FILL = 3.0, GI_WB = [1.0, 1.0, 0.97];
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function detectTier() {
@@ -28,10 +31,10 @@ function detectTier() {
 }
 const TIER = detectTier();
 const Q = {
-  high: { dprMax: 2, shadow: 4096, ao: true, aoQuality: 'Medium', halfRes: true, smaa: true, rect: true, bloom: true },
-  mid: { dprMax: 1.5, shadow: 2048, ao: true, aoQuality: 'Performance', halfRes: true, smaa: true, rect: true, bloom: true },
-  low: { dprMax: 1.3, shadow: 2048, ao: false, smaa: false, rect: false, bloom: true },
-}[TIER] || { dprMax: 2, shadow: 4096, ao: true, aoQuality: 'Medium', halfRes: true, smaa: true, rect: true, bloom: true };
+  high: { dprMax: 2, shadow: 4096, ao: true, aoQuality: 'Medium', halfRes: true, smaa: true, bloom: true },
+  mid: { dprMax: 1.5, shadow: 2048, ao: true, aoQuality: 'Performance', halfRes: true, smaa: true, bloom: true },
+  low: { dprMax: 1.3, shadow: 2048, ao: false, smaa: false, bloom: true },
+}[TIER] || { dprMax: 2, shadow: 4096, ao: true, aoQuality: 'Medium', halfRes: true, smaa: true, bloom: true };
 
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
 const smooth = THREE.MathUtils.smoothstep;
@@ -106,24 +109,20 @@ async function main() {
   scene.add(community);
   mark('geometry');
 
-  if (Q.rect) RectAreaLightUniformsLib.init();
+  // daylight and lamp light indoors come from the baked volume (gi.js); these few point lights
+  // only add the glints and the terrace fire's warmth
   const lights = [];
   for (const L of lightDefs) {
-    if (L.type === 'rect' && !Q.rect) continue;
-    let l;
-    if (L.type === 'rect') {
-      l = new THREE.RectAreaLight(L.color, L.day, L.w, L.h);
-      l.position.set(L.pos[0], L.pos[1], -L.pos[2]);
-      l.lookAt(L.look[0], L.look[1], -L.look[2]);
-    } else {
-      l = new THREE.PointLight(L.color, L.day, L.dist, 2);
-      l.position.set(L.pos[0], L.pos[1], -L.pos[2]);
-    }
+    const l = new THREE.PointLight(L.color, L.day, L.dist, 2);
+    l.position.set(L.pos[0], L.pos[1], -L.pos[2]);
     scene.add(l);
-    lights.push({ l, day: L.day * (Q.rect ? 1 : 1.6), dusk: L.dusk });
+    lights.push({ l, day: L.day, dusk: L.dusk });
   }
 
   const atmo = new Atmosphere(renderer, scene, { shadowMapSize: Q.shadow });
+  atmo.envFor(0, -55, 18); // reference sky for the GI volume
+  atmo.onLevel = () => wake();
+  const gi = createGI();
   const post = createPost(renderer, scene, camera, { ...Q, sun: atmo.sun, volSteps: TIER === 'mid' ? 20 : 28 });
   const dust = makeDust([
     [0.3, 5.8, 0.4, 3.0, 10.8, 14.6], [2.0, 3.1, 0.4, 3.0, 6.8, 10.5], [2.6, 5.9, 3.7, 6.3, 3.6, 6.5],
@@ -188,7 +187,8 @@ async function main() {
     inside = STILL ? inHouse : inside + (inHouse - inside) * (1 - Math.exp(-dt * 2.2));
     const st = s || atmo.last;
     if (s) atmo.last = s;
-    const expTarget = st.exp * lerp(1, (1.4 - tod * 0.3) * STYLES[styleKey].inside, inside);
+    // indoors the camera opens up, as an interiors photographer would: ~2 stops by day, less at night
+    const expTarget = st.exp * lerp(1, lerp(5.5, 1.3, tod) * STYLES[styleKey].inside, inside);
     exposure = STILL ? expTarget : exposure + (expTarget - exposure) * (1 - Math.exp(-dt * 2.0));
     renderer.toneMappingExposure = exposure;
     if (post.aoPass) post.aoPass.configuration.aoRadius = zone === 'aerial' ? 5 : zone === 'street' ? 1.4 : 0.55;
@@ -200,6 +200,11 @@ async function main() {
       else g.mat.emissiveIntensity = v;
     }
     if (beams) beams.visible = M.beam.uniforms.uOpacity.value > 0.003;
+    // baked light for this moment: sky as the env map sees it, sun bounce as the sun shines, lamps at dusk
+    const sr = atmo.skyRatio(), sk = atmo.sun.intensity / 4.3, sc = atmo.sun.color;
+    const fk = sk * GI_FILL;
+    const lk = GI_LAMP * lerp(0.12, 1, lamp); // staged: lamps on, dimmed, by day
+    gi.set(sr.map((v, c) => v * st.env * GI_FILL * GI_WB[c]), [sc.r * fk, sc.g / 0.81 * fk, sc.b / 0.6 * fk], [lk, lk, lk], styleKey);
     // volumetrics: dusty air indoors, thin height haze outside, long thin haze from the air
     const sunK = atmo.sun.intensity;
     const sm = atmo.sun.shadow;
@@ -261,6 +266,8 @@ async function main() {
 
   if (STILL) {
     document.getElementById('loader')?.remove();
+    // the sky level behind the baked light is read back asynchronously; give it a moment
+    for (let i = 0; i < 15 && atmo.skyLevel.size < 2; i++) await new Promise((r) => setTimeout(r, 100));
     // render a few frames so shadow and AO settle, then signal the capture harness
     for (let i = 0; i < 3; i++) { update(0.016, 1 + i * 0.016); post.composer.render(0.016); await nextFrame(); }
     renderer.info.autoReset = false; renderer.info.reset();

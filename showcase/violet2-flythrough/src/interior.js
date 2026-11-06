@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { H } from './plan.js';
 import { F } from './builder.js';
+import { drape, pillow, sheer } from './softgoods.js';
 
 // Interior of the hero unit only: finishes, stair, doors, kitchen, bathrooms and a minimal
 // warm-modern furniture scheme at true sizes. Everything is placed in plan coordinates.
@@ -61,7 +62,7 @@ export function makeKit(B, spots) {
   function door(hx, hd, y, w, ang, alongX = true, h = 2.4) {
     const base = alongX ? 0 : Math.PI / 2;
     const m = M4(hx, y, hd, base + ang).multiply(M4(w / 2, h / 2, 0));
-    B.add('oak', new THREE.BoxGeometry(w, h, 0.04), m, 'box');
+    B.add('joinery', new THREE.BoxGeometry(w, h, 0.04), m, 'box');
     B.add('brass', new THREE.BoxGeometry(0.02, 0.18, 0.06), m.clone().multiply(M4(w / 2 - 0.08, -0.15, 0)), 'box');
   }
   const quadArt = (k, x0, x1, y0, y1, d, facing) => { // facing: 'street' (+z) or 'rear' (-z) or '+x' / '-x'
@@ -83,21 +84,11 @@ export function makeKit(B, spots) {
   }
   // pleated sheer curtain hanging in plane d between x0..x1
   function curtain(x0, x1, y0, y1, d) {
-    const w = x1 - x0, seg = Math.max(8, Math.round(w / 0.04));
-    const g = new THREE.PlaneGeometry(w, y1 - y0, seg, 1);
-    const pa = g.attributes.position;
-    for (let i = 0; i < pa.count; i++) pa.setZ(i, Math.sin((pa.getX(i) + w / 2) / 0.11 * Math.PI) * 0.035);
-    g.computeVertexNormals();
-    B.add('sheer', g, M4((x0 + x1) / 2, (y0 + y1) / 2, d), 'box');
+    B.add('sheer', sheer(x1 - x0, y1 - y0, Math.round(x0 * 13 + d * 7)), M4((x0 + x1) / 2, (y0 + y1) / 2, d), 'keep');
     bx('frame', x0 - 0.05, x1 + 0.05, y1, y1 + 0.03, d - 0.02, d + 0.02);
   }
   function curtainD(x, d0, d1, y0, y1) {
-    const w = d1 - d0, seg = Math.max(8, Math.round(w / 0.04));
-    const g = new THREE.PlaneGeometry(w, y1 - y0, seg, 1);
-    const pa = g.attributes.position;
-    for (let i = 0; i < pa.count; i++) pa.setZ(i, Math.sin((pa.getX(i) + w / 2) / 0.11 * Math.PI) * 0.035);
-    g.computeVertexNormals();
-    B.add('sheer', g, M4(x, (y0 + y1) / 2, (d0 + d1) / 2, Math.PI / 2), 'box');
+    B.add('sheer', sheer(d1 - d0, y1 - y0, Math.round(x * 13 + d0 * 7)), M4(x, (y0 + y1) / 2, (d0 + d1) / 2, Math.PI / 2), 'keep');
   }
   const downlight = (x, y, d) => B.add('downlight', new THREE.CylinderGeometry(0.045, 0.045, 0.01, 18), M4(x, y - 0.004, d));
   function lamp(x, y, d, h = 0.55, shadeR = 0.17) { // table lamp: ceramic base + linen drum
@@ -136,13 +127,22 @@ export function makeKit(B, spots) {
     const mid = headX - dir * (len / 2 + 0.11);
     rb('linenGrey', mid, y + 0.17, d, len, 0.28, w + 0.06, 0.04);
     rb('linen', mid, y + 0.41, d, len - 0.05, 0.22, w - 0.02, 0.07);
-    rb(cover, mid - dir * 0.2, y + 0.535, d, len - 0.4, 0.06, w + 0.06, 0.03);
-    rb('velvet', headX - dir * (len - 0.15), y + 0.57, d, 0.48, 0.025, w + 0.1, 0.012);
-    for (const o of [-0.27, 0.27].map((v) => v * w / 1.6)) {
-      rb('linen', headX - dir * 0.32, y + 0.66, d + o, 0.17, 0.36, w * 0.36, 0.08, 0, null, 0);
-    }
-    rb('velvet', headX - dir * 0.48, y + 0.63, d - 0.14, 0.13, 0.32, 0.36, 0.07, 0.2);
-    rb('linenSand', headX - dir * 0.48, y + 0.63, d + 0.16, 0.13, 0.3, 0.34, 0.07, -0.15);
+    // bed frame: local +x runs from the mattress head towards the foot, y 0 on the mattress top
+    const top = y + 0.52, head0 = headX - dir * 0.11, seed = Math.round(cx * 31 + d * 17 + y * 7);
+    const base = M4(head0, top, d, dir > 0 ? Math.PI : 0);
+    const put = (k, g, x, yy, z, tilt = 0, uv = 'keep') => B.add(k, g, base.clone().multiply(new THREE.Matrix4().makeTranslation(x, yy, z)
+      .multiply(new THREE.Matrix4().makeRotationZ(-tilt)).multiply(new THREE.Matrix4().makeRotationY(-Math.PI / 2))), uv);
+    // duvet turned down below the pillows, with a rolled top edge; a throw across the foot
+    const s0 = 0.6, dv = drape({ L: len - 0.05 - s0, W: w - 0.02, drop: 0.3, dropFoot: 0.27, seed });
+    B.add(cover, dv, base.clone().multiply(new THREE.Matrix4().makeTranslation(s0, 0.004, 0)), 'keep');
+    B.add(cover, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(dv.userData.head), 60, 0.032, 8), base.clone().multiply(new THREE.Matrix4().makeTranslation(s0 + 0.012, 0.02, 0)), 'box');
+    B.add('velvet', drape({ L: 0.48, W: w + 0.1, drop: 0.27, dropFoot: 0, r: 0.1, loft: 0.012, pleat: 0.04, seed: seed + 2 }),
+      base.clone().multiply(new THREE.Matrix4().makeTranslation(len - 0.75, 0.055, 0)), 'keep');
+    // two sleeping pillows leaning on the headboard, a pair of cushions in front
+    const pl = Math.min(0.72, w * 0.44);
+    for (const [i, o] of [-0.26, 0.26].entries()) put('linen', pillow({ L: pl, D: 0.5, T: 0.17, seed: seed + i }), 0.22, 0.25, o * w / 1.6 * 1.05, 1.0);
+    put('velvet', pillow({ L: 0.47, D: 0.47, T: 0.21, seed: seed + 5 }), 0.44, 0.22, -0.17, 1.12);
+    put('linenSand', pillow({ L: 0.45, D: 0.45, T: 0.2, seed: seed + 6 }), 0.47, 0.21, 0.21, 1.18);
     return { foot: headX - dir * (len + 0.11) };
   }
   function nightstand(x, y, d) {
@@ -151,14 +151,14 @@ export function makeKit(B, spots) {
     lamp(x, y + 0.48, d, 0.42, 0.13);
   }
   function wardrobeAlongX(x0, x1, y, d0, d1, h = 2.45, frontAtD1 = false) { // fluted oak doors on one long face
-    bx('oak', x0, x1, y, y + h, d0, d1);
+    bx('joinery', x0, x1, y, y + h, d0, d1);
     const a = frontAtD1 ? d1 : d0 - 0.012, b = frontAtD1 ? d1 + 0.012 : d0;
-    for (let x = x0 + 0.03; x < x1 - 0.01; x += 0.05) bx('oak', x - 0.012, x + 0.012, y + 0.02, y + h - 0.02, a, b);
+    for (let x = x0 + 0.03; x < x1 - 0.01; x += 0.05) bx('joinery', x - 0.012, x + 0.012, y + 0.02, y + h - 0.02, a, b);
   }
   function wardrobeAlongD(x0, x1, y, d0, d1, faceMinusX, h = 2.45) {
-    bx('oak', x0, x1, y, y + h, d0, d1);
+    bx('joinery', x0, x1, y, y + h, d0, d1);
     const xf = faceMinusX ? x0 : x1;
-    for (let d = d0 + 0.03; d < d1 - 0.01; d += 0.05) bx('oak', faceMinusX ? xf - 0.012 : xf, faceMinusX ? xf : xf + 0.012, y + 0.02, y + h - 0.02, d - 0.012, d + 0.012);
+    for (let d = d0 + 0.03; d < d1 - 0.01; d += 0.05) bx('joinery', faceMinusX ? xf - 0.012 : xf, faceMinusX ? xf : xf + 0.012, y + 0.02, y + h - 0.02, d - 0.012, d + 0.012);
   }
   return { M4, bx, rb, cyl, sphere, wallX, wallD, door, quadArt, quadArtX, frameArt, frameArtX, curtain, curtainD, downlight, lamp, pendantGlobe, chair, loungeChair, plant, bed, nightstand, wardrobeAlongX, wardrobeAlongD };
 }
@@ -239,21 +239,21 @@ export function buildInterior(B) {
 
   // ---- kitchen
   bx('blackSatin', 5.45, 6.0, F0, F0 + 0.1, 6.0, 8.95);
-  bx('oak', 5.4, 6.0, F0 + 0.1, F0 + 0.88, 6.0, 8.95);
+  bx('joinery', 5.4, 6.0, F0 + 0.1, F0 + 0.88, 6.0, 8.95);
   for (let d = 6.6; d < 8.9; d += 0.6) bx('blackSatin', 5.397, 5.4, F0 + 0.1, F0 + 0.88, d, d + 0.004);
   bx('marble', 5.36, 6.0, F0 + 0.88, F0 + 0.92, 6.0, 8.95);
   bx('marble', 5.98, 6.0, F0 + 0.92, F0 + 1.6, 6.0, 8.95);
   bx('blackSatin', 5.52, 5.88, F0 + 0.921, F0 + 0.924, 7.15, 7.75);
   cyl('brass', 5.9, F0 + 1.07, 7.45, 0.012, 0.012, 0.3, 12);
   rb('brass', 5.8, F0 + 1.21, 7.45, 0.2, 0.025, 0.025, 0.01);
-  bx('oak', 5.72, 6.0, F0 + 1.82, F0 + 1.86, 6.3, 8.6);
+  bx('joinery', 5.72, 6.0, F0 + 1.82, F0 + 1.86, 6.3, 8.6);
   bx('led', 5.75, 5.98, F0 + 1.814, F0 + 1.82, 6.35, 8.55);
   for (const [d, h] of [[6.6, 0.22], [6.85, 0.16], [7.9, 0.28]]) cyl('ceramic', 5.86, F0 + 1.86 + h / 2, d, 0.06, 0.06, h, 18);
   bx('blackSatin', 3.3, 5.4, F0, F0 + 0.1, 6.05, 6.6);
   bx('oak', 3.3, 5.4, F0 + 0.1, F0 + 0.88, 6.0, 6.6);
   bx('marble', 3.3, 5.4, F0 + 0.88, F0 + 0.92, 6.0, 6.64);
   bx('tv', 4.25, 4.85, F0 + 0.921, F0 + 0.925, 6.08, 6.55);
-  bx('oak', 3.3, 5.0, F0, F0 + 2.45, 8.35, 8.95);
+  bx('joinery', 3.3, 5.0, F0, F0 + 2.45, 8.35, 8.95);
   for (const x of [3.87, 4.44]) bx('blackSatin', x - 0.002, x + 0.002, F0 + 0.05, F0 + 2.4, 8.346, 8.35);
   bx('tv', 3.95, 4.4, F0 + 0.95, F0 + 1.55, 8.344, 8.35);
   rb('walnut', 4.6, F0 + 0.95, 6.3, 0.35, 0.03, 0.22, 0.01);
@@ -433,13 +433,9 @@ export function buildInterior(B) {
 
   // ---------- lights (hero only); intensities are scaled by time of day in main.js
   const lights = [
-    { type: 'rect', name: 'living', pos: [3.05, F0 + 1.55, 14.75], look: [3.05, F0 + 1.3, 9.0], w: 5.6, h: 2.8, color: 0xe6eeff, day: 1.9, dusk: 0.12 },
-    { type: 'rect', name: 'master', pos: [4.2, F1 + 1.4, 3.7], look: [4.2, F1 + 1.1, 9.0], w: 3.3, h: 2.6, color: 0xfff1df, day: 2.1, dusk: 0.12 },
-    { type: 'rect', name: 'bed2', pos: [4.5, F1 + 1.4, 13.95], look: [4.5, F1 + 1.1, 8.0], w: 2.4, h: 2.6, color: 0xe6eeff, day: 1.6, dusk: 0.1 },
-    { type: 'rect', name: 'bed4', pos: [4.3, F2 + 1.4, 10.95], look: [4.3, F2 + 1.1, 5.0], w: 2.7, h: 2.6, color: 0xe6eeff, day: 1.6, dusk: 0.1 },
-    { type: 'point', name: 'hall', pos: [2.6, C0 - 0.4, 8.2], color: 0xffd9a8, day: 2.5, dusk: 6, dist: 7 },
-    { type: 'point', name: 'livingWarm', pos: [3.0, C0 - 0.5, 12.6], color: 0xffd2a0, day: 3, dusk: 9, dist: 9 },
-    { type: 'point', name: 'ff', pos: [3.8, C1 - 0.4, 8.5], color: 0xffd9a8, day: 2.5, dusk: 7, dist: 8 },
+    { type: 'point', name: 'hall', pos: [2.6, C0 - 0.4, 8.2], color: 0xffd9a8, day: 0, dusk: 1.5, dist: 7 },
+    { type: 'point', name: 'livingWarm', pos: [3.0, C0 - 0.5, 12.6], color: 0xffd2a0, day: 0, dusk: 2.2, dist: 9 },
+    { type: 'point', name: 'ff', pos: [3.8, C1 - 0.4, 8.5], color: 0xffd9a8, day: 0, dusk: 1.8, dist: 8 },
     { type: 'point', name: 'fire', pos: [1.95, F2 + 0.9, 12.3], color: 0xff9a4a, day: 0, dusk: 7, dist: 7 },
   ];
   return { spots, lights };

@@ -21,7 +21,40 @@ export async function loadTextureSets(base, anisotropy, onProgress) {
   return out;
 }
 
-export const shared = { time: { value: 0 } };
+export const shared = {
+  time: { value: 0 },
+  // baked irradiance volume (see gi.js); dims of 1 keep the lookup faded out until data arrives
+  gi: { uGi0: { value: null }, uGi1: { value: null }, uGiA: { value: new THREE.Vector3() }, uGiB: { value: new THREE.Vector3() }, uGiDims: { value: new THREE.Vector3(1, 1, 1) } },
+};
+
+// Indoors the env map knows nothing about walls, so where the baked volume says a point is
+// enclosed, its irradiance replaces the env diffuse and the env reflections are scaled by the
+// same occlusion. Outdoors (alpha 0) and outside the volume the env map stays in charge.
+const GI_FRAG = /* glsl */`
+  {
+    vec3 gN = inverseTransformDirection(normal, viewMatrix);
+    vec3 gU = (vWPos + gN * 0.22) * uGiA + uGiB;
+    vec3 gL = gU * uGiDims - 0.5;
+    vec3 gE = min(gL, uGiDims - 1.0 - gL);
+    float gF = clamp(min(min(gE.x, gE.y), gE.z) * 2.5, 0.0, 1.0);
+    if (gF > 0.0) {
+      vec4 g0 = texture(uGi0, gU);
+      vec3 g1 = texture(uGi1, gU).xyz;
+      const vec3 LUM = vec3(0.2126, 0.7152, 0.0722);
+      // non-linear L1 reconstruction (Hazel, Geomerics): no negative lobe behind strong lights
+      vec3 gR = g1 / max(dot(g0.rgb, LUM), 1e-5);
+      float gRl = length(gR), gX = min(0.433 * gRl, 0.95);
+      float gQ = max(0.5 + 0.5 * dot(gR / max(gRl, 1e-5), gN), 1e-6), gP = 1.0 + 2.0 * gX, gA = (1.0 - gX) / (1.0 + gX);
+      vec3 gIrr = g0.rgb * (gA + (1.0 - gA) * (gP + 1.0) * pow(gQ, gP));
+      float gw = g0.a * gF;
+      float gSo = clamp(dot(gIrr, LUM) / max(dot(iblIrradiance, LUM), 1e-4), 0.03, 1.0);
+      iblIrradiance = mix(iblIrradiance, gIrr, gw);
+      radiance *= mix(1.0, gSo, gw);
+      #ifdef USE_CLEARCOAT
+        clearcoatRadiance *= mix(1.0, gSo, gw);
+      #endif
+    }
+  }`;
 
 const NOISE = /* glsl */`
 float vHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -41,11 +74,14 @@ function enhance(mat, o) {
   if (o.macro) U.uMacro = { value: new THREE.Vector3(o.macro.scale ?? 0.02, o.macro.amount ?? 0.35, o.macro.hue ?? 0) };
   if (o.sway) { U.uTime = shared.time; U.uSway = { value: o.sway }; }
   if (o.glass) U.uGlass = { value: new THREE.Vector2(o.glass[0], o.glass[1]) };
+  if (o.flat) U.uFlat = { value: new THREE.Vector4(0.5, 0.5, 0.5, 0) };
+  if (o.gi) Object.assign(U, shared.gi);
   mat.userData.u = U;
+  mat.userData.fx = o;
   mat.customProgramCacheKey = () => feats.join('|');
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, U);
-    const head = `varying vec2 vMeters;\nvarying vec3 vWPos;\n${o.joints ? 'uniform vec4 uJoint;' : ''}\n${o.macro ? 'uniform vec3 uMacro;' + NOISE : ''}\n${o.glass ? 'uniform vec2 uGlass;' : ''}\n`;
+    const head = `varying vec2 vMeters;\nvarying vec3 vWPos;\n${o.joints ? 'uniform vec4 uJoint;' : ''}\n${o.macro ? 'uniform vec3 uMacro;' + NOISE : ''}\n${o.glass ? 'uniform vec2 uGlass;' : ''}\n${o.flat ? 'uniform vec4 uFlat;' : ''}\n`;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>\n${head}\n${o.sway ? 'uniform float uTime; uniform float uSway;' : ''}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>\n${o.sway ? `
@@ -65,8 +101,12 @@ function enhance(mat, o) {
           wpx = instanceMatrix * wpx;
         #endif
         vWPos = (modelMatrix * wpx).xyz;`);
-    let f = sh.fragmentShader.replace('#include <common>', `#include <common>\n${head}`);
+    const giHead = o.gi ? 'uniform highp sampler3D uGi0;\nuniform highp sampler3D uGi1;\nuniform vec3 uGiA;\nuniform vec3 uGiB;\nuniform vec3 uGiDims;\n' : '';
+    let f = sh.fragmentShader.replace('#include <common>', `#include <common>\n${head}${giHead}`);
+    if (o.gi) f = f.replace('#include <lights_fragment_maps>', `#include <lights_fragment_maps>\n${GI_FRAG}`);
     let post = '';
+    // texture contrast: pull the texel towards the finish's mean albedo (painted walls read clean)
+    if (o.flat) post += `\n      diffuseColor.rgb = mix(diffuseColor.rgb, uFlat.rgb, uFlat.a);`;
     if (o.macro) post += `
       float mv = vFbm(vWPos.xz * uMacro.x) ;
       float mv2 = vNoise(vWPos.xz * uMacro.x * 7.3);
@@ -123,6 +163,7 @@ export function createMaterials(T, { maxAniso = 8 } = {}) {
   M.render = pbr('plaster', { tile: 3.2, color: 0xf4f0ea, normal: 0.45, rough: 1 });
   M.paint = pbr('plaster', { tile: 3.2, color: 0xf0ebe3, normal: 0.12, rough: 0.95, env: 0.25 });
   M.ceiling = pbr('plaster', { tile: 3.2, color: 0xf5f2ec, normal: 0.08, rough: 1, env: 0.22 });
+  for (const m of [M.paint, M.ceiling]) enhance(m, { ...(m.userData.fx || {}), flat: true });
   M.stone = pbr('marble', { tile: 2.6, color: 0x7b7976, rough: 0.75, normal: 0.6, env: 0.7, joints: { size: [1.2, 0.6], width: 0.005, shade: 0.45 } });
   M.bronze = std({ color: 0x6f5238, metalness: 0.85, roughness: 0.38 });
   M.frame = std({ color: 0x1c1d1f, metalness: 0.6, roughness: 0.42 });
@@ -148,6 +189,7 @@ export function createMaterials(T, { maxAniso = 8 } = {}) {
   M.travertineSlab = pbr('travertine', { tile: 1.4, color: 0xf0e6d6, rough: 0.6, env: 0.3 });
   M.oakFloor = pbr('woodfloor', { tile: 2.2, color: 0xffe9cc, rough: 0.75, env: 0.25 });
   M.oak = pbr('oak', { tile: 1.4, color: 0xf6e3c8, rough: 0.7, env: 0.3 });
+  M.joinery = pbr('walnut', { tile: 1.2, color: 0xc09a80, rough: 0.5, env: 0.3 }); // doors, wardrobes, kitchen runs
   M.walnut = pbr('walnut', { tile: 1.2, color: 0x8d715e, rough: 0.55, env: 0.3 });
   M.marble = pbr('marble', { tile: 1.8, color: 0xffffff, rough: 0.5, env: 0.45, physical: { clearcoat: 0.6, clearcoatRoughness: 0.08 } });
   M.marbleFloor = pbr('marble', { tile: 1.6, color: 0xf2f0ec, rough: 0.6, env: 0.35, joints: { size: [0.6, 0.6], width: 0.002, shade: 0.7 } });
@@ -160,6 +202,9 @@ export function createMaterials(T, { maxAniso = 8 } = {}) {
   M.weave = pbr('linen', { tile: 0.3, color: 0xd9c19a, rough: 0.9, normal: 1.2, env: 0.3, side: THREE.DoubleSide });
   M.sheer = new THREE.MeshStandardMaterial({ map: clone(T.linen.c, 2, 2), color: 0xfbf8f2, roughness: 1, transparent: true, opacity: 0.72, side: THREE.DoubleSide, envMapIntensity: 0.4, depthWrite: false });
   M.sheer.userData.noShadow = true;
+  // backlit translucency: the panel glows with the daylight behind it, and barely at night
+  M.sheer.emissive.set(0xfff4e8);
+  glow.push({ mat: M.sheer, day: 0.2, dusk: 0.012 });
 
   M.blackSatin = std({ color: 0x141414, roughness: 0.35, metalness: 0.2, envMapIntensity: 0.6 });
   M.tv = std({ color: 0x050505, roughness: 0.12, metalness: 0.1, envMapIntensity: 0.9 });
@@ -220,5 +265,8 @@ export function createMaterials(T, { maxAniso = 8 } = {}) {
   M.beam = beamMaterial(0xffcf96);
   M.beam.userData.noShadow = true;
   glow.push({ mat: M.beam, day: 0, dusk: 0.16, prop: 'uOpacity' });
+  for (const [k, m] of Object.entries(M)) {
+    if (m.isMeshStandardMaterial && !m.transparent && k !== 'water' && k !== 'poolWater') enhance(m, { ...(m.userData.fx || {}), gi: true });
+  }
   return { M, glow, water: wn };
 }

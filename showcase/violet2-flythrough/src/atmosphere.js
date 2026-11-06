@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
+import { LightProbeGenerator } from 'three/addons/lights/LightProbeGenerator.js';
 
 // The sun direction is fixed so the (expensive) shadow map is rendered once per zone; time of
 // day changes the sky, light colour/intensity, fog, exposure and the environment map.
 
 const D2R = Math.PI / 180;
+const BAKE_KEY = '0|-54|18'; // the golden-hour env scripts/bake-gi.mjs lit the GI volume with
 const dirFrom = (az, el, v = new THREE.Vector3()) => v.set(Math.sin(az * D2R) * Math.cos(el * D2R), Math.sin(el * D2R), Math.cos(az * D2R) * Math.cos(el * D2R));
 
 const TWILIGHT = { horizon: [0.042, 0.038, 0.062], zenith: [0.006, 0.009, 0.026], glow: [0.11, 0.05, 0.03] };
@@ -83,6 +85,8 @@ export class Atmosphere {
     this.envScene.add(this.envSky, this.envGround);
     this.pmrem = new THREE.PMREMGenerator(renderer);
     this.envCache = new Map();
+    this.skyLevel = new Map();
+    this.envKey = null;
 
     // stars for blue hour
     const n = 1400, p = new Float32Array(n * 3);
@@ -143,17 +147,41 @@ export class Atmosphere {
   envFor(t, az, el) {
     const q = Math.round(t * 20) / 20, qa = Math.round(az / 6) * 6, qe = Math.round(el);
     const key = `${q}|${qa}|${qe}`;
+    this.envKey = key;
     if (this.envCache.has(key)) return this.envCache.get(key);
     const s = stateAt(q);
     this.applySky(this.envSky, s, qa, this.skyElev(q, qe, s), q);
     this.envGround.material.color.setRGB(...s.ground);
     const rt = this.pmrem.fromScene(this.envScene, 0, 0.1, 1000, { size: 256 });
+    if (!this.skyLevel.has(key)) this.measure(key);
     this.envCache.set(key, rt.texture);
     if (this.envCache.size > 8) {
       const first = this.envCache.keys().next().value;
       if (first !== key) { this.envCache.get(first).dispose(); this.envCache.delete(first); }
     }
     return rt.texture;
+  }
+
+  // mean radiance of each environment (the L0 term of an 8px cube read back), so the baked sky
+  // light indoors can follow the real sky through the evening
+  measure(key) {
+    const rt = new THREE.WebGLCubeRenderTarget(8, { type: THREE.HalfFloatType });
+    new THREE.CubeCamera(0.1, 1000, rt).update(this.renderer, this.envScene);
+    LightProbeGenerator.fromCubeRenderTarget(this.renderer, rt).then((lp) => {
+      this.skyLevel.set(key, lp.sh.coefficients[0].clone());
+      rt.dispose();
+      if (this.onLevel) this.onLevel();
+    }).catch(() => rt.dispose());
+  }
+
+  // rgb ratio of the current env to the one the bake used; null until both are measured
+  skyRatio() {
+    const a = this.skyLevel.get(this.envKey), b = this.skyLevel.get(BAKE_KEY);
+    if (a && b) return [a.x / b.x, a.y / b.y, a.z / b.z];
+    // until the read-back lands (or where it cannot run), a curve fitted to the evening sky
+    const t = Math.max(0, this.t), n = THREE.MathUtils.smoothstep(t, 0.5, 1);
+    const k = THREE.MathUtils.lerp(1, 0.55, THREE.MathUtils.smoothstep(t, 0, 0.5)) * THREE.MathUtils.lerp(1, 0.05, n);
+    return [k * (1 - 0.3 * n), k, k * (1 + 0.4 * n)];
   }
 
   skyElev(t, el, s) { return THREE.MathUtils.lerp(el, Math.min(el, s.elev), THREE.MathUtils.smoothstep(t, 0.0, 0.5)); }

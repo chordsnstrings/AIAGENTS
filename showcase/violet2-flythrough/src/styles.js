@@ -1,6 +1,18 @@
 import * as THREE from 'three';
 import { artTexture } from './proctex.js';
 
+// Mean linear albedo of each texture set's colour map (measured from assets/tex/*_c.webp), so a
+// role can name the colour a finish should read as, and the GI bake can use the same albedo.
+export const SET_AVG = {
+  ash: [0.411, 0.299, 0.203], boucle: [0.413, 0.413, 0.413], clayplaster: [0.715, 0.715, 0.715], herringbone: [0.293, 0.163, 0.075],
+  limewash: [0.728, 0.728, 0.728], linen: [0.338, 0.338, 0.338], marble: [0.417, 0.423, 0.47], microcement: [0.672, 0.672, 0.672],
+  nero: [0.048, 0.051, 0.05], oak: [0.278, 0.192, 0.124], papercord: [0.575, 0.575, 0.575], plaster: [0.408, 0.366, 0.35],
+  rattan: [0.133, 0.068, 0.036], rug: [0.499, 0.436, 0.294], smokedwalnut: [0.497, 0.326, 0.209], stone: [0.099, 0.093, 0.078],
+  terracotta: [0.075, 0.02, 0.01], travertine: [0.74, 0.602, 0.413], velvet: [0.444, 0.443, 0.444], walnut: [0.255, 0.143, 0.081],
+  woodfloor: [0.216, 0.117, 0.055], patio: [0.181, 0.185, 0.173], pavers: [0.535, 0.535, 0.535], sidewalk: [0.5, 0.5, 0.5],
+  asphalt: [0.058, 0.062, 0.061], sand: [0.494, 0.494, 0.494], gravel: [0.404, 0.385, 0.33], bark: [0.337, 0.284, 0.224], grass: [0.058, 0.107, 0.021],
+};
+
 // Four researched interior presets (Dezeen 2026, 1stDibs 2026 survey, Khaleej Times on Dubai
 // "restrained luxury", Bayut UAE trends, Domus Academy, paint colours of the year). A preset
 // re-parameterises the shared material roles and shows its own furniture set; material types
@@ -14,13 +26,14 @@ export const STYLES = {
     sets: [], art: ['#efe8dc', '#cdb89a', '#9d86c0', '#e6d8c3', '#c9b8de'], inside: 1.0,
     roles: {
       travertine: { set: 'travertine', tile: 1.8, color: 0xf3ebde, rough: 0.55, joints: [1.2, 0.6, 0.003, 0.72] },
-      oakFloor: { set: 'woodfloor', tile: 2.2, color: 0xffe9cc, rough: 0.75 },
+      oakFloor: { set: 'woodfloor', tile: 2.2, albedo: 0xc8a684, rough: 0.75 },
       marbleFloor: { set: 'marble', tile: 1.6, color: 0xf2f0ec, rough: 0.6, joints: [0.6, 0.6, 0.002, 0.7] },
-      paint: { set: 'plaster', tile: 3.2, color: 0xf0ebe3, normal: 0.12, rough: 0.95, env: 0.25 },
-      ceiling: { set: 'plaster', tile: 3.2, color: 0xf5f2ec, normal: 0.08, rough: 1, env: 0.22 },
+      paint: { set: 'plaster', tile: 3.2, albedo: 0xe8e2d9, flat: 0.7, normal: 0.12, rough: 0.95 },
+      ceiling: { set: 'plaster', tile: 3.2, albedo: 0xf0ede8, flat: 0.8, normal: 0.08, rough: 1 },
       travertineSlab: { set: 'travertine', tile: 1.4, color: 0xf0e6d6, rough: 0.6 },
       oak: { set: 'oak', tile: 1.4, color: 0xf6e3c8, rough: 0.7 },
       walnut: { set: 'walnut', tile: 1.2, color: 0x8d715e, rough: 0.55 },
+      joinery: { set: 'walnut', tile: 1.2, color: 0xc09a80, rough: 0.5 },
       marble: { set: 'marble', tile: 1.8, color: 0xffffff, rough: 0.5, clearcoat: 0.6 },
       boucle: { set: 'boucle', tile: 0.45, color: 0xefe8dc, normal: 1.4, sheen: 0xffffff },
       velvet: { set: 'velvet', tile: 0.7, color: 0x9d86c0, sheen: 0xd9c7f0 },
@@ -41,14 +54,15 @@ export const STYLES = {
     palette: ['#D9D0C3', '#EAE5DC', '#B3946D', '#3D3833', '#A69D90', '#85788F'],
     sets: ['ash', 'limewash', 'microcement', 'papercord'], art: ['#e9e4da', '#2f2c29', '#a99c8a', '#cfc6b6', '#85788f'], inside: 1.05,
     roles: {
-      travertine: { set: 'woodfloor', tile: 2.2, color: 0xe6c49a, rough: 0.7, joints: [1, 1, 0, 1] },
-      oakFloor: { set: 'woodfloor', tile: 2.2, color: 0xe6c49a, rough: 0.7 },
+      travertine: { set: 'woodfloor', tile: 2.2, albedo: 0xcfb18d, rough: 0.7, joints: [1, 1, 0, 1] },
+      oakFloor: { set: 'woodfloor', tile: 2.2, albedo: 0xcfb18d, rough: 0.7 },
       marbleFloor: { set: 'microcement', tile: 2.0, color: 0xd6cdbf, rough: 0.75, joints: [1, 1, 0, 1] },
-      paint: { set: 'limewash', tile: 2.4, color: 0xe6dccd, normal: 0.3, rough: 0.97, env: 0.22 },
-      ceiling: { set: 'limewash', tile: 3.0, color: 0xefeae2, normal: 0.2, rough: 1, env: 0.2 },
+      paint: { set: 'limewash', tile: 2.4, albedo: 0xe6ded2, flat: 0.35, normal: 0.3, rough: 0.97 },
+      ceiling: { set: 'limewash', tile: 3.0, albedo: 0xeeebe4, flat: 0.6, normal: 0.2, rough: 1 },
       travertineSlab: { set: 'microcement', tile: 1.5, color: 0xcfc6b8, rough: 0.8 },
       oak: { set: 'ash', tile: 1.4, color: 0xf0d6b0, rough: 0.65 },
       walnut: { set: 'ash', tile: 1.2, color: 0x4a443e, rough: 0.6 },
+      joinery: { set: 'ash', tile: 1.4, color: 0x5b534b, rough: 0.6 },
       marble: { set: 'microcement', tile: 1.6, color: 0xcbc1b2, rough: 0.6, clearcoat: 0.05 },
       boucle: { set: 'linen', tile: 0.5, color: 0xb5ab9d, normal: 0.9, sheen: 0xe8e0d4 },
       velvet: { set: 'boucle', tile: 0.45, color: 0x8b7e96, normal: 1.2, sheen: 0xc7b9d6 },
@@ -69,14 +83,15 @@ export const STYLES = {
     palette: ['#E4D2BB', '#F3ECE1', '#B5704F', '#8F6440', '#D6C3A5', '#A77B8C'],
     sets: ['terracotta', 'clayplaster', 'limewash', 'rattan'], art: ['#efe2cf', '#b5704f', '#d6c3a5', '#a77b8c', '#8f6440'], inside: 1.0,
     roles: {
-      travertine: { set: 'terracotta', tile: 1.2, color: 0xffd9c0, rough: 0.85, joints: [1, 1, 0, 1] },
-      oakFloor: { set: 'woodfloor', tile: 2.2, color: 0xe2ad80, rough: 0.72 },
-      marbleFloor: { set: 'terracotta', tile: 0.9, color: 0xffd9c0, rough: 0.8, joints: [1, 1, 0, 1] },
-      paint: { set: 'clayplaster', tile: 2.2, color: 0xf1dcc2, normal: 0.3, rough: 0.97, env: 0.22 },
-      ceiling: { set: 'limewash', tile: 3.0, color: 0xf6efe4, normal: 0.25, rough: 1, env: 0.2 },
+      travertine: { set: 'terracotta', tile: 1.2, albedo: 0xc28f72, rough: 0.85, joints: [1, 1, 0, 1] },
+      oakFloor: { set: 'woodfloor', tile: 2.2, albedo: 0xb98a64, rough: 0.72 },
+      marbleFloor: { set: 'terracotta', tile: 0.9, albedo: 0xc28f72, rough: 0.8, joints: [1, 1, 0, 1] },
+      paint: { set: 'clayplaster', tile: 2.2, albedo: 0xeee0cd, flat: 0.3, normal: 0.3, rough: 0.97 },
+      ceiling: { set: 'limewash', tile: 3.0, albedo: 0xf3ece2, flat: 0.6, normal: 0.25, rough: 1 },
       travertineSlab: { set: 'travertine', tile: 1.4, color: 0xf6ede0, rough: 0.65 },
       oak: { set: 'oak', tile: 1.4, color: 0xf2dcc0, rough: 0.7 },
       walnut: { set: 'oak', tile: 1.2, color: 0xb98256, rough: 0.6 },
+      joinery: { set: 'oak', tile: 1.4, color: 0xe0a578, rough: 0.6 },
       marble: { set: 'travertine', tile: 1.6, color: 0xf3e9da, rough: 0.5, clearcoat: 0.1 },
       boucle: { set: 'linen', tile: 0.5, color: 0xdcc9ab, normal: 1.0, sheen: 0xfff1dc },
       velvet: { set: 'velvet', tile: 0.7, color: 0xac7f91, sheen: 0xe2bccb },
@@ -95,16 +110,17 @@ export const STYLES = {
     name: 'Aubergine Luxe', short: 'Luxe',
     blurb: 'Walnut, dark marble, mocha Venetian plaster and aubergine velvet, with antique brass.',
     palette: ['#7B6A5F', '#DCD2C6', '#3B3534', '#5C3F2E', '#4A2740', '#A8884F'],
-    sets: ['nero', 'herringbone', 'smokedwalnut'], art: ['#d8cbbd', '#4a2740', '#a8884f', '#7b6a5f', '#2b2523'], inside: 1.3,
+    sets: ['nero', 'herringbone', 'smokedwalnut'], art: ['#d8cbbd', '#4a2740', '#a8884f', '#7b6a5f', '#2b2523'], inside: 1.0,
     roles: {
       travertine: { set: 'nero', tile: 2.4, color: 0xe4d2c2, rough: 0.42, joints: [1.2, 1.2, 0.003, 0.75] },
-      oakFloor: { set: 'herringbone', tile: 1.6, color: 0x9c7d66, rough: 0.5 },
+      oakFloor: { set: 'herringbone', tile: 1.6, albedo: 0x8f6d55, rough: 0.5 },
       marbleFloor: { set: 'nero', tile: 1.2, color: 0xe8d6c6, rough: 0.35, joints: [0.6, 0.6, 0.002, 0.8] },
-      paint: { set: 'plaster', tile: 2.4, color: 0x8f7a6c, normal: 0.25, rough: 0.5, env: 0.4 },
-      ceiling: { set: 'plaster', tile: 3.2, color: 0xe2d8cc, normal: 0.08, rough: 0.95, env: 0.22 },
+      paint: { set: 'plaster', tile: 2.4, albedo: 0xe4dcd2, flat: 0.6, normal: 0.15, rough: 0.9 },
+      ceiling: { set: 'plaster', tile: 3.2, albedo: 0xece6de, flat: 0.8, normal: 0.08, rough: 0.95 },
       travertineSlab: { set: 'nero', tile: 1.2, color: 0xe6d3c3, rough: 0.45, env: 0.35 },
       oak: { set: 'smokedwalnut', tile: 1.4, color: 0xa88468, rough: 0.45 },
       walnut: { set: 'smokedwalnut', tile: 1.2, color: 0x7a5a45, rough: 0.42 },
+      joinery: { set: 'smokedwalnut', tile: 1.2, color: 0x8a6650, rough: 0.4 },
       marble: { set: 'marble', tile: 1.6, color: 0xf2e0ee, rough: 0.35, clearcoat: 0.8 },
       boucle: { set: 'velvet', tile: 0.7, color: 0x3d1b35, rough: 0.85, normal: 0.6, sheen: 0x5e3a55 },
       velvet: { set: 'velvet', tile: 0.7, color: 0x5a3a2a, rough: 0.8, normal: 0.6, sheen: 0x8a6650 },
@@ -158,7 +174,11 @@ export function createStyler({ M, T, base, anisotropy, onLoading }) {
         if (m.normalMap) m.normalMap = tex(o.set, 'n', o.tile);
         if (m.roughnessMap) { m.roughnessMap = tex(o.set, 'r', o.tile); m.aoMap = m.roughnessMap; }
       }
-      m.color.set(o.color);
+      if (o.albedo !== undefined) { // a finish named by its perceived colour: divide out the texture's own mean
+        const a = new THREE.Color(o.albedo), g = SET_AVG[o.set];
+        m.color.setRGB(a.r / g[0], a.g / g[1], a.b / g[2], THREE.LinearSRGBColorSpace);
+        if (m.userData.u && m.userData.u.uFlat) m.userData.u.uFlat.value.set(a.r, a.g, a.b, o.flat || 0);
+      } else m.color.set(o.color);
       if (o.rough !== undefined) m.roughness = o.rough;
       if (o.metal !== undefined) m.metalness = o.metal;
       if (o.normal !== undefined && m.normalScale) m.normalScale.set(o.normal, o.normal);
