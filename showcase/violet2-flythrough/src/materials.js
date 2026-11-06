@@ -355,7 +355,8 @@ export function createMaterials(T, { maxAniso = 8 } = {}) {
   // the pleated panel is the one DoubleSide material worth a single pass; it writes depth so the
   // glazing behind a drawn curtain is rejected rather than composited (the hero's renderOrder keeps
   // sheer under glass), at the price of the curtain showing in the depth AO and the march read
-  M.sheer = new THREE.MeshStandardMaterial({ map: clone(T.linen.c, 2, 2), color: 0xfbf8f2, roughness: 1, transparent: true, opacity: 0.72, side: THREE.DoubleSide, envMapIntensity: 0.4, depthWrite: true, forceSinglePass: true });
+  // a voile in direct sun must not clip: lighter weave colour than white and a little more open
+  M.sheer = new THREE.MeshStandardMaterial({ map: clone(T.linen.c, 2, 2), color: 0xe9e5df, roughness: 1, transparent: true, opacity: 0.6, side: THREE.DoubleSide, envMapIntensity: 0.4, depthWrite: true, forceSinglePass: true });
   M.sheer.userData.noShadow = true;
   // backlit translucency: a hint of the daylight behind it by day, barely anything at night; the
   // panel takes the room's baked light like everything else, so a shaded window does not glow
