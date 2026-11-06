@@ -10,9 +10,9 @@ const _q = new THREE.Quaternion(), _e = new THREE.Euler(), _s = new THREE.Vector
 const M4 = (x, y, d, ry = 0, rx = 0, rz = 0) =>
   new THREE.Matrix4().compose(_p.set(x, y, -d), _q.setFromEuler(_e.set(rx, ry, rz, 'YXZ')), _s);
 
-export function buildInterior(B) {
+// Placement helpers shared by the base interior and the switchable style sets.
+export function makeKit(B, spots) {
   const { F0, C0, F1, C1, F2, C2 } = H;
-  const spots = { bush: [], flower: [], olive: [], pink: [] };
   const bx = (k, x0, x1, y0, y1, d0, d1, f) => B.box(k, x0, x1, y0, y1, -d1, -d0, f);
   const rbCache = new Map();
   const rbGeo = (sx, sy, sz, r) => {
@@ -111,14 +111,14 @@ export function buildInterior(B) {
   function chair(x, d, ry, seatK = 'boucle') {
     const P = M4(x, F0, d, ry);
     rb(seatK, 0, 0.47, 0, 0.47, 0.08, 0.46, 0.03, 0, P);
-    rb('walnut', 0, 0.78, -0.21, 0.45, 0.36, 0.04, 0.02, 0, P, -0.12);
+    rb('walnut', 0, 0.78, 0.21, 0.45, 0.36, 0.04, 0.02, 0, P, -0.12);
     for (const [lx, lz] of [[-0.19, -0.18], [0.19, -0.18], [-0.19, 0.18], [0.19, 0.18]]) rb('walnut', lx, 0.215, lz, 0.03, 0.43, 0.03, 0.008, 0, P);
   }
   function loungeChair(x, y, d, ry, k = 'velvet') {
     const P = M4(x, y, d, ry);
     rb(k, 0, 0.2, 0.02, 0.78, 0.22, 0.74, 0.08, 0, P);
     rb(k, 0, 0.36, 0.0, 0.62, 0.12, 0.62, 0.05, 0, P);
-    rb(k, 0, 0.55, -0.32, 0.78, 0.5, 0.16, 0.08, 0, P, -0.18);
+    rb(k, 0, 0.55, 0.32, 0.78, 0.5, 0.16, 0.08, 0, P, -0.18);
     rb(k, -0.35, 0.42, 0.02, 0.12, 0.3, 0.7, 0.05, 0, P);
     rb(k, 0.35, 0.42, 0.02, 0.12, 0.3, 0.7, 0.05, 0, P);
     rb('walnut', 0, 0.045, 0.02, 0.7, 0.09, 0.66, 0.02, 0, P);
@@ -129,10 +129,10 @@ export function buildInterior(B) {
     cyl('bark', x, y + 0.95 * s, d, 0.025 * s, 0.04 * s, 0.85 * s, 8);
     spots[k === 'leafOlive' ? 'olive' : 'bush'].push([x, y + 1.25 * s, d, 0.85 * s]);
   }
-  function bed(cx, d, y, w, len, headX, cover = 'linen') { // headboard against wall at headX (bed runs along x)
+  function bed(cx, d, y, w, len, headX, cover = 'linen', head = true) { // headboard against wall at headX (bed runs along x)
     const dir = headX > cx ? 1 : -1;
     const hx = headX - dir * 0.06;
-    rb('boucle', hx, y + 0.62, d, 0.1, 1.15, w + 0.25, 0.045);
+    if (head) rb('boucle', hx, y + 0.62, d, 0.1, 1.15, w + 0.25, 0.045);
     const mid = headX - dir * (len / 2 + 0.11);
     rb('linenGrey', mid, y + 0.17, d, len, 0.28, w + 0.06, 0.04);
     rb('linen', mid, y + 0.41, d, len - 0.05, 0.22, w - 0.02, 0.07);
@@ -160,6 +160,13 @@ export function buildInterior(B) {
     const xf = faceMinusX ? x0 : x1;
     for (let d = d0 + 0.03; d < d1 - 0.01; d += 0.05) bx('oak', faceMinusX ? xf - 0.012 : xf, faceMinusX ? xf : xf + 0.012, y + 0.02, y + h - 0.02, d - 0.012, d + 0.012);
   }
+  return { M4, bx, rb, cyl, sphere, wallX, wallD, door, quadArt, quadArtX, frameArt, frameArtX, curtain, curtainD, downlight, lamp, pendantGlobe, chair, loungeChair, plant, bed, nightstand, wardrobeAlongX, wardrobeAlongD };
+}
+
+export function buildInterior(B) {
+  const { F0, C0, F1, C1, F2, C2 } = H;
+  const spots = { bush: [], flower: [], olive: [], pink: [] };
+  const { bx, rb, cyl, sphere, wallX, wallD, door, frameArt, frameArtX, curtain, downlight, lamp, pendantGlobe, chair, loungeChair, plant, bed, nightstand, wardrobeAlongX, wardrobeAlongD } = makeKit(B, spots);
 
   // ======================================================= GROUND FLOOR
   bx('travertine', 0.1, 6.0, F0, F0 + 0.012, 6.75, 9.05, F.PY);
@@ -213,7 +220,7 @@ export function buildInterior(B) {
   rb('oak', 1.35, F0 + 0.74, 7.08, 1.25, 0.04, 0.55, 0.01);
   rb('oak', 0.76, F0 + 0.36, 7.08, 0.04, 0.72, 0.55, 0.005);
   rb('oak', 1.94, F0 + 0.36, 7.08, 0.04, 0.72, 0.55, 0.005);
-  chair(1.35, 7.62, Math.PI, 'velvet');
+  chair(1.35, 7.62, 0, 'velvet');
   cyl('brass', 1.0, F0 + 0.78, 7.05, 0.07, 0.07, 0.015, 20);
   cyl('brass', 1.0, F0 + 0.98, 7.05, 0.008, 0.008, 0.4, 8);
   cyl('lampShade', 1.0, F0 + 1.2, 7.05, 0.06, 0.11, 0.12, 20, null, true);
@@ -221,48 +228,9 @@ export function buildInterior(B) {
   // ---- hall art + console
   frameArtX('art2', 0.11, 9.6, 10.4, F0 + 1.1, F0 + 2.1, true);
 
-  // ---- living
-  bx('travertineSlab', 0.1, 0.14, F0, C0, 11.0, 14.45);
-  bx('tv', 0.14, 0.18, F0 + 1.05, F0 + 2.0, 11.95, 13.65);
-  rb('walnut', 0.37, F0 + 0.36, 12.8, 0.44, 0.34, 2.7, 0.015);
-  rb('ceramic', 0.33, F0 + 0.64, 11.75, 0.12, 0.22, 0.12, 0.05);
-  rb('linenSand', 0.36, F0 + 0.56, 13.6, 0.26, 0.06, 0.34, 0.01);
-  rb('rug', 1.75, F0 + 0.02, 12.75, 3.0, 0.016, 3.5, 0.008);
-  // sofa facing the TV wall
-  {
-    const y = F0 + 0.012;
-    rb('blackSatin', 2.92, y + 0.04, 12.75, 0.86, 0.08, 2.4, 0.01);
-    rb('boucle', 2.9, y + 0.23, 12.75, 1.02, 0.3, 2.56, 0.06);
-    for (const d of [12.06, 12.75, 13.44]) rb('boucle', 2.8, y + 0.45, d, 0.84, 0.16, 0.67, 0.07);
-    for (const d of [12.06, 12.75, 13.44]) rb('boucle', 3.27, y + 0.68, d, 0.24, 0.44, 0.67, 0.1, 0, null, 0);
-    rb('boucle', 2.9, y + 0.47, 11.6, 1.02, 0.5, 0.22, 0.09);
-    rb('boucle', 2.9, y + 0.47, 13.9, 1.02, 0.5, 0.22, 0.09);
-    rb('velvet', 3.05, y + 0.72, 12.0, 0.14, 0.42, 0.42, 0.07, 0.25);
-    rb('linenSand', 3.05, y + 0.7, 13.5, 0.14, 0.4, 0.4, 0.07, -0.2);
-    rb('velvet', 3.03, y + 0.66, 13.15, 0.12, 0.32, 0.32, 0.06, 0.1);
-  }
-  cyl('travertineSlab', 1.55, F0 + 0.18, 12.55, 0.5, 0.5, 0.34, 48);
-  cyl('walnut', 1.85, F0 + 0.13, 13.4, 0.3, 0.3, 0.24, 40);
-  rb('linenSand', 1.45, F0 + 0.38, 12.45, 0.32, 0.05, 0.24, 0.01);
-  rb('velvet', 1.45, F0 + 0.42, 12.45, 0.28, 0.03, 0.2, 0.01);
-  sphere('ceramic', 1.72, F0 + 0.4, 12.7, 0.07);
-  loungeChair(1.05, F0 + 0.012, 11.2, Math.PI * 0.82);
-  cyl('brass', 0.45, F0 + 0.8, 14.25, 0.012, 0.012, 1.55, 8);
-  cyl('brass', 0.45, F0 + 0.02, 14.25, 0.14, 0.14, 0.02, 24);
-  cyl('lampShade', 0.45, F0 + 1.65, 14.25, 0.2, 0.22, 0.3, 32, null, true);
-  plant(5.5, F0, 14.3, 1.25);
+  // ---- living & dining: style sets (stylesets.js)
   curtain(0.15, 0.85, F0 + 0.02, C0 - 0.1, 14.68);
   curtain(5.25, 5.95, F0 + 0.02, C0 - 0.1, 14.68);
-  // dining
-  rb('oak', 4.85, F0 + 0.755, 12.7, 0.96, 0.045, 1.95, 0.012);
-  rb('oak', 4.85, F0 + 0.37, 12.05, 0.62, 0.73, 0.08, 0.008);
-  rb('oak', 4.85, F0 + 0.37, 13.35, 0.62, 0.73, 0.08, 0.008);
-  for (const d of [12.1, 12.7, 13.3]) { chair(4.15, d, Math.PI / 2); chair(5.55, d, -Math.PI / 2); }
-  rb('brass', 4.85, C0 - 0.85, 12.7, 0.05, 0.05, 1.5, 0.02);
-  bx('led', 4.83, 4.87, C0 - 0.882, C0 - 0.876, 11.98, 13.42);
-  cyl('frame', 4.85, C0 - 0.42, 12.1, 0.003, 0.003, 0.84, 6);
-  cyl('frame', 4.85, C0 - 0.42, 13.3, 0.003, 0.003, 0.84, 6);
-  sphere('ceramic', 4.85, F0 + 0.86, 12.55, 0.09);
   rb('walnut', 4.6, F0 + 0.48, 10.9, 2.1, 0.62, 0.46, 0.015);
   for (let x = 3.6; x < 5.62; x += 0.045) bx('walnut', x - 0.01, x + 0.01, F0 + 0.2, F0 + 0.76, 11.13, 11.145);
   frameArt('art1', 4.0, 5.2, F0 + 1.3, F0 + 2.25, 10.665, 'rear');
@@ -356,17 +324,10 @@ export function buildInterior(B) {
     bx('oak', 2.92, 2.98, F1 + 1.0, F1 + 1.04, 7.5, 8.6);
   }
   // ---- master bedroom
-  for (let d = 3.62; d < 6.55; d += 0.06) bx('oak', 5.965, 6.0, F1, F1 + 2.55, d - 0.022, d + 0.022);
-  bx('led', 5.95, 5.97, F1 + 2.55, F1 + 2.57, 3.6, 6.55);
-  bed(4.9, 5.05, F1 + 0.012, 1.8, 2.05, 5.96);
   nightstand(5.68, F1, 3.85);
   nightstand(5.68, F1, 6.25);
   pendantGlobe(5.45, C1, 3.85, 1.0, 0.1);
   pendantGlobe(5.45, C1, 6.25, 1.0, 0.1);
-  rb('rug', 4.5, F1 + 0.02, 5.05, 3.0, 0.014, 3.0, 0.007);
-  rb('velvet', 3.42, F1 + 0.24, 5.05, 0.42, 0.44, 1.5, 0.06);
-  loungeChair(2.95, F1 + 0.012, 4.05, Math.PI * 0.75, 'boucle');
-  cyl('travertineSlab', 2.85, F1 + 0.28, 4.75, 0.2, 0.2, 0.55, 32);
   curtain(2.55, 3.15, F1 + 0.02, C1 - 0.15, 3.65);
   curtain(5.35, 5.95, F1 + 0.02, C1 - 0.15, 3.65);
   wardrobeAlongD(5.4, 6.0, F1, 6.75, 7.65, true, 2.5);
@@ -462,7 +423,7 @@ export function buildInterior(B) {
     cyl('concrete', 1.95, y + 0.2, 12.3, 0.5, 0.46, 0.4, 40);
     cyl('charcoal', 1.95, y + 0.405, 12.3, 0.36, 0.36, 0.012, 32);
     cyl('fire', 1.95, y + 0.42, 12.3, 0.22, 0.26, 0.03, 24);
-    for (const [x, d, ry] of [[3.35, 12.15, -Math.PI / 2], [3.25, 13.15, -Math.PI * 0.62]]) loungeChair(x, y, d, ry, 'linenGrey');
+    for (const [x, d, ry] of [[3.35, 12.15, -Math.PI / 2], [3.25, 13.15, -Math.PI * 0.32]]) loungeChair(x, y, d, ry, 'linenGrey');
     bx('stone', 5.5, 5.95, F2, F2 + 0.6, 11.4, 13.95);
     bx('soil', 5.55, 5.9, F2 + 0.6, F2 + 0.62, 11.45, 13.9, F.PY);
     spots.flower.push([5.72, F2 + 0.62, 11.9, 0.75], [5.72, F2 + 0.62, 12.7, 0.8], [5.72, F2 + 0.62, 13.5, 0.7]);

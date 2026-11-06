@@ -6,6 +6,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { N8AOPass } from 'n8ao';
+import { VolumetricPass } from './volumetric.js';
 
 // Display-referred finishing: split-tone grade, vignette and fine grain.
 const FinalShader = {
@@ -27,7 +28,7 @@ const FinalShader = {
     }`,
 };
 
-export function createPost(renderer, scene, camera, { ao = true, aoQuality = 'Medium', halfRes = true, bloom = true, smaa = true } = {}) {
+export function createPost(renderer, scene, camera, { ao = true, aoQuality = 'Medium', halfRes = true, bloom = true, smaa = true, sun = null, volSteps = 28 } = {}) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
   const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType });
   const composer = new EffectComposer(renderer, rt);
@@ -44,9 +45,14 @@ export function createPost(renderer, scene, camera, { ao = true, aoQuality = 'Me
     }
     composer.addPass(aoPass);
   } else composer.addPass(new RenderPass(scene, camera));
+  let volPass = null;
+  if (aoPass && sun) {
+    volPass = new VolumetricPass({ camera, sun, getDepth: () => aoPass.beautyRenderTarget && aoPass.beautyRenderTarget.depthTexture, steps: volSteps });
+    composer.addPass(volPass);
+  }
   let bloomPass = null;
   if (bloom) {
-    bloomPass = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.2, 0.42, 6.0);
+    bloomPass = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.2, 0.32, 9.0);
     composer.addPass(bloomPass);
   }
   composer.addPass(new OutputPass());
@@ -54,7 +60,7 @@ export function createPost(renderer, scene, camera, { ao = true, aoQuality = 'Me
   composer.addPass(final);
   if (smaa) composer.addPass(new SMAAPass());
   return {
-    composer, aoPass, bloomPass, final,
+    composer, aoPass, bloomPass, final, volPass,
     setSize(w, h, dpr) {
       composer.setPixelRatio(dpr);
       composer.setSize(w, h);

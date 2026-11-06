@@ -186,6 +186,11 @@ export function buildCommunity(M, heroSpots, { lite = false } = {}) {
     group.add(instancedFrom(arm, M.frame, pm));
     group.add(instancedFrom(head, M.lampHead, hm, { cast: false }));
     group.add(instancedFrom(poolG, M.pool, lm, { cast: false, receive: false }));
+    const cone = new THREE.CylinderGeometry(0.12, 2.4, 5.0, 24, 1, true);
+    cone.translate(0, 2.52, 0.78);
+    const beams = instancedFrom(cone, M.beam, lm, { cast: false, receive: false });
+    beams.name = 'lampBeams';
+    group.add(beams);
   }
 
   // ---- lagoon toward the sunset, with a beach

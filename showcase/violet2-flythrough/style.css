@@ -115,3 +115,27 @@ body.ready .top, body.ready .meter, body.ready #rail { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) { .cue i { animation: none; } }
 body.noui .top, body.noui #rail, body.noui #cards, body.noui .meter, body.noui #pin { display: none !important; }
+
+/* interior style switcher */
+.styles { position: fixed; z-index: 11; top: 74px; right: clamp(18px, 3vw, 40px); display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass); backdrop-filter: blur(12px) saturate(1.2); -webkit-backdrop-filter: blur(12px) saturate(1.2); opacity: 0; transition: opacity 1s .7s; }
+body.ready .styles { opacity: 1; }
+.styles .lab { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--ink-3); margin-right: 6px; }
+.styles button { display: flex; align-items: center; gap: 7px; padding: 6px 11px 6px 7px; border-radius: 999px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); transition: background .3s, color .3s; }
+.styles button i { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255,255,255,.35); }
+.styles button.on { background: rgba(180, 154, 216, .28); color: var(--ink); }
+.styles.loading::after { content: ""; width: 12px; height: 12px; margin: 0 8px 0 4px; border-radius: 50%; border: 1.5px solid var(--line); border-top-color: var(--violet); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#toast { position: fixed; z-index: 12; left: 50%; top: 128px; translate: -50% 0; max-width: min(520px, calc(100vw - 32px)); padding: 12px 18px; border-radius: 4px; background: var(--glass); border: 1px solid rgba(246,242,236,.14); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); font-size: 13px; color: var(--ink-2); line-height: 1.5; opacity: 0; transform: translateY(-6px); transition: opacity .4s, transform .4s; pointer-events: none; }
+#toast.show { opacity: 1; transform: none; }
+#toast b { display: block; font-family: var(--serif); font-weight: 400; font-size: 19px; color: var(--ink); margin-bottom: 2px; }
+.style-line { font-size: 12.5px !important; color: var(--ink-2); border-top: 1px solid var(--line); padding-top: 12px; }
+.style-line b { color: var(--ink); font-weight: 500; margin-right: 6px; }
+.style-line .sw { display: inline-flex; gap: 3px; margin-right: 10px; vertical-align: -2px; }
+.style-line .sw i { width: 11px; height: 11px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,.25); }
+body.noui .styles, body.noui #toast { display: none !important; }
+@media (max-width: 720px) {
+  .styles { top: 58px; right: 12px; left: 12px; justify-content: space-between; padding-left: 12px; }
+  .styles .lab { display: none; }
+  .styles button { padding: 6px 8px 6px 6px; font-size: 10px; letter-spacing: .06em; }
+  #toast { top: 108px; }
+}

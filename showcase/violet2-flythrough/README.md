@@ -38,8 +38,29 @@ The page says so in its summary card. Price and payment plan are deliberately no
 | `src/materials.js` | PBR sets from CC0 photo-scans (Poly Haven, ambientCG) packed as WebP colour / normal / AO-roughness; shader patches for tile joints, macro variation, fresnel glass, palm sway. |
 | `src/atmosphere.js` | Preetham sky with lit clouds, sun + shadow zones, PMREM environment from the sky, fog, stars, time of day. |
 | `src/path.js` | Keyframed drone route (centripetal Catmull-Rom + monotone progress mapping) and gimbal rig (lag, bank, hover). |
-| `src/post.js` | N8AO ambient occlusion, bloom, ACES output, grade/vignette/grain, SMAA. |
+| `src/post.js` | N8AO ambient occlusion, volumetric light, bloom, ACES output, grade/vignette/grain, SMAA. |
+| `src/volumetric.js` | Shadow-map raymarched light shafts and haze, dust motes, lamp cones. |
+| `src/styles.js`, `src/stylesets.js` | Interior style presets (materials) and their furniture sets. |
 | `src/ui.js` | Loader, chapter cards, rail, mini-plans, plot pin. |
+
+## Interior styles
+
+Four presets researched from 2026 trend reporting (Dezeen, 1stDibs designer survey, Khaleej
+Times on Dubai "restrained luxury", Bayut UAE trends, Domus Academy, paint colours of the
+year): **Warm Minimal**, **Japandi Calm**, **Desert Organic**, **Aubergine Luxe**. A preset
+re-parameterises shared material roles across the whole house (`src/styles.js`) and shows
+its own living, dining and master-bedroom furniture (`src/stylesets.js`). Material types
+never change, so switching recompiles nothing; a style's extra textures load on first use.
+Deep link with `#japandi`, `#desert`, `#luxe` (or `?style=` for captures).
+
+## Volumetrics
+
+`src/volumetric.js`: a half-resolution raymarch through the sun's static shadow map gives
+shafts through glazing, pergola slats and palms, and a height-weighted haze; density is
+per sample (dusty air inside the house volume, thin haze outside). Dust motes sparkle only
+where the shadow map says sunlight reaches them; lamp cones fade in at dusk. The sun holds
+south-west through the master suite, swings north-west for the terrace and sets at the
+sunset view so the rays meet the visible sun.
 
 ## Performance decisions
 

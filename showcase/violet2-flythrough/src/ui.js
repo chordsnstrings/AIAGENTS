@@ -28,7 +28,7 @@ function planSVG(floor, highlight) {
   return svg;
 }
 
-export function initUI({ onMode, onJump }) {
+export function initUI({ onMode, onJump, onStyle, styles }) {
   const loader = document.getElementById('loader');
   const bar = loader.querySelector('.bar i');
   const label = loader.querySelector('.label');
@@ -56,6 +56,19 @@ export function initUI({ onMode, onJump }) {
     modeBtns.forEach((x) => x.classList.toggle('on', x === b));
     onMode(b.dataset.mode);
   }));
+  // interior style switcher
+  const box = document.getElementById('styles');
+  const sbtn = {};
+  for (const [k, st] of Object.entries(styles)) {
+    const btn = document.createElement('button');
+    btn.title = st.name;
+    btn.innerHTML = `<i style="background:conic-gradient(${st.palette.map((c, i) => `${c} ${i * 60}deg ${(i + 1) * 60}deg`).join(',')})"></i><span>${st.short}</span>`;
+    btn.addEventListener('click', () => onStyle(k));
+    box.appendChild(btn);
+    sbtn[k] = btn;
+  }
+  const toast = document.getElementById('toast');
+  let toastT = 0, firstStyle = true;
   const pin = document.getElementById('pin');
   const meter = document.querySelector('.meter i');
   const v = new THREE.Vector3();
@@ -66,6 +79,20 @@ export function initUI({ onMode, onJump }) {
       pct.textContent = `${Math.round(f * 100)}%`;
       if (text) label.textContent = text;
     },
+    setStyle(k) {
+      const st = styles[k];
+      for (const [key, btn] of Object.entries(sbtn)) btn.classList.toggle('on', key === k);
+      const sw = st.palette.map((c) => `<i style="background:${c}"></i>`).join('');
+      document.querySelectorAll('[data-style-line]').forEach((el) => { el.innerHTML = `<span class="sw">${sw}</span><b>${st.name}</b> ${st.blurb}`; });
+      if (!firstStyle) {
+        toast.innerHTML = `<b>${st.name}</b><span>${st.blurb}</span>`;
+        toast.classList.add('show');
+        clearTimeout(toastT);
+        toastT = setTimeout(() => toast.classList.remove('show'), 2800);
+      }
+      firstStyle = false;
+    },
+    styleLoading(b) { box.classList.toggle('loading', b); },
     ready() { document.body.classList.add('ready'); loader.classList.add('gone'); setTimeout(() => loader.remove(), 1400); },
     fatal(msg) { label.textContent = msg; loader.classList.add('err'); },
     update(p, camera, pinWorld, w, h) {

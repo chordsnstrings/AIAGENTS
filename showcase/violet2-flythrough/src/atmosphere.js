@@ -8,8 +8,8 @@ const D2R = Math.PI / 180;
 const dirFrom = (az, el, v = new THREE.Vector3()) => v.set(Math.sin(az * D2R) * Math.cos(el * D2R), Math.sin(el * D2R), Math.cos(az * D2R) * Math.cos(el * D2R));
 
 const STATES = [
-  { t: 0.0, elev: 17, turb: 5.0, ray: 1.6, mie: 0.0035, mieG: 0.8, gain: 0.82, sun: 4.3, sunCol: [1.0, 0.81, 0.6], fog: [0.84, 0.78, 0.71], fogD: 0.0009, exp: 0.7, env: 0.55, ground: [0.55, 0.5, 0.44], disc: 1 },
-  { t: 0.5, elev: 3.0, turb: 6.0, ray: 2.4, mie: 0.0045, mieG: 0.82, gain: 0.95, sun: 2.2, sunCol: [1.0, 0.62, 0.4], fog: [0.84, 0.66, 0.55], fogD: 0.0011, exp: 0.88, env: 0.6, ground: [0.42, 0.34, 0.28], disc: 1 },
+  { t: 0.0, elev: 17, turb: 5.0, ray: 1.6, mie: 0.0024, mieG: 0.72, gain: 0.82, sun: 4.3, sunCol: [1.0, 0.81, 0.6], fog: [0.84, 0.78, 0.71], fogD: 0.0009, exp: 0.7, env: 0.55, ground: [0.55, 0.5, 0.44], disc: 1 },
+  { t: 0.5, elev: 3.0, turb: 6.0, ray: 2.4, mie: 0.0034, mieG: 0.76, gain: 0.95, sun: 2.2, sunCol: [1.0, 0.62, 0.4], fog: [0.84, 0.66, 0.55], fogD: 0.0011, exp: 0.88, env: 0.6, ground: [0.42, 0.34, 0.28], disc: 1 },
   { t: 1.0, elev: 0.4, turb: 2.0, ray: 4.2, mie: 0.002, mieG: 0.75, gain: 0.6, sun: 0.0, sunCol: [0.55, 0.6, 0.85], fog: [0.2, 0.23, 0.34], fogD: 0.0009, exp: 2.0, env: 1.4, ground: [0.06, 0.065, 0.085], disc: 0 },
 ];
 const lerp = THREE.MathUtils.lerp;

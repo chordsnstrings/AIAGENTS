@@ -2,13 +2,16 @@ import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { Builder, meshes } from './builder.js';
 import { buildShell } from './house.js';
-import { buildInterior } from './interior.js';
+import { buildInterior, makeKit } from './interior.js';
+import { buildStyleSet } from './stylesets.js';
+import { STYLES, createStyler } from './styles.js';
 import { buildCommunity } from './community.js';
 import { loadTextureSets, createMaterials, shared } from './materials.js';
 import { Atmosphere } from './atmosphere.js';
 import { DronePath, DroneRig } from './path.js';
 import { createPost } from './post.js';
 import { initUI } from './ui.js';
+import { makeDust } from './volumetric.js';
 
 const params = new URLSearchParams(location.search);
 const STILL = params.has('p');
@@ -42,7 +45,10 @@ async function main() {
   if (params.get('ui') === '0') document.body.classList.add('noui');
   let mode = params.get('tod') || 'auto';
   let jumpTo = null;
+  let applyStyle = () => {};
   const ui = initUI({
+    styles: STYLES,
+    onStyle: (k) => applyStyle(k),
     onMode: (m) => { mode = m; wake(); },
     onJump: (p) => { const max = document.documentElement.scrollHeight - innerHeight; scrollTo({ top: p * max, behavior: reduceMotion ? 'auto' : 'smooth' }); },
   });
@@ -79,6 +85,18 @@ async function main() {
   const shellSpots = buildShell(HB, { hero: true });
   const { spots: inSpots, lights: lightDefs } = buildInterior(HB);
   scene.add(meshes(HB.geometries(), M));
+  // switchable furniture sets for living, dining and master (one visible at a time)
+  const styleGroups = {};
+  for (const key of Object.keys(STYLES)) {
+    const SB = new Builder();
+    buildStyleSet(SB, key, makeKit(SB, { bush: [], flower: [], olive: [], pink: [] }));
+    styleGroups[key] = meshes(SB.geometries(), M);
+    scene.add(styleGroups[key]);
+  }
+  const styler = createStyler({ M, T, base: 'assets/tex/', anisotropy: Math.min(8, maxAniso), onLoading: (b) => ui.styleLoading(b) });
+  const fromHash = location.hash.slice(1);
+  let styleKey = STYLES[fromHash] ? fromHash : (params.get('style') || 'minimal');
+  await styler.apply(styleKey);
   const heroSpots = { ...shellSpots };
   for (const [k, v] of Object.entries(inSpots)) heroSpots[k] = [...(heroSpots[k] || []), ...v];
 
@@ -106,7 +124,13 @@ async function main() {
   }
 
   const atmo = new Atmosphere(renderer, scene, { shadowMapSize: Q.shadow });
-  const post = createPost(renderer, scene, camera, Q);
+  const post = createPost(renderer, scene, camera, { ...Q, sun: atmo.sun, volSteps: TIER === 'mid' ? 20 : 28 });
+  const dust = makeDust([
+    [0.3, 5.8, 0.4, 3.0, 10.8, 14.6], [2.0, 3.1, 0.4, 3.0, 6.8, 10.5], [2.6, 5.9, 3.7, 6.3, 3.6, 6.5],
+    [0.4, 5.6, 3.65, 6.3, 1.6, 3.3], [3.1, 5.9, 3.7, 6.3, 10.8, 14.0], [0.3, 5.8, 6.9, 9.4, 11.3, 14.0], [3.0, 5.9, 6.9, 9.5, 8.1, 11.0],
+  ], TIER === 'low' ? 2.5 : 5);
+  scene.add(dust);
+  const beams = community.getObjectByName('lampBeams');
   post.setSize(innerWidth, innerHeight, dpr);
 
   const path = new DronePath();
@@ -153,8 +177,10 @@ async function main() {
 
     const todTarget = mode === 'day' ? 0 : mode === 'night' ? 1 : smooth(progress, 0.79, 0.975);
     tod = STILL ? todTarget : tod + (todTarget - tod) * (1 - Math.exp(-dt * 2.5));
-    const swing = smooth(progress, 0.38, 0.64);
-    const s = atmo.update(tod, time, lerp(-55, -128, swing), lerp(18, 11.5, swing));
+    // sun holds south-west through the master suite, swings north-west for the terrace, then sets
+    const swing = smooth(progress, 0.735, 0.83);
+    const sunEl = lerp(lerp(18, 11.5, swing), 4, smooth(progress, 0.868, 0.89));
+    const s = atmo.update(tod, time, lerp(-55, -128, swing), sunEl);
     const zone = zoneFor(camera.position);
     atmo.setShadowZone(zone);
     const c = camera.position;
@@ -162,14 +188,41 @@ async function main() {
     inside = STILL ? inHouse : inside + (inHouse - inside) * (1 - Math.exp(-dt * 2.2));
     const st = s || atmo.last;
     if (s) atmo.last = s;
-    const expTarget = st.exp * lerp(1, 1.4 - tod * 0.3, inside);
+    const expTarget = st.exp * lerp(1, (1.4 - tod * 0.3) * STYLES[styleKey].inside, inside);
     exposure = STILL ? expTarget : exposure + (expTarget - exposure) * (1 - Math.exp(-dt * 2.0));
     renderer.toneMappingExposure = exposure;
     if (post.aoPass) post.aoPass.configuration.aoRadius = zone === 'aerial' ? 5 : zone === 'street' ? 1.4 : 0.55;
     const lamp = smooth(tod, 0.3, 0.95);
     for (const g of glow) {
       const v = lerp(g.day, g.dusk, lamp);
-      if (g.prop === 'opacity') g.mat.opacity = v; else g.mat.emissiveIntensity = v;
+      if (g.prop === 'opacity') g.mat.opacity = v;
+      else if (g.prop) g.mat.uniforms[g.prop].value = v;
+      else g.mat.emissiveIntensity = v;
+    }
+    if (beams) beams.visible = M.beam.uniforms.uOpacity.value > 0.003;
+    // volumetrics: dusty air indoors, thin height haze outside, long thin haze from the air
+    const sunK = atmo.sun.intensity;
+    const sm = atmo.sun.shadow;
+    const du = dust.material.uniforms;
+    du.uTime.value = time;
+    du.uShadow.value = sm.map ? sm.map.depthTexture : null;
+    du.uShadowMatrix.value.copy(sm.matrix);
+    du.uSunCol.value.copy(atmo.sun.color).multiplyScalar(sunK * 0.4 * inside);
+    du.uAmb.value.setRGB(0.012, 0.011, 0.01).multiplyScalar(inside * (1 - tod * 0.6));
+    dust.visible = inside > 0.02 && !!sm.map;
+    if (post.volPass) {
+      // dusty, beam-forming air inside the house volume; thin height haze outside
+      const u = post.volPass.u;
+      const air = zone === 'aerial' ? 1 : 0;
+      u.uDensity.value = lerp(0.0024, 0.0013, air);
+      u.uDensityIn.value = 0.03;
+      u.uHeightK.value = lerp(2.0, 4.0, air);
+      u.uHeightScale.value = lerp(5, 18, air);
+      u.uMaxDist.value = lerp(lerp(55, 280, air), 20, inside);
+      u.uSunIn.value = 1.0; u.uSunOut.value = lerp(0.08, 0.1, air);
+      u.uAmbIn.value = 0.6; u.uAmbOut.value = 1.0;
+      post.volPass.sunCol.copy(atmo.sun.color).multiplyScalar(sunK * 0.16);
+      post.volPass.ambCol.copy(scene.fog.color).multiplyScalar(0.14 * (0.6 + tod * 0.8));
     }
     for (const L of lights) L.l.intensity = lerp(L.day, L.dusk, smooth(tod, 0.25, 1.0));
     shared.time.value = time;
@@ -180,10 +233,23 @@ async function main() {
   }
 
   // ---- warm up: compile every program before revealing
+  for (const g of Object.values(styleGroups)) g.visible = true;
   ui.progress(0.86, 'Compiling shaders');
   update(0.016, 0);
   await nextFrame();
   try { await renderer.compileAsync(scene, camera); } catch (e) { /* older drivers: compile lazily */ }
+  for (const [k, g] of Object.entries(styleGroups)) g.visible = k === styleKey;
+  ui.setStyle(styleKey);
+  applyStyle = async (k) => {
+    if (!STYLES[k] || k === styler.current) return;
+    await styler.apply(k);
+    styleKey = k;
+    for (const [key, g] of Object.entries(styleGroups)) g.visible = key === k;
+    renderer.shadowMap.needsUpdate = true;
+    ui.setStyle(k);
+    try { history.replaceState(null, '', '#' + k); } catch (e) { /* sandboxed frames may refuse */ }
+    wake();
+  };
   mark('compiled');
   ui.progress(0.95, 'Lighting the scene');
   await nextFrame();
@@ -194,6 +260,7 @@ async function main() {
   window.__ready = true;
 
   if (STILL) {
+    document.getElementById('loader')?.remove();
     // render a few frames so shadow and AO settle, then signal the capture harness
     for (let i = 0; i < 3; i++) { update(0.016, 1 + i * 0.016); post.composer.render(0.016); await nextFrame(); }
     renderer.info.autoReset = false; renderer.info.reset();

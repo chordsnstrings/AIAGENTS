@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as P from './proctex.js';
+import { beamMaterial } from './volumetric.js';
 
 const SETS = ['plaster', 'stone', 'walnut', 'oak', 'woodfloor', 'patio', 'pavers', 'sidewalk', 'asphalt', 'sand',
   'gravel', 'bark', 'velvet', 'rug', 'boucle', 'linen', 'grass', 'marble', 'travertine'];
@@ -156,6 +157,7 @@ export function createMaterials(T, { maxAniso = 8 } = {}) {
   M.linenGrey = pbr('linen', { tile: 0.5, color: 0xb9b4ac, rough: 1, normal: 0.9, env: 0.5 });
   M.velvet = pbr('velvet', { tile: 0.7, color: 0x6e4f8f, rough: 0.9, normal: 0.6, env: 0.25, physical: { sheen: 1, sheenRoughness: 0.45, sheenColor: new THREE.Color(0xc7a9e6) } });
   M.rug = pbr('rug', { tile: 0.9, color: 0xe8dfd2, rough: 1, normal: 1.1, env: 0.2 });
+  M.weave = pbr('linen', { tile: 0.3, color: 0xd9c19a, rough: 0.9, normal: 1.2, env: 0.3, side: THREE.DoubleSide });
   M.sheer = new THREE.MeshStandardMaterial({ map: clone(T.linen.c, 2, 2), color: 0xfbf8f2, roughness: 1, transparent: true, opacity: 0.72, side: THREE.DoubleSide, envMapIntensity: 0.4, depthWrite: false });
   M.sheer.userData.noShadow = true;
 
@@ -215,5 +217,8 @@ export function createMaterials(T, { maxAniso = 8 } = {}) {
   M.pool.userData.noShadow = true;
   glow.push({ mat: M.pool, day: 0, dusk: 0.55, prop: 'opacity' });
 
+  M.beam = beamMaterial(0xffcf96);
+  M.beam.userData.noShadow = true;
+  glow.push({ mat: M.beam, day: 0, dusk: 0.16, prop: 'uOpacity' });
   return { M, glow, water: wn };
 }
