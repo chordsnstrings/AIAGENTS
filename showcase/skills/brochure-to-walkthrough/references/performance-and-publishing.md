@@ -27,124 +27,143 @@ it stands; re-measure after changing the files they point at. The reasons behind
 
 ## 1. Budgets at a glance
 
-Measured on 6 Nov 2026 with `scripts/capture.cjs` at 1024 × 576 on headless Chromium + SwiftShader
-(a CPU renderer: the timings are load and settle times, not GPU frame times; say so in any report).
+Measured on 6 Nov 2026, after the review-and-fix passes, with `scripts/capture.cjs` at 1024 × 576 on
+headless Chromium + SwiftShader (a CPU renderer: the timings are load and settle times, not GPU frame
+times; say so in any report).
 
 | Measure | Template | Limit (SKILL.md acceptance) |
 | --- | --- | --- |
-| Draw calls, high, interior (`p=0.45`) | 158 calls · 1.26 M tris · 104 programs · 105 textures | ~150 calls, ≤ 1.3 M tris |
-| Draw calls, high, aerial (`p=0.02`) | 180 calls · 1.27 M tris · 104 programs · 106 textures | same |
-| Draw calls, low, interior (`p=0.45`) | 145 calls · 0.96 M tris · 93 programs · 91 textures | – |
-| First frame / settled (SwiftShader) | 4–10 s / 6–11 s after script start, varying with host load | – |
-| `dist/app.js` | 1,386,415 bytes (1.32 MiB), minified, uncompressed | ≤ 1.5 MB |
-| `assets/tex/` | 29 sets, 87 WebP files, 8,977,288 bytes (8.56 MiB) | ≤ 10 MB |
-| Awaited before first frame | 19 base sets, 6,254,334 bytes (5.96 MiB) | – |
-| Published artifact | 90 files, 10,386,034 bytes (9.9 MiB; 10,386,251 with the current bundle) | 256 files, 20 MiB/file, 64 MiB/call |
+| Draw calls, high, interior (`p=0.655`) | 157 calls · 0.84 M tris · 120 programs · 113 textures | ~150 calls, ≤ 1.3 M tris |
+| Draw calls, high, aerial (`p=0.03`) | 186 calls · 0.80 M tris · 120 programs · 113 textures | same |
+| Draw calls, high, garden (`p=0.49`) | 177 calls · 0.89 M tris · 120 programs · 113 textures | same |
+| Draw calls, low, interior (`p=0.655`) | 154 calls · 0.78 M tris · 118 programs · 111 textures | – |
+| First frame / settled (SwiftShader) | 7–15 s / 8–29 s after script start, varying with host load | – |
+| `dist/app.js` | 993,630 bytes (970 KiB), minified; 337,707 gzip | ≤ 1.5 MB |
+| `assets/gi/` | 7 JSON files, 492,424 bytes; 286,455 gzip; `S` + `U` + `U2` + one `N` before the first frame | – |
+| `assets/tex/` | 29 sets, 87 WebP files, 8,977,288 bytes (8.56 MiB), plus `512/` 2,930,674 bytes for the phone tier | ≤ 10 MB |
+| Awaited before first frame | 11 exterior base sets (the 7 interior sets stream in behind it; a still awaits all 18) | – |
+| Published artifact | `index.html`, `style.css`, `dist/app.js`, 7 GI files, 174 WebP files | 256 files, 20 MiB/file, 64 MiB/call |
 
 The aerial frame costs more calls than the interior because nothing is frustum-culled from the air;
-programs stay at 104 because every material is compiled once during warm-up (§3).
+programs stay at 120 because every material is compiled once during warm-up (§3): 104 before the fix
+passes plus the `noPoint` and `lampMap` variants of the exterior finishes. The night point-light pool
+keeps a fixed count, so no light-state recompile ever happens.
 
-## 2. Quality tiers (`src/main.js`, `src/post.js`)
+## 2. Quality tiers (`src/tiers.js`, `src/post.js`)
 
-`detectTier()` (`main.js` 22–29): `?q=` wins; otherwise `low` when `(pointer: coarse)` matches,
-`navigator.deviceMemory <= 4` (8 assumed when the API is absent) or the smaller screen side is under
-600 px; else `high`. `mid` is never chosen automatically (no browser signal separates an integrated
-GPU from a discrete one); offer `?q=mid` in the README for laptops that stutter. `Q` (31–35):
+A tier is a **pixel budget** (device pixels the post chain may process per frame) plus the passes that
+run; the pixel ratio follows from the budget and the canvas size (`pixelRatioFor`), never above the
+device's own, so a 13-inch retina laptop and a 4K monitor land on comparable frame costs. `detectTier(gl,
+forced)`: `?q=` wins; otherwise `classifyGPU()` reads the renderer name through
+`WEBGL_debug_renderer_info`: software renderers and mobile GPUs (Mali, PowerVR, Xclipse, Adreno 1xx–6xx,
+`Apple GPU` on a phone) `low`; other Adreno, `Apple GPU` on a tablet, base M1/M2, Intel/Iris/UHD and
+integrated Radeon `mid`; GeForce/RTX/Quadro, Radeon RX/Pro, Arc and Apple Pro/Max/Ultra `high`; unknown
+desktops `mid` (the scaler climbs from there).
 
-| Tier | `dprMax` | `shadow` | `ao` / `aoQuality` | `halfRes` | `smaa` | `bloom` |
-| --- | --- | --- | --- | --- | --- | --- |
-| high | 2 | 4096 | yes / `'Medium'` | yes | yes | yes |
-| mid | 1.5 | 2048 | yes / `'Performance'` | yes | yes | yes |
-| low | 1.3 | 2048 | no | – | no | yes |
+| Tier | budget | `shadow` | `ao` / `aoQuality` | `halfRes` | `smaa` | `bloom` | `vol` / `volSteps` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| high | 3.7 MP | 2048 | yes / `'Medium'` | yes | yes | yes | yes / 28 |
+| mid | 2.1 MP | 2048 | yes / `'Performance'` | yes | yes | yes | yes / 20 |
+| low | 0.6 MP | 2048 | zones only / `'Performance'` | yes | yes | yes | no |
 
-An unknown `?q=` value gets the `high` settings via the `||` fallback on line 35, and every `TIER === 'low'` /
-`'mid'` test fails, so it behaves as `high` throughout.
+On `low`, `aoZones` keeps AO only in the house and street zones (`post.setAO` swaps in a plain
+`RenderPass` from the air) and the volumetric march is off (it reads depth from
+`aoPass.beautyRenderTarget.depthTexture`); `lite` halves the street, verge and far-house planting; dust is
+0.8 motes per m³ instead of 1.5; the env cache holds 6 instead of 16 and its bins are coarser; the
+reflection probes are 128 px instead of 256; the styler releases style-only sets it no longer shows; the
+overlay drops its backdrop blurs (`body.lowfx`); textures come from `assets/tex/512/`. The only runtime AO
+knob is `aoRadius` per zone: 5 aerial, 1.4 street, 0.55 house (0.35 on `low`). Keep the tier values for a
+new property; they describe devices, not the house.
 
-What each tier drops, traced through `createPost()` (`post.js` 31–61): with `ao` false the composer opens
-with a plain `RenderPass` instead of `N8AOPass` (47), and because `VolumetricPass` is added only when
-`aoPass && sun` (49–52; it reads depth from `aoPass.beautyRenderTarget.depthTexture`) the shafts and haze
-go with it. `UnrealBloomPass` runs on every tier at half resolution (strength 0.2, radius 0.32, threshold
-9; 55); `SMAAPass` is last and off on `low` (61). In `main.js`, `lite: TIER === 'low'` (106) halves the far
-palms, street palms and verge bushes and uses 130 instead of 220 desert segments, `volSteps` is 20 on `mid`
-else 28 (124), dust density 2.5 instead of 5 (128), and `Atmosphere` takes `shadowMapSize: Q.shadow` (120).
-The only runtime AO knob is `aoRadius` per zone (192): 5 aerial, 1.4 street, 0.55 house. Keep the tier
-values for a new property; they describe devices, not the house.
+## 3. Render on demand and adaptive resolution
 
-## 3. Render on demand and adaptive pixel ratio
+The loop calls `update()` every frame (CPU only) but renders only while `now <= awakeUntil` and the tab is
+visible. `wake()` pushes `awakeUntil` 1,600 ms ahead on scroll, resize, `visibilitychange`, a mode button,
+a style change, a sky read-back landing (`atmo.onLevel`), the GI data landing, and whenever `update()`
+reports it is still converging (progress, time of day or exposure still easing), so a frame is never left
+half-settled. A scroll page idles most of the time; after 1.6 s the GPU stops entirely, and the idle
+periods are when `atmo.prebuild()` renders the evening's environments one at a time.
 
-The loop (`main.js` 280–305) calls `update()` every frame (CPU only) but renders only while `now <=
-awakeUntil` and the tab is visible (288). `wake()` (149) pushes `awakeUntil` 1,600 ms ahead on scroll (150),
-resize (151–157), `visibilitychange` (158), a mode button (53), a style change (254), a sky read-back
-landing (`atmo.onLevel`, 122) and whenever `update()` reports it is still converging (287): it returns true
-(235) while progress, time of day or exposure are still easing (thresholds 1e-5, 1e-4, 1e-3), so a frame is
-never left half-settled. A scroll page idles most of the time; after 1.6 s the GPU stops entirely.
+`AdaptiveScale` (`tiers.js`) walks a ladder of 0.6–1.3× the budget's pixel ratio on measured frame cost:
+the GPU timer (`EXT_disjoint_timer_query_webgl2`, bracketing the composer render) where the browser
+offers one, else the rAF interval. Down one rung after two 30-frame windows above 19 ms; up one rung as a
+probe (reverted if the next window exceeds 18 ms) after 3 s under the ceiling, only once the scroll has
+settled, at most one change every 2 s, and never in the first 3 s (boot uploads and compiles are not frame
+cost). A change re-runs `applySize()`: `renderer.setPixelRatio`, `renderer.setSize(w, h, false)` from the
+canvas box, `post.setSize`, which also decides whether SMAA runs (under a 1.75 pixel ratio).
 
-Pixel ratio starts at `min(devicePixelRatio, Q.dprMax)` (65). Every 40 rendered frames (291) the mean frame
-time decides: above 26 ms, `dpr -= 0.2` down to 0.75; below 13 ms, `dpr += 0.1` up to the cap (295–296). A
-change re-applies `renderer.setPixelRatio`, `renderer.setSize(innerWidth, innerHeight, false)` (CSS size
-untouched) and `post.setSize` (299–301), which resizes the composer and the grain `uRes` (`post.js` 64–68).
-Only rendered frames are counted, so idle time does not skew the mean; the drop is faster than the recovery.
-
-Warm-up (238–244) shows every style group, runs one `update()` and `renderer.compileAsync`, then hides all
-but the chosen style; styles later swap maps and parameters, never material types, so switching compiles
-nothing. The SwiftShader warning `KHR_parallel_shader_compile extension not supported` comes from this call.
+Warm-up awaits the GI data, runs one `update()` with the beams and dust shown and `renderer.compileAsync`,
+then hides them; the other furniture sets are built and compiled when their chip is hovered or focused;
+styles later swap maps and parameters, never material types, so switching compiles nothing. The
+SwiftShader warning `KHR_parallel_shader_compile extension not supported` comes from this call.
 
 ## 4. Static shadow zones (`src/atmosphere.js`)
 
-`renderer.shadowMap.autoUpdate = false` (`main.js` 72): the map renders only when `needsUpdate` is set, in
-`placeSun()` (`atmosphere.js` 129–134) and after a style change (`main.js` 251). `setShadowZone` (106–118)
-sizes the orthographic sun camera per zone: half extents `{ aerial: 300, street: 60, house: 18 }` m (full
-widths 600 / 120 / 36 m; texels 14.6 / 2.9 / 0.88 cm at 4096, double at 2048), near 1, far `half * 2 + 400`,
-target `(-40, 0, -20)` for aerial else `(3.05, 4, -9)` (roughly the plot centre), `normalBias` 0.25 / 0.05 /
-0.02, PCF `radius` 1.5 / 2.0 / 3.0; the sun sits at `target + sunDir * (half + 200)` (131). `setSun` (121–127)
-ignores moves under 0.15°, so the map re-renders during the terrace swing (progress 0.735–0.83 and
-0.868–0.89, `main.js` 178–179) and nowhere else. `zoneFor(c)` (`main.js` 161–166) returns `aerial` above
-`y 42`, `house` inside `x 0.05–6.05, z −1.4…−15.4, y < 10.2` or the margin box `x −2…8, z 0…−18.5, y < 12`,
-else `street`. For a new plot change both boxes and the tighter `inHouse` box on line 184 to `x 0…PLOT.w`,
-`z 0…−PLOT.d`, move the house target to the new centre, and grow `house` so the square covers the plot
-plus a 2–3 m margin (a 12 × 30 m villa needs about 22).
+`renderer.shadowMap.autoUpdate = false`: the map renders only when `needsUpdate` is set, in `placeSun()`
+and after a style change. `setShadowZone` sizes the orthographic sun camera per zone: half extents
+`{ aerial: 300, street: 60, house: 18 }` m (full widths 600 / 120 / 36 m; texels 29.3 / 5.9 / 1.76 cm at
+2048), near 1, far `half * 2 + 400`, target `(-40, 0, -20)` for aerial else `(3.05, 4, -9)` (roughly the
+plot centre), `normalBias` 0.25 / 0.05 / 0.02, PCF `radius` 1.5 / 2.0 / 3.0; the sun sits at `target +
+sunDir * (half + 200)`. `setSun` ignores moves under 0.15°, so the map re-renders during the terrace swing
+and set (`story.js` `SUN`) and nowhere else; far houses and far palms cast only from the air, so a swing
+redraws about 0.4 M caster triangles instead of 1.1 M. `zoneFor(c)` (`main.js`) returns `aerial` above
+`y 42`, `house` inside `x 0.05–6.05, z −1.4…−15.4, y < 10.2` or the margin box `x −2…8, z 0…−18.5, y <
+12`, else `street`. For a new plot change both boxes and the tighter `inHouseBox` to `x 0…PLOT.w`, `z
+0…−PLOT.d`, move the house target to the new centre, and grow `house` so the square covers the plot plus
+a 2–3 m margin (a 12 × 30 m villa needs about 22). Tightening `house` to 12–14 m would double texel
+density, but a fragment outside the frustum renders fully lit: check the terrace and street frames for a
+cut-off line before keeping it.
 
 ## 5. Instancing and LOD (`src/builder.js`, `src/community.js`, `src/vegetation.js`)
 
-One draw call per material key is the whole strategy. `meshes(geos, mats)` (`builder.js` 128–141) emits
-one `Mesh` per key for the hero; `instanced(geos, mats, matrices)` (143–160) one `InstancedMesh` per key
-with every neighbour as an instance; `instancedFrom(geo, mat, matrices, { cast, receive })`
-(`vegetation.js` 110–119) the same for a single geometry. All are frozen with `matrixAutoUpdate = false`.
+One draw call per material key is the whole strategy. `meshes(geos, mats, { order })` emits one `Mesh`
+per key for the hero; `instanced(geos, mats, matrices)` one `InstancedMesh` per key with every neighbour
+as an instance; `instancedFrom(geo, mat, matrices, { cast, receive })` the same for a single geometry. All
+are frozen with `matrixAutoUpdate = false`.
 
-`buildCommunity(M, heroSpots, { lite })` (`community.js` 64–279) lays eight curving rows (69–72) around
-`R = 260` in blocks of `BLOCK = 7` plots of `PLOT_W = 6.1` m with `GAP = 5`, cut by two `CROSS` streets.
-A unit whose centre lies within 72 m of the hero (92) is full detail: the non-hero `buildShell` geometry
-and a copy mirrored about `x = 3.05`, so alternate units mirror, with the `room` key split into
-`roomLit`/`roomDim` instances (62 % lit, `cast: false`) for fake lit interiors (100–112). Beyond 72 m
-`lodHouse()` (18–36) stands in: a few boxes and four quads carrying the `lod` facade atlas and `lodRoof`
-(114–119). Lamps are five instanced meshes (pole, arm, head, light pool, beam cone; 174–194), the beams
-named `lampBeams` and hidden by day (`main.js` 200); vegetation is six instanced meshes from one palm and
-two bush geometries (246–276); the desert is one 4200 m plane (225–244). `stats { full, lod, palms }` is
-returned (278) but not logged: log it while adapting. Neighbours follow a new hero automatically because
-they come from the same `buildShell`; rewrite `lodHouse()` to the new massing, the row table to the
-masterplan and `PLOT_W`. Keep the 72 m radius, which bounds the heavy instances. If calls climb, look for a
-new material key or a repeated object built with `Builder.add` instead of an instance list.
+`buildCommunity(M, heroSpots, { lite })` lays eight curving rows around `R = 260` in blocks of `BLOCK = 7`
+plots of `PLOT_W = 6.1` m with `GAP = 5`, cut by two `CROSS` streets. A unit whose centre lies within 72 m
+of the hero is full detail (88 on the template): the non-hero `buildShell` geometry plus `dressShell`
+(roof pavers, coping, two condensers, a tank) and a copy mirrored about `x = 3.05`, so alternate units
+mirror, with the `room` key split into `roomLit`/`roomDim` instances (62 % lit, `cast: false`) and the
+`pool` quads dropped. Beyond 72 m `lodHouse()` stands in (163): a few boxes, four quads on the `lod`
+facade atlas, flat fills and the cheap form of the rooftop kit. Lamps are four instanced meshes (pole,
+arm, head, beam cone, the beams named `lampBeams` and hidden by day); the light they throw is one
+`DataTexture` baked on load (`bakeLampMap`: every lamp head splatted within 15 m, every full neighbour's
+car-port and strip fittings within 4–6 m, about 2048 × 1024 R8 texels at 0.24 m, a few million texel
+updates) that the ground materials sample through the `lampMap` feature. Palms (530) are two
+`InstancedMesh` pairs sharing the matrices: the 1,112-triangle model within 70 m of the camera, the
+192-triangle one beyond, re-partitioned once the camera has moved 5 m (chunking into angular sectors was
+measured and rejected: a wedge of this arc has a 120 m bounding sphere no route position can cull);
+bushes are three instanced meshes from two card geometries; the desert is one 4200 m plane of 130
+segments. `stats { full, lod, palms }` is returned but not logged: log it while adapting. Neighbours
+follow a new hero automatically because they come from the same `buildShell`; rewrite `lodHouse()` and
+`dressShell()` to the new massing, the row table to the masterplan and `PLOT_W`. Keep the 72 m radius,
+which bounds the heavy instances. If calls climb, look for a new material key or a repeated object built
+with `Builder.add` instead of an instance list.
 
 ## 6. Reading the capture log line
 
-In still mode `main.js` (265–277) removes the loader, waits up to 1.5 s for two sky read-backs
-(pitfall 15), renders three settle frames, resets `renderer.info`, renders once more and logs
+In still mode `main.js` removes the loader, applies `?cam=` and `?hide=`, waits up to 1.5 s for two sky
+read-backs (pitfall 15), renders three settle frames, resets `renderer.info`, renders once more and logs
 
 ```
-[t] settled · 158 calls · 1.26M tris · 104 programs · 105 textures 9.0s
+[t] settled · 157 calls · 0.84M tris · 120 programs · 113 textures 14.8s
 ```
 
 `calls` is `renderer.info.render.calls` for that one composer render: scene draws inside the AO or
-render pass plus one call per full-screen pass (AO, volumetric, bloom mips, output, grade, SMAA), counted
-on a frame with no shadow-map render (a zone or style change adds one pass over every caster). `tris` is
-`render.triangles` in millions. `programs` is `renderer.info.programs.length`, compiled shader variants
-including shadow-depth variants; a jump means a new material variant. `textures` is `memory.textures`:
-loaded sets (57 base files plus the current style's extras), procedural textures, render targets, the two
-GI 3D textures, up to 8 cached PMREM environments (`atmosphere.js` 158) and the shadow map. The trailing
-figure is seconds since script start; earlier marks are `textures`, `geometry`, `compiled`, `first frame`.
+render pass plus one call per full-screen pass (AO, the march and its blur, bloom mips, finish, SMAA),
+counted on a frame with no shadow-map render (a zone or style change adds one pass over every caster).
+`tris` is `render.triangles` in millions. `programs` is `renderer.info.programs.length`, compiled shader
+variants including shadow-depth variants; a jump means a new material variant (the `noPoint` and
+`lampMap` finishes account for 16 of the 120). `textures` is `memory.textures`: loaded sets (54 base files
+plus the current style's extras), procedural textures (the noise, the lamp map, the facade atlas, the
+cards), render targets, the two GI 3D textures, the cached PMREM environments, the probes and the shadow
+map. The trailing figure is seconds since script start; earlier marks are `textures`, `geometry`,
+`compiled`, `first frame`.
 
-Template values are in §1; low drops 13 calls (AO, volumetric and SMAA passes, fewer plants), 11 programs
-and 14 textures. Any `error:`, `pageerror:` or `warning:` other than the SwiftShader notice is a defect.
+Template values are in §1. Any `error:`, `pageerror:` or `warning:` other than the SwiftShader notice is
+a defect; `baked light unavailable` means `assets/gi/` did not load and the interiors are env-lit only.
 
 ## 7. Bundle composition and the npm scripts
 
@@ -152,61 +171,61 @@ and 14 textures. Any `error:`, `pageerror:` or `warning:` other than the SwiftSh
 --target=es2020 --outfile=dist/app.js --legal-comments=none`; `dev` = `esbuild src/main.js --bundle --format=esm
 --outfile=dist/app.js --sourcemap --watch` (no `--minify`, `--target` or `--legal-comments`); `serve` = `python3 -m http.server 8080`; `bake` = `node scripts/bake-gi.mjs`. Dependencies: `three
 ^0.187.0`, `n8ao ^2.0.1`, `esbuild ^0.28.2`, `postprocessing ^6.39.6` (n8ao's peer; nothing in `src/` imports
-it, so it is not bundled); dev `three-mesh-bvh ^0.9.18` (bake only). `index.html` line 176 loads `dist/app.js`
+it, so it is not bundled); dev `three-mesh-bvh ^0.9.18` (bake only). `index.html` loads `dist/app.js`
 as a module script, so the page needs an HTTP server, never `file://`.
 
-`dist/app.js` is 1,386,415 bytes. Measured with esbuild's metafile (run from the project with
-`--metafile=<scratch>/meta.json` added to the build command and summed over `outputs[].inputs[].bytesInOutput`):
-
-| Part | Bytes | Share |
-| --- | --- | --- |
-| `three` (core 596 KB + `examples/jsm` addons 93,794: SMAAPass 47,215, SMAAShader 13,993, Sky 9,802, UnrealBloomPass 8,485) | 690,105 | 49.8 % |
-| `src/gi-data.js` (423,280 bytes of base64 in six strings: `S`, `U`, `N.minimal/japandi/desert/luxe`) | 423,386 | 30.5 % |
-| `n8ao` | 158,845 | 11.5 % |
-| the rest of `src/` (interior 18.6 KB, materials 12.9, stylesets 10.7, styles 8.8, main 7.8, community 7.7) | 113,909 | 8.2 % |
-
-The GI volume ships as JavaScript because `publish_files` refuses `.bin` (pitfall 18), at a 4/3 base64
-overhead (317 KB raw). Its size is `probes × (7 + 6 + 6 × styles) × 4/3`: 13 × 22 × 30 = 8,580 probes × 37
-bytes is the 423 KB above. A 25 × 22 × 62 grid for a larger villa would be about 1.68 MB and break the
-1.5 MB budget: widen `SP` in `scripts/bake-gi.mjs` to 0.75 m or drop a style's lamp set before enlarging
-`DIMS`. Rebuild after every bake; `dist/app.js` embeds the data.
+`dist/app.js` is 993,630 bytes (337,707 gzip): `three` (core plus the SMAA, Sky, UnrealBloom and
+EffectComposer addons) about 690 KB, `n8ao` about 159 KB, the template's own `src/` about 145 KB. The
+baked GI is **not** in it any more: it was 423 KB of base64 (44 % of the gzipped critical path, every
+style's lamps decoded at boot) and now lives in `assets/gi/` (§1), fetched by `createGI()` before the
+textures and decoded per style on demand. The host refuses `.bin` (pitfall 18), so the files are JSON
+with a base64 `data` string, which gzips to 58 %. A larger villa grows them as `probes × (7 + 12 + 6 ×
+styles)` bytes × 4/3; at 25 × 22 × 62 probes that is about 2.2 MB in all, with about 1 MB on the
+critical path: widen `SP` in `scripts/bake-gi.mjs` to 0.75 m before enlarging `DIMS`. A bake needs no
+rebuild; the bundle only changes with `src/`.
 
 ## 8. Texture payload
 
 Each set is three square WebP files, 1024 px for 21 sets and 512 px for the eight small-scale or soft ones
 (bark, boucle, gravel, linen, papercord, rattan, rug, velvet; the size column of `MANIFEST` in
 `<skill>/scripts/textures.py`): `<name>_c` (colour, sRGB), `_n` (normal) and `_r` (R = ambient occlusion,
-G = roughness, so one texture serves as both `roughnessMap` and `aoMap`; `materials.js` 142, `styles.js` 179),
-loaded by `loadTextureSets('assets/tex/', …)` (`materials.js` 8–22)
-with anisotropy `min(8, max)`. The 19 base sets in `SETS` (`materials.js` 5–6), 6,254,334 bytes, are
-awaited before the first frame (loader 3 % to 65 %). Style extras load on first use in
-`createStyler().apply()` (`styles.js` 167–171; a `pending` map prevents double loads): Japandi `ash,
+G = roughness, so one texture serves as both `roughnessMap` and `aoMap`), loaded by
+`loadTextureSets(base, …, { defer })` with anisotropy `min(8, max)`. `SETS` holds the 18 base sets; the 11
+exterior ones are awaited before the first frame (loader 3 % to 65 %) and the 7 of `INTERIOR_SETS`
+(travertine, woodfloor, oak, boucle, linen, velvet, rug) start as 1×1 placeholders and stream in behind
+it, one set at a time, each adopted into every material that took a placeholder (`adoptSet`) with no
+recompile; a still awaits all 18. Style extras load on first use in `createStyler().apply()` (a `pending`
+map prevents double loads; a set counts as loaded only once all three maps arrived): Japandi `ash,
 limewash, microcement, papercord` 1,488,080 bytes; Desert `terracotta, clayplaster, limewash, rattan`
 1,417,776 (limewash shared); Luxe `nero, herringbone, smokedwalnut` 556,478. All 29 sets 8,977,288 bytes,
-mean 302 KiB; largest `grass` 1,164,902 (normal map alone 551,924), smallest `travertine` 75,932.
-`preload(key)` (`styles.js` 203) is never called; call it after `ui.ready()` if instant switching matters
-more than bandwidth. Normal maps are the heavy channel (`grass_n` 552 KB, `limewash_n` 480 KB, `plaster_n`
-317 KB), and the five ground sets seen only at distance (grass, sidewalk, sand, asphalt, gravel) are
-3,040,136 bytes, 49 % of the base payload: re-pack those at 512 px or lower quality with
-`<skill>/scripts/textures.py` before touching anything the camera meets at arm's length. Add a set by
-adding it to the manifest, packing it and entering its mean albedo in `SET_AVG` (`styles.js`; SKILL.md step 4,
-pitfall 6).
+mean 302 KiB; largest `grass` 1,164,902 (normal map alone 551,924), smallest `travertine` 75,932. The
+phone tier reads `assets/tex/512/` (2,930,674 bytes for all 29 sets, made with `textures.py --downscale
+512`: Lanczos to 512 px, WebP quality 82, method 6, files already that small copied), about 58 MiB of
+texture memory instead of 232 MiB, and releases the style-only sets it no longer shows. `preload(key)`
+is never called; call it after `ui.ready()` if instant switching matters more than bandwidth. Normal maps
+are the heavy channel (`grass_n` 552 KB, `limewash_n` 480 KB, `plaster_n` 317 KB). Add a set by adding it
+to the manifest, packing it (with a `contrast` value if it must read near white), entering its mean albedo
+in `SET_AVG` and its mean roughness in `SET_ROUGH` (`styles.js`; SKILL.md step 4, pitfall 6), then
+regenerating the 512 tier. KTX2/Basis was considered and left: no encoder on the build machine, and the
+transcoder would add 245 KB gzipped to the page.
 
 ## 9. Rendering a still: query parameters and the hash
 
-Parsed in `main.js` 17–19, 46–47 and 98–99:
+Parsed at the top of `main.js`:
 
 | Parameter | Effect |
 | --- | --- |
-| `?p=0.45` | `STILL` mode: progress fixed at `FIXED_P`, no easing, no hover (`rig.update … still: true`, 172), loader removed, `window.__ready` then `window.__shot` |
+| `?p=0.45` | `STILL` mode: progress fixed at `FIXED_P`, no easing, no hover (`rig.update … still: true`), loader removed, every texture set awaited, `window.__ready` then `window.__shot` |
 | `&q=high\|mid\|low` | forces the tier (§2) |
-| `&ui=0` | adds `body.noui`; `style.css` 117 and 135 hide header, rail, cards, meter, pin, style buttons, toast |
-| `&tod=day\|night` | fixes time of day (`mode`); anything else is `auto`, where `tod = smooth(progress, 0.79, 0.975)` (175), so stills before 0.79 are golden hour |
-| `?style=japandi` or `#japandi` | picks the style; the hash is checked first, then `?style=`, default `minimal`; a switch writes `#key` with `history.replaceState` (253) |
+| `&ui=0` | adds `body.noui`; `style.css` hides header, rail, cards, meter, pin, style buttons, toast |
+| `&tod=day\|night` | fixes time of day (`mode`); anything else is `auto`, where `tod = smooth(progress, TOD.sunsetFrom, TOD.nightBy)` (`story.js`: a third into the terrace chapter to half-way through the summary), so stills before 0.9 are golden hour |
+| `?style=japandi` or `#japandi` | picks the style; the hash is checked first, then `?style=`, default `minimal`, and only a `STYLES` key counts; a switch writes `#key` with `history.replaceState` |
+| `&cam=x,y,z,lx,ly,lz[,fov[,shift]]` | places the camera directly (with `?p=`), to compose a shot before writing it into `src/path.js` |
+| `&hide=sheer,lampBeams,dust` | hides scene objects by name (a material key for the hero's merged meshes and the instanced community meshes), to tell what a stray highlight is |
 
-Example: `http://localhost:8080/index.html?p=0.70&q=high&ui=0&tod=night&style=luxe`. `__shot` is set only
-after the sky read-back wait and three settle frames (268–275), so the still has the right baked sky
-level, shadow map and exposure; `__ready` fires earlier, after the first frame, for the live page.
+Example: `http://localhost:8080/index.html?p=0.655&q=high&ui=0&tod=night&style=luxe`. `__shot` is set only
+after the sky read-back wait and three settle frames, so the still has the right baked sky level, shadow
+map and exposure; `__ready` fires earlier, after the first frame, for the live page.
 
 ## 10. `scripts/capture.cjs`
 
@@ -235,24 +254,24 @@ elsewhere `npm i -D playwright && npx playwright install chromium`. Give a secon
 ## 11. `scripts/check-path.mjs`
 
 `node scripts/check-path.mjs [--verbose]` samples the route every 0.001 of progress and exits 1 on any
-breach of `LIMITS` (12–19): clearance 0.3 m from any solid surface, look target ≥ 2.4 m from the lens,
-pitch within −35°…+40°, yaw ≤ 12° and pitch ≤ 6° per 0.005 of progress (about one wheel notch). Solid
-geometry is the hero shell and interior plus the two attached neighbours mirrored about `x = 3.05` at
-`±6.1` (40–43), minus the `SKIP` keys the lens may pass (`pool`, `room`, `sheer`, `downlight`, `led`, `lattice` and the eight
-plant keys; 30),
-in a 0.5 m cell grid. Chapters come from `index.html` attributes written exactly as `data-from="…"
-data-to="…" data-rail="…"` (24–26). Output: a header (`route sampled at 0.001; 134508 solid triangles; N
-breach run(s)`), one line per run (kind, progress range, worst value, the material hit for clearance, the
-card being read, camera position with `d = −z`), a per-chapter table (span, yaw swing, pitch range,
-minimum look distance and clearance; `1000000000.00 m` means nothing solid nearby) and the uncaptioned
-stretches longer than 0.03 (pitfall 21).
+breach of `LIMITS`: clearance 0.3 m from any solid surface, authored look targets ≥ 2.4 m from the lens
+(the sampled look point always sits 10 m out, since `path.js` interpolates orientation), pitch within
+−35°…+40°, yaw ≤ 12° and pitch ≤ 6° per 0.005 of progress (about one wheel notch), lens shift within
+±`MAX_SHIFT`, and the story table's rules (consecutive card windows at least `2 × FADE` apart, no
+stretch over 0.03 uncaptioned, every rail landing inside its window). Solid geometry is the hero shell and
+interior plus the two attached neighbours mirrored about `x = 3.05` at `±6.1`, minus the `SKIP` keys the
+lens may pass (`pool`, `room`, `sheer`, `downlight`, `led`, `lattice`, the plant and bloom keys), in a 0.5
+m cell grid; the rooftop kit (`dressShell`) is not in it, and the route clears it by metres. Chapters come
+from `src/story.js`. Output: a header (`route sampled at 0.001; 142636 solid triangles; N breach
+run(s)`), one line per run (kind, progress range, worst value, the material hit for clearance, the card
+being read, camera position with `d = −z`) and a per-chapter table (span, yaw swing, pitch range,
+authored look distance and clearance; `1000000000.00 m` means nothing solid nearby).
 
-As shipped the template's route does not pass: 30 breach runs, among them a yaw rate of 166.97°/0.005 and
-a pitch of −79.79° in the Living chapter (p 0.452–0.495), −86.10° at p 0.802–0.825 with no card, and three
-uncaptioned stretches (0.33–0.372, 0.742–0.83, 0.9–0.945). `src/path.js` and the cards are rewritten for
-every property anyway: rewrite them until the script exits 0 (pitfalls 19 and 21, `camera-and-story.md`)
-rather than inherit these. For a new plot change the mirror centre (`3.05`, half of `PLOT.w`) and the `±6.1`
-offsets (`±PLOT.w`) on lines 42–43, and extend `SKIP` for any new non-solid key.
+The template's route passes: 0 breach runs, minimum clearance 0.30 m (the stair) and 0.33 m (bedroom 4),
+no authored look target under 2.6 m. `src/path.js` and the cards are rewritten for every property anyway:
+rewrite them until the script exits 0 again (pitfalls 19 and 21, `camera-and-story.md`). For a new plot
+change the mirror centre (`3.05`, half of `PLOT.w`) and the `±6.1` offsets (`±PLOT.w`), and extend
+`SKIP` for any new non-solid key.
 
 ## 12. Contact sheets with `<skill>/scripts/sheet.py`
 
@@ -312,16 +331,17 @@ reading to subagents. Report calls, total tokens, the cache-read share and the p
 ## 14. Publishing to a claude.ai artifact
 
 Publish from a built checkout with `mcp__claude-artifacts__publish_files`, one `{ as, path }` entry per
-file with `as` the repo-relative path, because the page loads `dist/app.js` (`index.html` 176) and
-`assets/tex/<set>_<c|n|r>.webp` (`materials.js` 14, `styles.js` 153) by those relative URLs: `index.html`,
-`style.css`, `dist/app.js` and all 87 `assets/tex/*.webp`, 90 files and 10,386,251 bytes with the current
-bundle (the published version, 10,386,034 bytes, still carries the 1,386,198-byte bundle from before the
-`look.js` commit) against limits of 256 files, 20 MiB per file and 64 MiB per call. `.bin` is refused (pitfall 18), hence the GI data as
-JavaScript; `.webp`, `.js`, `.css` and `.html` are accepted. On creation omit `slug` and give `title` and
-`icon`; the artifact starts private (`read: owner`). To republish, call `list_files` first (required for an
-existing artifact unless the list is already in the conversation), pass `version` from `get_artifact` as
-`base_version`, and rely on the default `mode: "patch"`: name only the changed files (after a rebuild,
-just `dist/app.js`), list dropped texture sets in `remove`, and echo `shared_live` once the page is shared.
+file with `as` the repo-relative path, because the page loads `dist/app.js`, `assets/gi/<name>.json`
+(`gi.js`) and `assets/tex/<set>_<c|n|r>.webp` (`materials.js`, `styles.js`; `assets/tex/512/` on the
+phone tier) by those relative URLs: `index.html`, `style.css`, `dist/app.js`, the 7 GI files and the 174
+WebP files (87 per tier), 184 files and about 13.3 MB, against limits of 256 files, 20 MiB per file and
+64 MiB per call. `.bin` is refused (pitfall 18), hence the GI data as `.json`; `.webp`, `.json`, `.js`,
+`.css` and `.html` are accepted. On creation omit `slug` and give `title` and `icon`; the artifact starts
+private (`read: owner`). To republish, call `list_files` first (required for an existing artifact unless
+the list is already in the conversation), pass `version` from `get_artifact` as `base_version`, and rely
+on the default `mode: "patch"`: name only the changed files (after a rebuild, just `dist/app.js`; after a
+bake, the seven GI files), list dropped texture sets in `remove`, and echo `shared_live` once the page is
+shared.
 Query strings are not passed to the served page, so `?style=`, `?tod=`, `?p=` and `?q=` do nothing on the
 artifact URL: the only deep link is the hash (`#japandi`, `#desert`, `#luxe`) and tier detection stands on
 its own (phones get `low`). `history.replaceState` is wrapped in `try` (253) because sandboxed frames may

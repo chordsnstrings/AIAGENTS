@@ -26,13 +26,15 @@ the same wall is not walked into twice.
 
 ## Calibration numbers worth keeping
 
-- Sun: golden hour elevation 18°, azimuth −55° (south-west through the master suite), swinging to −128° and 11.5°→4° for the terrace sunset; intensity 4.3 × (1, 0.81, 0.6).
-- Time-of-day states (`atmosphere.js` STATES): t=0 golden hour (exposure 0.7, env 0.55), t=0.5 sunset (exposure 0.88), t=1 blue hour (exposure 2.0, env 1.4, sun 0, twilight fog colour). Fog darkens with smoothstep(t, 0.55, 0.92).
-- Bloom threshold 9, radius 0.32, strength 0.2: anything lower turns the sky into milk.
-- Indoor exposure factor `lerp(5.5, 1.3, tod)` × style factor; `GI_FILL` 3.0; `GI_LAMP` 0.45 with lamps staged at 12 % by day; white balance on baked sky (1.0, 1.0, 0.97).
-- GI bake: 13 × 22 × 30 probes at 0.5 m from (0, 0, −15.6); 256 rays; 3 passes; lamps `downlight 18 cd (downward cos² lobe)`, `bulb 4`, `lampShade 6`, `led 1.2 per 0.6 m`, `fire 8`; softening radius per fixture; probes with > 25 % back-face hits refilled from neighbours. Indoor sky irradiance ends ~0.06 of outdoor; that is correct, the exposure handles it.
-- Volumetrics: 28 steps at half resolution (20 on mid), outside density 0.0024 (0.0013 from the air), inside 0.03, max distance 55 m street / 280 m aerial / 20 m inside.
-- Shadow map 4096 (high) / 2048; zone extents aerial 300 m, street 60 m, house 18 m (half size).
+- Sun: golden hour elevation 18°, azimuth −55° (south-west through the master suite), swinging to −128° and 11.5°→4° for the terrace sunset; intensity 4.3 × (1, 0.81, 0.6). The bake carries the sun bounce for both directions (`U`, `U2`) and the page cross-fades them with the swing.
+- Time-of-day states (`atmosphere.js` STATES): t=0 golden hour (exposure 0.7, env 0.55, turbidity 8), t=0.5 sunset (exposure 0.88), t=1 blue hour (exposure 2.0, env 1.4, sun 0, twilight fog colour). Fog darkens with smoothstep(t, 0.55, 0.92).
+- Bloom: threshold `2.5 / exposure` (never `1 / exposure`: UnrealBloom passes the whole texel above the threshold and every sunlit patch would bloom by day), radius 0.32, strength 0.15; lamps halo at night, the sky never turns to milk.
+- Indoor exposure factor `lerp(4.2, 0.9, tod)` × style factor; `giFill` 3.4; `giSunBalance` (0.92, 1.0, 1.12) on the sun bounce; `giLamp` 0.22 with lamps staged at 12 % by day; white balance on baked sky (1.0, 1.0, 0.97); look-in 0.35, look-out 0.6, garden shade ×2.5. Targets: a white duvet at about 0.85 of the range with its weave visible, walls light and neutral-warm, windows and sun-struck sheers at the edge of clipping but not over it.
+- GI bake: 13 × 22 × 30 probes at 0.5 m from (0, 0, −15.6); 256 rays; 3 passes; lamps `downlight 18 cd (downward cos² lobe)`, `bulb 4`, `lampShade 6`, `led 1.2 per 0.6 m`, `fire 8`; softening radius per fixture; probes with > 25 % back-face hits refilled from neighbours. Indoor sky irradiance ends ~0.06 of outdoor; that is correct, the exposure handles it. Output: `assets/gi/*.json`, 490 KB in seven files (286 KB gzip), fetched beside the textures.
+- Night outside: a baked lamp irradiance map (R8, 0.24 m per texel, each lamp splatted within 15 m as `I cos³θ / d²` windowed to zero) on the ground materials at `streetLamp` 1.2; a pool of three point lights (2.5 m reach, 1.2 cd) parked on the bulbs nearest the camera indoors.
+- Volumetrics: 28 steps at half resolution (20 on mid, none on low), outside density 0.0024 (0.0013 from the air), inside 0.03, max distance 55 m street / 280 m aerial / 20 m inside; dust 1.5 motes per m³ at `dustSun` 0.05.
+- Shadow map 2048 on every tier (texels 29 / 5.9 / 1.8 cm); zone extents aerial 300 m, street 60 m, house 18 m (half size); far houses and far palms cast only from the air.
+- Bundle 994 KB minified (338 KB gzip) with no baked data in it; 157–186 draw calls, 0.80–0.89 M triangles, 120 programs per frame on the software renderer.
 - Reference costs: first complete build ≈ 48 M tokens (≈ $22.6 at Opus API prices); the realism pass ≈ 24 M tokens (≈ $10.9). Most of it is re-reading the conversation, so keep review images small (1024 × 576 contact sheets, not full frames).
 
 ## Pitfalls, in the order they bit
@@ -55,9 +57,15 @@ the same wall is not walked into twice.
 16. **Playwright's 30 s screenshot timeout fails on SwiftShader.** Pass `timeout: 180000`, and kill stray Chromium processes between batches.
 17. **The local static server dies when the session's worker restarts.** Start it with `nohup`, check it answers before a capture batch.
 18. **Artifact publishing**: `publish_files` accepts relative files but refuses `.bin`; query strings are not passed to the page, so deep links use the `#hash` (style) only.
-19. **Camera whips.** Interpolating a look *point* on a spline flips the view when the point passes near the lens: 167° of yaw in one wheel notch, pitch −80°. Interpolate orientation (unwrapped yaw/pitch) and keep look targets ≥ 2.4 m away; `check-path.mjs` enforces it.
+19. **Camera whips.** Interpolating a look *point* on a spline flips the view when the point passes near the lens: 167° of yaw in one wheel notch, pitch −80°. The implemented design: `path.js` interpolates orientation as unwrapped yaw and pitch, authored look targets stay ≥ 2.4 m from the lens, and `check-path.mjs` holds the route to its limits (yaw ≤ 12° and pitch ≤ 6° per 0.005, pitch −35..+40°, clearance 0.3 m) with no runtime slew clamp; the template's route exits 0.
 20. **Card copy that names what is not on screen** (a "kitchen" card while the camera looks down the hall) costs credibility. Shoot what the copy says, or rewrite the copy; check every card against a still at its mid progress.
-21. **Uncaptioned stretches** (roof transit of 0.09 progress with no card) are where people stop scrolling. No stretch longer than 0.03 without a card.
+21. **Uncaptioned stretches** (roof transit of 0.09 progress with no card) are where people stop scrolling. No stretch longer than 0.03 without a card; the chapter table in `story.js` is checked for it.
+22. **Additive light decals.** The street lamps' pools were 9 × 9 m additive quads: hard-rimmed ellipses that lit black asphalt as brightly as paving and stacked where lamps faced each other. Bake an irradiance map over the ground instead and let each surface's own albedo take it (`community.js` `bakeLampMap`); window every splat to zero, because a `(1 + (d/h)²)^-1.5` profile alone is still 0.2 at the quad's edge.
+23. **A 2D lamp map is a plan.** Looked up by world xz, it lit the balcony floor over a lit car port. Fade it out above head height.
+24. **A `ShaderMaterial` on an `InstancedMesh` must apply `instanceMatrix` itself.** The lamp beam cones never did, so all 133 drew stacked at the origin: one blazing cone at the hero's front corner that looked like a volumetric effect and survived the march being switched off. `?hide=lampBeams` found it in one still; `?q=low` (no march) and a `?cam=` view from the side had already excluded the march and the dust.
+25. **Baked GI inside the bundle.** 423 KB of base64 in `dist/app.js` was 44 % of the gzipped critical path and decoded every style's lamps at boot. The host refuses `.bin`, so the components went to `assets/gi/*.json`, fetched before the textures and decoded per style on demand; the bundle dropped from 1,407 KB to 994 KB.
+26. **Semi-open spaces inside the probe box read as enclosed.** A car port under a balcony or a balcony under a pergola has a low open-sky fraction (rays hit the opposite row), so the volume, fill and lamps included, lights it: the hero's car port takes its night pools from the baked downlights, never from the lamp map as well, or it is lit twice.
+27. **Measure before tuning.** A downscaled review image showed the bedding as clipped white; the pixels read 0.70–0.76 with no clipping. Crop at full size and take region means; the ACES shoulder makes 0.77 → 0.87 on screen a half stop in the scene.
 
 ## Research that fed the interior styles
 
