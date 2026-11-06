@@ -210,6 +210,10 @@ export function createMaterials(T, { maxAniso = 8 } = {}) {
   M.tv = std({ color: 0x050505, roughness: 0.12, metalness: 0.1, envMapIntensity: 0.9 });
   M.brass = std({ color: 0xc8a467, roughness: 0.28, metalness: 1, envMapIntensity: 0.8 });
   M.chrome = std({ color: 0xdedede, roughness: 0.08, metalness: 1 });
+  // cut flowers: two bloom tones (the first follows the style) and a shared green
+  M.bloom = new THREE.MeshPhysicalMaterial({ color: 0xc3b1de, roughness: 0.65, sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xffffff) });
+  M.bloomB = new THREE.MeshPhysicalMaterial({ color: 0xf3eee6, roughness: 0.65, sheen: 0.5, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xffffff) });
+  M.stem = std({ color: 0x4d6a3a, roughness: 0.6 });
   M.ceramic = new THREE.MeshPhysicalMaterial({ color: 0xf7f6f3, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 0.6 });
   M.mirror = std({ color: 0xe6e6e6, roughness: 0.02, metalness: 1, envMapIntensity: 0.9 });
   M.concrete = pbr('plaster', { tile: 1.5, color: 0xb7b1a8, normal: 0.7, rough: 1 });

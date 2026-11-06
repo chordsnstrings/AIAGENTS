@@ -82,6 +82,57 @@ export function makeKit(B, spots) {
     bx('walnut', x - 0.005 * s, x + 0.025 * s, y0 - 0.025, y1 + 0.025, d0 - 0.025, d1 + 0.025);
     quadArtX(k, x + 0.027 * s, d0, d1, y0, y1, facingPlusX);
   }
+  // framed print on a wall in plane x: thin frame, white mat, the artwork inset
+  function print(k, x, d0, d1, y0, y1, plusX, fk = 'frame') {
+    const sg = plusX ? 1 : -1, m = Math.min(d1 - d0, y1 - y0) * 0.13;
+    bx(fk, Math.min(x, x + 0.028 * sg), Math.max(x, x + 0.028 * sg), y0 - 0.018, y1 + 0.018, d0 - 0.018, d1 + 0.018);
+    quadArtX('ceiling', x + 0.029 * sg, d0, d1, y0, y1, plusX);
+    quadArtX(k, x + 0.031 * sg, d0 + m, d1 - m, y0 + m, y1 - m, plusX);
+  }
+  // rug with a bound edge in a second tone
+  function rug(cx, y, d, sx, sz, edge = 'linenGrey') {
+    rb(edge, cx, y - 0.002, d, sx + 0.07, 0.012, sz + 0.07, 0.006);
+    rb('rug', cx, y, d, sx, 0.016, sz, 0.007);
+  }
+  // vase with a loose bouquet: stems, blooms (two tones) and a few leaves
+  const bloomCache = new Map();
+  const bloomGeo = (r, v) => {
+    const key = `${r.toFixed(3)}|${v}`;
+    if (!bloomCache.has(key)) {
+      const g = new THREE.IcosahedronGeometry(r, 2), pa = g.attributes.position, q = new THREE.Vector3();
+      for (let i = 0; i < pa.count; i++) {
+        q.fromBufferAttribute(pa, i).normalize();
+        const ph = Math.atan2(q.z, q.x), th = Math.acos(q.y);
+        const k = 1 + 0.16 * Math.sin(ph * (5 + v)) * Math.sin(th * 3) + 0.06 * Math.sin(ph * 11 + th * 7);
+        pa.setXYZ(i, q.x * r * k, q.y * r * k * (q.y < 0 ? 0.6 : 0.85), q.z * r * k);
+      }
+      g.computeVertexNormals();
+      bloomCache.set(key, g);
+    }
+    return bloomCache.get(key);
+  };
+  const UP = new THREE.Vector3(0, 1, 0);
+  function vase(x, y, d, { h = 0.2, r = 0.07, stems = 7, spread = 0.12, height = 0.3, bloom = 0.045, k = 'ceramic', seed = 1 } = {}) {
+    const prof = [[0.001, 0], [r * 0.7, 0], [r, h * 0.3], [r * 0.88, h * 0.72], [r * 0.45, h * 0.92], [r * 0.52, h]];
+    B.add(k, new THREE.LatheGeometry(prof.map(([a, b]) => new THREE.Vector2(a, b)), 22), M4(x, y, d), 'box');
+    let sd = seed * 7919 + 13;
+    const rnd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+    const base = new THREE.Vector3(x, y + h * 0.65, -d);
+    for (let i = 0; i < stems; i++) {
+      const a = i / stems * Math.PI * 2 + rnd() * 0.7, sp = spread * (0.3 + 0.7 * rnd());
+      const top = new THREE.Vector3(x + Math.cos(a) * sp, y + h + height * (0.65 + 0.35 * rnd()), -d + Math.sin(a) * sp);
+      const dir = top.clone().sub(base), len = dir.length();
+      dir.normalize();
+      const q = new THREE.Quaternion().setFromUnitVectors(UP, dir);
+      B.add('stem', new THREE.CylinderGeometry(0.0022, 0.003, len, 5, 1, true), new THREE.Matrix4().compose(base.clone().addScaledVector(dir, len / 2), q, _s), 'box');
+      B.add(i % 3 === 2 ? 'bloomB' : 'bloom', bloomGeo(bloom * (0.75 + 0.5 * rnd()), i % 3), new THREE.Matrix4().compose(top, new THREE.Quaternion().setFromEuler(new THREE.Euler(rnd() * 0.6, rnd() * 6.28, 0)), _s), 'box');
+      if (i % 2 === 0) { // a leaf off the stem, angled out
+        const lp = base.clone().addScaledVector(dir, len * (0.45 + 0.3 * rnd()));
+        const lq = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.3, a + Math.PI / 2, -0.5));
+        B.add('stem', new THREE.SphereGeometry(1, 8, 5), new THREE.Matrix4().compose(lp.addScaledVector(new THREE.Vector3(Math.cos(a), 0, Math.sin(a)), 0.025), lq, new THREE.Vector3(0.035, 0.005, 0.014)), 'box');
+      }
+    }
+  }
   // pleated sheer curtain hanging in plane d between x0..x1
   function curtain(x0, x1, y0, y1, d) {
     B.add('sheer', sheer(x1 - x0, y1 - y0, Math.round(x0 * 13 + d * 7)), M4((x0 + x1) / 2, (y0 + y1) / 2, d), 'keep');
@@ -160,13 +211,13 @@ export function makeKit(B, spots) {
     const xf = faceMinusX ? x0 : x1;
     for (let d = d0 + 0.03; d < d1 - 0.01; d += 0.05) bx('joinery', faceMinusX ? xf - 0.012 : xf, faceMinusX ? xf : xf + 0.012, y + 0.02, y + h - 0.02, d - 0.012, d + 0.012);
   }
-  return { M4, bx, rb, cyl, sphere, wallX, wallD, door, quadArt, quadArtX, frameArt, frameArtX, curtain, curtainD, downlight, lamp, pendantGlobe, chair, loungeChair, plant, bed, nightstand, wardrobeAlongX, wardrobeAlongD };
+  return { M4, bx, rb, cyl, sphere, wallX, wallD, door, quadArt, quadArtX, frameArt, frameArtX, print, rug, vase, curtain, curtainD, downlight, lamp, pendantGlobe, chair, loungeChair, plant, bed, nightstand, wardrobeAlongX, wardrobeAlongD };
 }
 
 export function buildInterior(B) {
   const { F0, C0, F1, C1, F2, C2 } = H;
   const spots = { bush: [], flower: [], olive: [], pink: [] };
-  const { bx, rb, cyl, sphere, wallX, wallD, door, frameArt, frameArtX, curtain, downlight, lamp, pendantGlobe, chair, loungeChair, plant, bed, nightstand, wardrobeAlongX, wardrobeAlongD } = makeKit(B, spots);
+  const { bx, rb, cyl, sphere, wallX, wallD, door, frameArt, frameArtX, print, rug, vase, curtain, downlight, lamp, pendantGlobe, chair, loungeChair, plant, bed, nightstand, wardrobeAlongX, wardrobeAlongD } = makeKit(B, spots);
 
   // ======================================================= GROUND FLOOR
   bx('travertine', 0.1, 6.0, F0, F0 + 0.012, 6.75, 9.05, F.PY);
@@ -225,10 +276,14 @@ export function buildInterior(B) {
   cyl('brass', 1.0, F0 + 0.98, 7.05, 0.008, 0.008, 0.4, 8);
   cyl('lampShade', 1.0, F0 + 1.2, 7.05, 0.06, 0.11, 0.12, 20, null, true);
   rb('linenSand', 1.6, F0 + 0.79, 7.0, 0.3, 0.05, 0.22, 0.01);
+  vase(1.85, F0 + 0.76, 6.95, { h: 0.12, r: 0.04, stems: 4, spread: 0.05, height: 0.16, bloom: 0.028, seed: 3 });
+  rug(1.35, F0 + 0.02, 7.55, 1.5, 1.2);
   // ---- hall art + console
   frameArtX('art2', 0.11, 9.6, 10.4, F0 + 1.1, F0 + 2.1, true);
 
-  // ---- living & dining: style sets (stylesets.js)
+  // ---- living & dining: style sets (stylesets.js); every style's table sits at x 4.85, d 12.7
+  vase(4.85, F0 + 0.775, 12.7, { h: 0.16, r: 0.085, stems: 11, spread: 0.13, height: 0.17, bloom: 0.05, seed: 1 });
+  vase(5.1, F0 + 0.92, 6.3, { h: 0.26, r: 0.06, stems: 7, spread: 0.12, height: 0.32, bloom: 0.04, k: 'travertineSlab', seed: 2 });
   curtain(0.15, 0.85, F0 + 0.02, C0 - 0.1, 14.68);
   curtain(5.25, 5.95, F0 + 0.02, C0 - 0.1, 14.68);
   rb('walnut', 4.6, F0 + 0.48, 10.9, 2.1, 0.62, 0.46, 0.015);
@@ -360,7 +415,9 @@ export function buildInterior(B) {
   pendantGlobe(5.45, C1, 11.68, 1.05, 0.09);
   pendantGlobe(5.45, C1, 13.82, 1.05, 0.09);
   wardrobeAlongX(4.15, 6.0, F1, 10.7, 11.3, 2.45, true);
-  rb('rug', 4.6, F1 + 0.02, 12.75, 2.6, 0.014, 2.6, 0.007);
+  rug(4.6, F1 + 0.02, 12.75, 2.55, 2.55);
+  for (const [i, d0] of [12.17, 12.83].entries()) print(['art1', 'art3'][i], 5.995, d0, d0 + 0.5, F1 + 1.42, F1 + 2.08, false);
+  vase(5.7, F1 + 0.48, 11.515, { h: 0.11, r: 0.035, stems: 3, spread: 0.03, height: 0.14, bloom: 0.026, seed: 8 });
   curtain(3.35, 3.85, F1 + 0.02, C1 - 0.15, 13.98);
   curtain(5.3, 5.85, F1 + 0.02, C1 - 0.15, 13.98);
   // ---- bedroom 3
@@ -372,8 +429,16 @@ export function buildInterior(B) {
   curtain(0.4, 0.95, F1 + 0.02, C1 - 0.15, 13.15);
   curtain(2.05, 2.6, F1 + 0.02, C1 - 0.15, 13.15);
   pendantGlobe(1.2, C1, 11.45, 0.7, 0.16);
+  rug(1.75, F1 + 0.02, 11.45, 2.05, 2.3);
+  for (const [i, d0] of [10.87, 11.53].entries()) print(['art3', 'art1'][i], 0.105, d0, d0 + 0.5, F1 + 1.42, F1 + 2.08, true);
+  vase(0.4, F1 + 0.48, 12.665, { h: 0.11, r: 0.035, stems: 3, spread: 0.03, height: 0.14, bloom: 0.026, seed: 9 });
   // ---- balconies
   for (const [x, ry] of [[3.6, 0.2], [4.6, -0.2]]) loungeChair(x, F1 + 0.02, 2.35, ry, 'linenGrey');
+  // master: a print beside the bath door, flowers on the far nightstand and the vanity
+  print('art2', 2.45, 5.1, 5.6, F1 + 1.15, F1 + 1.85, true);
+  vase(5.68, F1 + 0.48, 6.415, { h: 0.11, r: 0.035, stems: 3, spread: 0.03, height: 0.14, bloom: 0.026, seed: 5 });
+  vase(0.3, F1 + 0.875, 5.825, { h: 0.1, r: 0.035, stems: 3, spread: 0.03, height: 0.12, bloom: 0.024, k: 'travertineSlab', seed: 6 });
+  vase(5.8, F1 + 0.83, 9.64, { h: 0.1, r: 0.035, stems: 3, spread: 0.03, height: 0.12, bloom: 0.024, k: 'travertineSlab', seed: 7 });
   cyl('travertineSlab', 4.1, F1 + 0.25, 2.1, 0.22, 0.22, 0.45, 30);
   bx('stone', 0.2, 2.3, F1, F1 + 0.55, 4.3, 4.75);
   spots.flower.push([0.7, F1 + 0.6, 4.5, 0.6], [1.5, F1 + 0.6, 4.55, 0.55], [2.0, F1 + 0.6, 4.45, 0.5]);
@@ -401,7 +466,10 @@ export function buildInterior(B) {
   bed(4.95, 9.55, F2 + 0.012, 1.6, 2.0, 5.98, 'linen');
   nightstand(5.7, F2, 8.48);
   nightstand(5.7, F2, 10.62);
-  rb('rug', 4.5, F2 + 0.02, 9.55, 2.6, 0.014, 2.4, 0.007);
+  rug(4.5, F2 + 0.02, 9.55, 2.55, 2.35);
+  for (const [i, d0] of [8.97, 9.63].entries()) print(['art2', 'art1'][i], 5.995, d0, d0 + 0.5, F2 + 1.42, F2 + 2.08, false);
+  vase(5.7, F2 + 0.48, 10.785, { h: 0.11, r: 0.035, stems: 3, spread: 0.03, height: 0.14, bloom: 0.026, seed: 10 });
+  vase(2.85, F2 + 0.76, 10.5, { h: 0.16, r: 0.05, stems: 5, spread: 0.07, height: 0.2, bloom: 0.034, seed: 11 });
   curtain(2.95, 3.45, F2 + 0.02, C2 - 0.15, 10.92);
   curtain(5.1, 5.6, F2 + 0.02, C2 - 0.15, 10.92);
   frameArtX('art3', 3.051, 8.35, 9.25, F2 + 1.0, F2 + 1.9, true);
