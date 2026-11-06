@@ -39,26 +39,41 @@ function grid(nu, nv, fn) {
 }
 
 // Cloth laid on a box top (x 0..L from the head end towards the foot, z across, top at y 0):
-// spare cloth beyond the top rolls over an edge of radius r and falls, with pleats that grow
-// towards the hem. Corners hang lower, as real ones do. dropFoot 0 leaves the foot edge flat.
-export function drape({ L, W, drop = 0.3, dropFoot = drop, r = 0.07, loft = 0.05, pleat = 0.03, seed = 1, res = 0.03 }) {
-  const Lc = L + dropFoot, Wc = W + 2 * drop, arc = Math.PI * r / 2;
+// spare cloth beyond the top rolls over an edge of radius r and falls dropL / dropR at the sides
+// (drop sets both) and dropFoot at the foot (0 leaves the foot edge flat), with pleats that grow
+// towards the hem and gather at the corners. Heavy bedding wants broad swells, not a weave-scale
+// ripple, so the loft and the two or three diagonal folds (crease deep) are long-wavelength. hem
+// wavers the hem line along the edge; fold raises a folded-over top layer across the middle (a
+// throw); under(s, t) is the surface of a piece this one lies on, which its top then follows.
+// The loft of a laid cloth's top at (s, t): broad swells plus the diagonal folds. A second piece laid
+// over it (the throw on the duvet) follows the same surface through drape's under option.
+export const loftAt = (s, t, loft, seed, crease = 0.028) => [loft * (0.5 + 0.5 * fbm(s * 1.1, t * 1.1, seed)), crease * Math.abs(Math.sin((s * 0.8 + t * 1.3) * 2.2 + fbm(s * 1.5, t * 1.5, seed + 5) * 6))];
+export function drape({ L, W, drop = 0.3, dropFoot = drop, dropL = drop, dropR = drop, r = 0.07, loft = 0.05, pleat = 0.03, crease = 0.028, fold = 0, hem = 0, under = null, seed = 1, res = 0.03 }) {
+  const Lc = L + dropFoot, Wc = W + dropL + dropR, arc = Math.PI * r / 2;
   const map = (a, b) => {
-    const s = a * Lc, t = (b - 0.5) * Wc;
-    const dx = dropFoot > 0 ? Math.max(0, s - L) : 0, dz = Math.max(0, Math.abs(t) - W / 2);
+    const s = a * Lc, t = -W / 2 - dropL + b * Wc;
+    const hemK = 1 + hem * (fbm(s * 0.9 + t * 0.9, 1.3, seed + 17) - 0.5);
+    const dx = dropFoot > 0 ? Math.max(0, s - L) * hemK : 0, dz = Math.max(0, Math.abs(t) - W / 2) * hemK;
     const e = Math.hypot(dx, dz), ox = e > 0 ? dx / e : 0, oz = e > 0 ? Math.sign(t) * dz / e : 0;
     const hang = smooth(0, 0.14, e);
-    // loft on top, soft creases running diagonally, both relaxing as the cloth turns down
-    const puff = loft * (0.5 + 0.5 * fbm(s * 2.4, t * 2.4, seed)) * (1 - 0.5 * hang);
-    const crease = 0.014 * Math.abs(Math.sin((s * 0.8 + t * 1.3) * 5 + fbm(s * 1.5, t * 1.5, seed + 5) * 6)) * (1 - hang);
+    const [swell, fold0] = loftAt(s, t, loft, seed, crease);
+    const puff = swell * (1 - 0.5 * hang), dip = fold0 * (1 - hang);
+    const ridge = (fold * smooth(0.15, 0.45, s / L) * smooth(0.9, 0.6, s / L) + (under ? under(s, t) : 0)) * (1 - hang);
     let out, y;
     if (e < arc) { const th = e / r; out = r * Math.sin(th); y = -r * (1 - Math.cos(th)); } else { out = r; y = -r - (e - arc); }
-    const along = dz >= dx ? s : t;
-    const wl = 0.13 + 0.1 * fbm(along * 1.7, seed * 0.37, seed + 9);
-    const amp = pleat * smooth(0.05, 0.3, e) * (0.6 + 0.8 * fbm(along * 2.3, 0.5, seed + 11)) * (dx > 0 && dz > 0 ? 1.7 : 1);
-    out += amp * Math.sin(along / wl * Math.PI * 2) + 0.035 * smooth(0.12, 0.35, e) + puff * hang;
+    // pleats run along each hanging edge. The side and foot parameterisations blend across the
+    // corner diagonal rather than switching, so a corner has no seam; amplitude gathers towards
+    // the corners, where real cloth bunches, instead of frilling evenly along the hem.
+    const pl = (along, corner) => {
+      const wl = 0.28 + 0.22 * fbm(along * 1.7, seed * 0.37, seed + 9);
+      const amp = pleat * smooth(0.05, 0.3, e) * (0.6 + 0.8 * fbm(along * 2.3, 0.5, seed + 11)) * (0.35 + 0.65 * corner);
+      return amp * Math.sin(along / wl * Math.PI * 2);
+    };
+    const k = smooth(-0.04, 0.04, dz - dx);
+    const cS = smooth(0.8, 0.05, Math.min(s, L - s)), cT = smooth(0.8, 0.05, W / 2 - Math.abs(t));
+    out += (dx > 0 && dz > 0 ? 1.4 : 1) * ((1 - k) * pl(t, cT) + k * pl(s, cS)) + 0.035 * smooth(0.12, 0.35, e) + puff * hang;
     const x = Math.min(s, L) + ox * out, z = Math.sign(t) * Math.min(Math.abs(t), W / 2) + oz * out;
-    return [x, y + puff * (1 - hang) - crease, z, s, t];
+    return [x, y + puff * (1 - hang) - dip + ridge, z, s, t];
   };
   const g = grid(Math.ceil(Lc / res), Math.ceil(Wc / res), map);
   // the head edge, for a rolled hem
