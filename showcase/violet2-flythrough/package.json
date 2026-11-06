@@ -1,0 +1,19 @@
+{
+  "name": "violet2-flythrough",
+  "version": "1.0.0",
+  "description": "Scroll-driven three.js drone flythrough of plot XJ407B (TH12-4M), Violet 2, DAMAC Hills 2",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=esm --target=es2020 --outfile=dist/app.js --legal-comments=none",
+    "dev": "esbuild src/main.js --bundle --format=esm --outfile=dist/app.js --sourcemap --watch",
+    "serve": "python3 -m http.server 8080"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "n8ao": "^2.0.1",
+    "postprocessing": "^6.39.6",
+    "three": "^0.187.0"
+  },
+  "private": true,
+  "type": "module"
+}
