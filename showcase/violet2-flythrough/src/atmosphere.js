@@ -6,13 +6,17 @@ import { LightProbeGenerator } from 'three/addons/lights/LightProbeGenerator.js'
 // day changes the sky, light colour/intensity, fog, exposure and the environment map.
 
 const D2R = Math.PI / 180;
-const BAKE_KEY = '0|-54|18'; // the golden-hour env scripts/bake-gi.mjs lit the GI volume with
 const dirFrom = (az, el, v = new THREE.Vector3()) => v.set(Math.sin(az * D2R) * Math.cos(el * D2R), Math.sin(el * D2R), Math.cos(az * D2R) * Math.cos(el * D2R));
+// environment maps are keyed by time of day in twentieths, azimuth in 6 degree steps, elevation in degrees
+const envKey = (t, az, el) => `${Math.round(t * 20) / 20}|${Math.round(az / 6) * 6}|${Math.round(el)}`;
+const BAKE_KEY = envKey(0, -55, 18); // the golden-hour env scripts/bake-gi.mjs lit the GI volume with
 
 const TWILIGHT = { horizon: [0.042, 0.038, 0.062], zenith: [0.006, 0.009, 0.026], glow: [0.11, 0.05, 0.03] };
+// A Gulf evening is dust-hazed rather than deep blue: high turbidity, little Rayleigh, a wide Mie glow.
+// The golden-hour row must match SKY in scripts/bake-gi.mjs.
 const STATES = [
-  { t: 0.0, elev: 17, turb: 5.0, ray: 1.6, mie: 0.0024, mieG: 0.72, gain: 0.82, sun: 4.3, sunCol: [1.0, 0.81, 0.6], fog: [0.84, 0.78, 0.71], fogD: 0.0009, exp: 0.7, env: 0.55, ground: [0.55, 0.5, 0.44], disc: 1 },
-  { t: 0.5, elev: 3.0, turb: 6.0, ray: 2.4, mie: 0.0034, mieG: 0.76, gain: 0.95, sun: 2.2, sunCol: [1.0, 0.62, 0.4], fog: [0.84, 0.66, 0.55], fogD: 0.0011, exp: 0.88, env: 0.6, ground: [0.42, 0.34, 0.28], disc: 1 },
+  { t: 0.0, elev: 17, turb: 8.0, ray: 1.1, mie: 0.004, mieG: 0.72, gain: 0.82, sun: 4.3, sunCol: [1.0, 0.81, 0.6], fog: [0.84, 0.78, 0.71], fogD: 0.0009, exp: 0.7, env: 0.55, ground: [0.55, 0.5, 0.44], disc: 1 },
+  { t: 0.5, elev: 3.0, turb: 7.5, ray: 2.0, mie: 0.004, mieG: 0.76, gain: 0.95, sun: 2.2, sunCol: [1.0, 0.62, 0.4], fog: [0.84, 0.66, 0.55], fogD: 0.0011, exp: 0.88, env: 0.6, ground: [0.42, 0.34, 0.28], disc: 1 },
   { t: 1.0, elev: 0.4, turb: 2.0, ray: 4.2, mie: 0.002, mieG: 0.75, gain: 0.6, sun: 0.0, sunCol: [0.55, 0.6, 0.85], fog: TWILIGHT.horizon, fogD: 0.0011, exp: 2.0, env: 1.4, ground: [0.06, 0.065, 0.085], disc: 0 },
 ];
 const lerp = THREE.MathUtils.lerp;
@@ -48,16 +52,19 @@ function makeSky(scale) {
       col = mix(uFog, col, smoothstep(-0.015, uHz, direction.y));
       gl_FragColor = vec4(col, 1.0);`)
     .replace('( 760.0 * sundisc )', '( 25.0 * sundisc )');
-  m.uniforms.cloudCoverage.value = 0.22;
-  m.uniforms.cloudDensity.value = 0.32;
+  // a few small high wisps rather than one soft blob: a large scale with low density read as a smudge
+  m.uniforms.cloudCoverage.value = 0.08;
+  m.uniforms.cloudDensity.value = 0.7;
   m.uniforms.cloudElevation.value = 0.55;
-  m.uniforms.cloudScale.value = 0.00016;
+  m.uniforms.cloudScale.value = 0.0012;
   sky.frustumCulled = false;
   return sky;
 }
 
 export class Atmosphere {
-  constructor(renderer, scene, { shadowMapSize = 4096 } = {}) {
+  // envCacheSize: PMREM environments kept (about 4 MiB each; 3-4 on phones). probeSize: the
+  // reflection probes' cube face size (128 on phones).
+  constructor(renderer, scene, { shadowMapSize = 4096, envCacheSize = 8, probeSize = 256 } = {}) {
     this.renderer = renderer;
     this.scene = scene;
     this.sky = makeSky(9000);
@@ -84,9 +91,20 @@ export class Atmosphere {
     this.envGround.position.y = -8;
     this.envScene.add(this.envSky, this.envGround);
     this.pmrem = new THREE.PMREMGenerator(renderer);
-    this.envCache = new Map();
+    this.envCache = new Map(); // key -> PMREM render target, least recently used first
+    this.envCacheSize = envCacheSize;
     this.skyLevel = new Map();
+    this.pendingLevel = new Set();
+    this.lastRatio = null;
     this.envKey = null;
+    this.litMats = null;
+    this.probedMats = [];
+
+    // local reflection probes for the glazing: what the street-front and garden-facing panes mirror.
+    // Materials opt in with userData.probe = 'front' | 'rear' (materials.js); the sky env map alone
+    // has no facades or street in it, so windows read as holes without them.
+    this.probes = { front: this.makeProbe(3.05, 1.6, 4, probeSize), rear: this.makeProbe(3.05, 1.6, -17, probeSize) };
+    this.probeKey = null;
 
     // stars for blue hour
     const n = 1400, p = new Float32Array(n * 3);
@@ -146,18 +164,28 @@ export class Atmosphere {
 
   envFor(t, az, el) {
     const q = Math.round(t * 20) / 20, qa = Math.round(az / 6) * 6, qe = Math.round(el);
-    const key = `${q}|${qa}|${qe}`;
+    const key = envKey(t, az, el);
     this.envKey = key;
-    if (this.envCache.has(key)) return this.envCache.get(key);
+    let rt = this.envCache.get(key);
+    if (rt) { // a hit moves to the back of the eviction order
+      this.envCache.delete(key); this.envCache.set(key, rt);
+      return rt.texture;
+    }
     const s = stateAt(q);
     this.applySky(this.envSky, s, qa, this.skyElev(q, qe, s), q);
     this.envGround.material.color.setRGB(...s.ground);
-    const rt = this.pmrem.fromScene(this.envScene, 0, 0.1, 1000, { size: 256 });
-    if (!this.skyLevel.has(key)) this.measure(key);
-    this.envCache.set(key, rt.texture);
-    if (this.envCache.size > 8) {
-      const first = this.envCache.keys().next().value;
-      if (first !== key) { this.envCache.get(first).dispose(); this.envCache.delete(first); }
+    rt = this.pmrem.fromScene(this.envScene, 0, 0.1, 1000, { size: 256 });
+    if (!this.skyLevel.has(key) && !this.pendingLevel.has(key)) this.measure(key);
+    this.envCache.set(key, rt);
+    // The target is cached, not its texture: disposing a PMREM texture frees nothing in three (no
+    // dispose listener is ever registered for a render-target texture), while rt.dispose() frees the
+    // texture and all 36 face framebuffers. The bake's reference env is pinned, because the first
+    // three quarters of the route use it and the ending alone would otherwise evict and rebuild it.
+    for (const k of this.envCache.keys()) {
+      if (this.envCache.size <= this.envCacheSize) break;
+      if (k === BAKE_KEY || k === key) continue;
+      this.envCache.get(k).dispose();
+      this.envCache.delete(k);
     }
     return rt.texture;
   }
@@ -165,26 +193,77 @@ export class Atmosphere {
   // mean radiance of each environment (the L0 term of an 8px cube read back), so the baked sky
   // light indoors can follow the real sky through the evening
   measure(key) {
+    if (this.renderer.getContext().isContextLost()) return;
+    this.pendingLevel.add(key);
     const rt = new THREE.WebGLCubeRenderTarget(8, { type: THREE.HalfFloatType });
     new THREE.CubeCamera(0.1, 1000, rt).update(this.renderer, this.envScene);
     LightProbeGenerator.fromCubeRenderTarget(this.renderer, rt).then((lp) => {
-      this.skyLevel.set(key, lp.sh.coefficients[0].clone());
-      rt.dispose();
+      // a zero or non-finite read-back (a lost context, a driver refusing the half-float read)
+      // would turn the whole GI volume into NaN; such a key stays unmeasured and the curve stands in
+      const c = lp.sh.coefficients[0];
+      if ([c.x, c.y, c.z].every((v) => Number.isFinite(v) && v > 1e-6)) this.skyLevel.set(key, c.clone());
       if (this.onLevel) this.onLevel();
-    }).catch(() => rt.dispose());
+    }).catch(() => {}).finally(() => { rt.dispose(); this.pendingLevel.delete(key); });
   }
 
-  // rgb ratio of the current env to the one the bake used; null until both are measured
+  // rgb ratio of the current env to the one the bake used, clamped to [0, 4]
   skyRatio() {
     const a = this.skyLevel.get(this.envKey), b = this.skyLevel.get(BAKE_KEY);
-    if (a && b) return [a.x / b.x, a.y / b.y, a.z / b.z];
-    // until the read-back lands (or where it cannot run), a curve fitted to the evening sky
+    if (a && b) {
+      this.lastRatio = [a.x / b.x, a.y / b.y, a.z / b.z].map((v) => Number.isFinite(v) ? THREE.MathUtils.clamp(v, 0, 4) : 0);
+      return this.lastRatio;
+    }
+    // while this env's read-back is in flight hold the last measured ratio rather than flicking to the
+    // fitted curve and back; the curve (an evening sky) stands in only where nothing has been measured
+    if (this.lastRatio && this.pendingLevel.has(this.envKey)) return this.lastRatio;
     const t = Math.max(0, this.t), n = THREE.MathUtils.smoothstep(t, 0.5, 1);
     const k = THREE.MathUtils.lerp(1, 0.55, THREE.MathUtils.smoothstep(t, 0, 0.5)) * THREE.MathUtils.lerp(1, 0.05, n);
     return [k * (1 - 0.3 * n), k, k * (1 + 0.4 * n)];
   }
 
   skyElev(t, el, s) { return THREE.MathUtils.lerp(el, Math.min(el, s.elev), THREE.MathUtils.smoothstep(t, 0.0, 0.5)); }
+
+  // Every lit material in the scene, split into those that mirror a local probe and the rest. Call
+  // again after adding objects to the scene; update() refreshes it whenever the env map changes.
+  refreshMaterials() {
+    const seen = new Set(), lit = [], probed = [];
+    this.scene.traverse((o) => {
+      if (!o.material) return;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        if (seen.has(m) || !m.isMeshStandardMaterial) continue;
+        seen.add(m);
+        (m.userData.probe ? probed : lit).push(m);
+      }
+    });
+    this.litMats = lit; this.probedMats = probed;
+  }
+
+  makeProbe(x, y, z, size) {
+    const rt = new THREE.WebGLCubeRenderTarget(size, { type: THREE.HalfFloatType });
+    const cam = new THREE.CubeCamera(0.3, 10000, rt);
+    cam.position.set(x, y, z);
+    return { rt, cam };
+  }
+
+  // Re-render both probes: twelve small passes over the scene, so only on load and when the sky or
+  // the sun has moved a good step (updateProbes). The probed materials look at the sky env while
+  // their own target is being written, or the render would read the texture it writes.
+  renderProbes() {
+    for (const m of this.probedMats) m.envMap = this.scene.environment;
+    for (const p of Object.values(this.probes)) p.cam.update(this.renderer, this.scene);
+    for (const m of this.probedMats) {
+      const p = this.probes[m.userData.probe];
+      m.envMap = p ? p.rt.texture : this.scene.environment;
+      // a probe is a real render of the lit scene, so it needs no sky-intensity scaling
+      m.envMapIntensity = m.userData.envK ?? (m.userData.env0 ??= m.envMapIntensity);
+    }
+  }
+  updateProbes(t, az, el) {
+    const key = `${Math.round(t * 10)}|${Math.round(az / 12)}|${Math.round(el / 4)}`;
+    if (key === this.probeKey) return;
+    this.probeKey = key;
+    this.renderProbes();
+  }
 
   // t: 0 golden hour, 0.5 sunset, 1 blue hour; az/el: shadow-casting sun
   update(t, time, az, el) {
@@ -198,8 +277,21 @@ export class Atmosphere {
     this.sun.intensity = s.sun;
     this.scene.fog.color.setRGB(...s.fog);
     this.scene.fog.density = s.fogD;
-    this.scene.environment = this.envFor(t, az, el);
+    const env = this.envFor(t, az, el);
+    if (env !== this.scene.environment || !this.litMats) this.refreshMaterials();
+    this.scene.environment = env;
     this.scene.environmentIntensity = s.env;
+    // With only scene.environment set, three writes the scene's intensity over every material's
+    // envMapIntensity, so the per-material and per-style values would be inert. Each lit material
+    // gets the map itself (same PMREM size, so no recompile) and its authored intensity times the
+    // sky's; the styler reads envScale back to keep a style's env overrides in step.
+    for (const m of this.litMats) {
+      if (m.userData.env0 === undefined) m.userData.env0 = m.envMapIntensity;
+      m.envMap = env;
+      m.userData.envScale = s.env;
+      m.envMapIntensity = (m.userData.envK ?? m.userData.env0) * s.env;
+    }
+    this.updateProbes(t, az, el);
     this.stars.material.opacity = THREE.MathUtils.smoothstep(t, 0.75, 1.0) * 0.85;
     return s;
   }

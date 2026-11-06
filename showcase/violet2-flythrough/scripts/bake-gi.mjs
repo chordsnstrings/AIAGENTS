@@ -33,10 +33,11 @@ const ALB = {
 const BASESET = {};
 const matSrc = readFileSync(new URL('../src/materials.js', import.meta.url), 'utf8');
 for (const m of matSrc.matchAll(/M\.(\w+) = pbr\('(\w+)', \{([^}]*)/g)) {
-  const c = /color: (0x[0-9a-f]+)/i.exec(m[3]), a = SET_AVG[m[2]];
+  const c = /color: (0x[0-9a-f]+)/i.exec(m[3]), al = /albedo: (0x[0-9a-f]+)/i.exec(m[3]), a = SET_AVG[m[2]];
   if (!a) continue;
   BASESET[m[1]] = m[2];
-  ALB[m[1]] = lin(c ? +c[1] : 0xffffff).map((v, i) => v * a[i]);
+  // albedo: is already the perceived colour (the page divides the set's mean out); color: is a tint on it
+  ALB[m[1]] = al ? lin(+al[1]) : lin(c ? +c[1] : 0xffffff).map((v, i) => v * a[i]);
 }
 function albedoFor(style) {
   const out = { ...ALB };
@@ -48,7 +49,7 @@ function albedoFor(style) {
   }
   return out;
 }
-const SKIP = new Set(['glass', 'glassLight', 'sheer', 'lattice', 'rail', 'pool', 'room', 'leaf', 'leafOlive', 'flower', 'flowerPink', 'frond']);
+const SKIP = new Set(['glass', 'glassRear', 'glassLight', 'sheer', 'lattice', 'rail', 'pool', 'room', 'leaf', 'leafOlive', 'flower', 'flowerPink', 'frond']);
 // night fixtures: intensity (candela-like, page units), softening radius, and a downward lobe
 const LAMP = { downlight: { I: 18, r: 0.12, lobe: true }, bulb: { I: 4, r: 0.15 }, lampShade: { I: 6, r: 0.25 }, led: { I: 1.2, r: 0.3 }, fire: { I: 8, r: 0.3 } };
 const WARM = [1, 0.72, 0.45];
@@ -119,7 +120,7 @@ function sceneFor(style) {
 }
 
 // ---------- Preetham sky, ported from three/examples/jsm/objects/Sky.js (golden-hour state)
-const SKY = { turbidity: 5.0, rayleigh: 1.6, mie: 0.0024, mieG: 0.72, gain: 0.82 };
+const SKY = { turbidity: 8.0, rayleigh: 1.1, mie: 0.004, mieG: 0.72, gain: 0.82 };
 const totalRayleigh = [5.804542996261093e-6, 1.3562911419845635e-5, 3.0265902468824876e-5];
 const MieConst = [1.8399918514433978e14, 2.7798023919660528e14, 4.0790479543861094e14];
 const sunE = (() => { const z = Math.max(-1, Math.min(1, sunDir.y)); return 1000 * Math.max(0, 1 - Math.exp(-((1.6110731556870734 - Math.acos(z)) / 1.5))); })();
@@ -219,7 +220,9 @@ function addDirect(C, i, p, { bvh, lamps }) {
     const reach = dist - l.rad - 0.03;
     if (reach > 0.01 && !visible(bvh, p, tmp, reach)) continue;
     const lobe = LAMP[l.k].lobe ? Math.max(0, tmp.y) ** 2 : 1;
-    const e = l.I * lobe / (dist * dist + l.r * l.r);
+    // a probe closer than half a cell to a fixture sees it no nearer than that, or one probe spikes
+    const d2 = Math.max(dist * dist, (SP * 0.5) ** 2);
+    const e = l.I * lobe / (d2 + l.r * l.r);
     for (let c = 0; c < 3; c++) {
       const ec = e * WARM[c], o = i * 12 + c * 4;
       C[o] += K0 * ec; C[o + 1] += K1 * ec * tmp.y; C[o + 2] += K1 * ec * tmp.z; C[o + 3] += K1 * ec * tmp.x;
