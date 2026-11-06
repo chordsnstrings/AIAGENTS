@@ -14,7 +14,7 @@ export const LOOK = {
   lookInExposure: 0.35,
   // looking out through glazing from inside, how far the exposure goes back towards the exterior's
   // (1 would expose for the garden and drop the room into silhouette)
-  lookOutExposure: 0.6,
+  lookOutExposure: 0.85,
   // behind the house the rear elevation is in the sun's shade: the exposure lift there
   gardenShadeExposure: 2.5,
   // the street lamps' baked ground pools (community.js lampMap), in page units at full dusk
