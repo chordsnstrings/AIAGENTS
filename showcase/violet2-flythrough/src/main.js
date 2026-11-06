@@ -13,6 +13,7 @@ import { initUI } from './ui.js';
 import { makeDust } from './volumetric.js';
 import { createGI } from './gi.js';
 import { LOOK } from './look.js';
+import { TOD, SUN } from './story.js';
 
 const params = new URLSearchParams(location.search);
 const STILL = params.has('p');
@@ -166,17 +167,19 @@ async function main() {
   };
 
   function update(dt, time) {
-    progress = STILL ? FIXED_P : progress + (target - progress) * (1 - Math.exp(-dt * (reduceMotion ? 8 : 2.2)));
+    // reduced motion: the view follows the scroll almost directly, with no easing drift after
+    // the hand stops (and the rig's hover and bank are off)
+    progress = STILL ? FIXED_P : progress + (target - progress) * (1 - Math.exp(-dt * (reduceMotion ? 14 : 2.2)));
     if (Math.abs(target - progress) < 1e-6) progress = target;
     const fov = path.sample(progress, pos, look);
-    rig.update(pos, look, fov, dt, time, { hover: reduceMotion ? 0 : 1, still: STILL });
+    rig.update(pos, look, fov, dt, time, { hover: reduceMotion ? 0 : 1, still: STILL, shift: path.shift });
     camera.updateMatrixWorld();
 
-    const todTarget = mode === 'day' ? 0 : mode === 'night' ? 1 : smooth(progress, 0.79, 0.975);
+    const todTarget = mode === 'day' ? 0 : mode === 'night' ? 1 : smooth(progress, TOD.sunsetFrom, TOD.nightBy);
     tod = STILL ? todTarget : tod + (todTarget - tod) * (1 - Math.exp(-dt * 2.5));
     // sun holds south-west through the master suite, swings north-west for the terrace, then sets
-    const swing = smooth(progress, 0.735, 0.83);
-    const sunEl = lerp(lerp(18, 11.5, swing), 4, smooth(progress, 0.868, 0.89));
+    const swing = smooth(progress, SUN.swing[0], SUN.swing[1]);
+    const sunEl = lerp(lerp(18, 11.5, swing), 4, smooth(progress, SUN.set[0], SUN.set[1]));
     const s = atmo.update(tod, time, lerp(-55, -128, swing), sunEl);
     const zone = zoneFor(camera.position);
     atmo.setShadowZone(zone);
@@ -264,6 +267,12 @@ async function main() {
 
   if (STILL) {
     document.getElementById('loader')?.remove();
+    // ?cam=x,y,z,lx,ly,lz[,fov[,shift]] places the camera directly, for composing a shot
+    // before it is written into the route
+    if (params.has('cam')) {
+      const c = params.get('cam').split(',').map(Number);
+      if (c.length >= 6 && c.every(Number.isFinite)) path.override({ pos: new THREE.Vector3(c[0], c[1], c[2]), look: new THREE.Vector3(c[3], c[4], c[5]), fov: c[6], shift: c[7] });
+    }
     // the sky level behind the baked light is read back asynchronously; give it a moment
     for (let i = 0; i < 15 && atmo.skyLevel.size < 2; i++) await new Promise((r) => setTimeout(r, 100));
     // render a few frames so shadow and AO settle, then signal the capture harness
