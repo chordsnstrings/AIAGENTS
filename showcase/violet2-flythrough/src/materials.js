@@ -1,24 +1,76 @@
 import * as THREE from 'three';
 import * as P from './proctex.js';
 import { beamMaterial } from './volumetric.js';
+import { SET_AVG, roleColor, roleRoughness } from './styles.js';
 
-const SETS = ['plaster', 'stone', 'walnut', 'oak', 'woodfloor', 'patio', 'pavers', 'sidewalk', 'asphalt', 'sand',
+// The base sets every material is built from (style-only sets load on first use). The seven in
+// INTERIOR_SETS are seen only indoors, so the page can start on the exterior ones and stream
+// the rest behind the first frame; the phone tier reads the same files from assets/tex/512/.
+export const SETS = ['plaster', 'walnut', 'oak', 'woodfloor', 'patio', 'pavers', 'sidewalk', 'asphalt', 'sand',
   'gravel', 'bark', 'velvet', 'rug', 'boucle', 'linen', 'grass', 'marble', 'travertine'];
+export const INTERIOR_SETS = ['travertine', 'woodfloor', 'oak', 'boucle', 'linen', 'velvet', 'rug'];
 
-export async function loadTextureSets(base, anisotropy, onProgress) {
+const prep = (t, s, anisotropy) => {
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = anisotropy;
+  if (s === 'c') t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+};
+
+export async function loadSet(base, name, anisotropy, onEach = () => {}) {
   const loader = new THREE.TextureLoader();
+  const set = {};
+  await Promise.all(['c', 'n', 'r'].map(async (s) => {
+    set[s] = prep(await loader.loadAsync(`${base}${name}_${s}.webp`), s, anisotropy);
+    onEach();
+  }));
+  return set;
+}
+
+// A deferred set is three 1x1 textures with the channel's neutral value (mid grey, flat normal,
+// full AO at half roughness), tagged so adoptSet can find every clone a material took from them.
+// r187 allocates texture storage immutably, so a placeholder is never grown in place.
+export function placeholderSet(name, anisotropy) {
+  const px = { c: [128, 128, 128, 255], n: [128, 128, 255, 255], r: [255, 128, 0, 255] };
+  const set = {};
+  for (const s of ['c', 'n', 'r']) {
+    const t = prep(new THREE.DataTexture(new Uint8Array(px[s]), 1, 1), s, anisotropy);
+    t.userData.placeholder = name; t.userData.ch = s;
+    t.needsUpdate = true;
+    set[s] = t;
+  }
+  return set;
+}
+
+// load, then clone: a texture cloned before it has loaded renders black (pitfall 1)
+export async function loadTextureSets(base, anisotropy, onProgress, { defer = [] } = {}) {
   const out = {};
+  const names = SETS.filter((n) => !defer.includes(n));
   let done = 0;
-  const total = SETS.length * 3;
-  await Promise.all(SETS.flatMap((name) => ['c', 'n', 'r'].map(async (s) => {
-    const t = await loader.loadAsync(`${base}${name}_${s}.webp`);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.anisotropy = anisotropy;
-    if (s === 'c') t.colorSpace = THREE.SRGBColorSpace;
-    (out[name] ||= {})[s] = t;
-    onProgress(++done / total);
-  })));
+  const total = names.length * 3;
+  await Promise.all(names.map(async (name) => { out[name] = await loadSet(base, name, anisotropy, () => onProgress(++done / total)); }));
+  for (const name of defer) out[name] = placeholderSet(name, anisotropy);
   return out;
+}
+
+// Replace every placeholder clone of `name` in the materials with a fresh clone of the real
+// texture, keeping the repeat each material chose. Map presence does not change, so no
+// program recompiles; the renderer picks the new texture up on the next frame.
+export function adoptSet(M, name, set) {
+  const fresh = new Map();
+  const swap = (old) => {
+    if (!old || old.userData.placeholder !== name) return old;
+    if (!fresh.has(old)) {
+      const t = set[old.userData.ch].clone();
+      t.repeat.copy(old.repeat); t.anisotropy = old.anisotropy;
+      fresh.set(old, t);
+    }
+    return fresh.get(old);
+  };
+  for (const m of Object.values(M)) {
+    for (const slot of ['map', 'normalMap', 'roughnessMap', 'aoMap', 'emissiveMap']) if (m[slot]) m[slot] = swap(m[slot]);
+  }
+  for (const old of fresh.keys()) old.dispose();
 }
 
 export const shared = {
@@ -28,8 +80,11 @@ export const shared = {
 };
 
 // Indoors the env map knows nothing about walls, so where the baked volume says a point is
-// enclosed, its irradiance replaces the env diffuse and the env reflections are scaled by the
-// same occlusion. Outdoors (alpha 0) and outside the volume the env map stays in charge.
+// enclosed, its irradiance replaces the env diffuse, and the env reflections are dimmed by how
+// much sky the probe sees and tinted by the room's own bounce colour (a glossy floor in a lamp-lit
+// room reflects the room, not the zenith). Outdoors (alpha 0) and outside the volume the env map
+// stays in charge. The occlusion reads the probe's open-sky fraction from the gradient texture's
+// alpha; where the volume carries none (alpha 0) the irradiance ratio stands in.
 const GI_FRAG = /* glsl */`
   {
     vec3 gN = inverseTransformDirection(normal, viewMatrix);
@@ -39,19 +94,23 @@ const GI_FRAG = /* glsl */`
     float gF = clamp(min(min(gE.x, gE.y), gE.z) * 2.5, 0.0, 1.0);
     if (gF > 0.0) {
       vec4 g0 = texture(uGi0, gU);
-      vec3 g1 = texture(uGi1, gU).xyz;
+      vec4 g1 = texture(uGi1, gU);
       const vec3 LUM = vec3(0.2126, 0.7152, 0.0722);
-      // non-linear L1 reconstruction (Hazel, Geomerics): no negative lobe behind strong lights
-      vec3 gR = g1 / max(dot(g0.rgb, LUM), 1e-5);
-      float gRl = length(gR), gX = min(0.433 * gRl, 0.95);
+      // non-linear L1 reconstruction (Hazel, Geomerics): no negative lobe behind strong lights.
+      // The stored ratio is irradiance-premultiplied (c1 = 0.5 * integral of L * w over c0), so a
+      // delta light reaches |R1|/R0 = 1 at 0.5 * ratio, not the 0.433 of normalised radiance SH.
+      vec3 gR = g1.xyz / max(dot(g0.rgb, LUM), 1e-5);
+      float gRl = length(gR), gX = min(0.5 * gRl, 0.98);
       float gQ = max(0.5 + 0.5 * dot(gR / max(gRl, 1e-5), gN), 1e-6), gP = 1.0 + 2.0 * gX, gA = (1.0 - gX) / (1.0 + gX);
       vec3 gIrr = g0.rgb * (gA + (1.0 - gA) * (gP + 1.0) * pow(gQ, gP));
       float gw = g0.a * gF;
-      float gSo = clamp(dot(gIrr, LUM) / max(dot(iblIrradiance, LUM), 1e-4), 0.03, 1.0);
+      float gLum = max(dot(gIrr, LUM), 1e-4);
+      float gSo = g1.a > 0.0 ? clamp(g1.a * 2.5, 0.03, 1.0) : clamp(gLum / max(dot(iblIrradiance, LUM), 1e-4), 0.03, 1.0);
+      vec3 gT = gIrr / gLum;
       iblIrradiance = mix(iblIrradiance, gIrr, gw);
-      radiance *= mix(1.0, gSo, gw);
+      radiance = mix(radiance, dot(radiance, LUM) * gSo * gT, gw);
       #ifdef USE_CLEARCOAT
-        clearcoatRadiance *= mix(1.0, gSo, gw);
+        clearcoatRadiance = mix(clearcoatRadiance, dot(clearcoatRadiance, LUM) * gSo * gT, gw);
       #endif
     }
   }`;
@@ -64,17 +123,18 @@ float vFbm(vec2 p){ return vNoise(p)*0.55 + vNoise(p*2.13)*0.3 + vNoise(p*4.7)*0
 `;
 
 // One patcher for every shader tweak, keyed by feature set so materials that differ only in
-// uniform values share a compiled program.
+// uniform values share a compiled program. Re-running it on a material (to add a feature) keeps
+// the uniform objects it already has, so values set earlier survive.
 function enhance(mat, o) {
   const feats = Object.keys(o).filter((k) => o[k]).sort();
-  const U = {};
+  const old = mat.userData.u || {}, U = {};
   if (o.joints) {
-    U.uJoint = { value: new THREE.Vector4(o.joints.size[0], o.joints.size[1], o.joints.width ?? 0.003, o.joints.shade ?? 0.55) };
+    U.uJoint = old.uJoint || { value: new THREE.Vector4(o.joints.size[0], o.joints.size[1], o.joints.width ?? 0.003, o.joints.shade ?? 0.55) };
   }
-  if (o.macro) U.uMacro = { value: new THREE.Vector3(o.macro.scale ?? 0.02, o.macro.amount ?? 0.35, o.macro.hue ?? 0) };
-  if (o.sway) { U.uTime = shared.time; U.uSway = { value: o.sway }; }
-  if (o.glass) U.uGlass = { value: new THREE.Vector2(o.glass[0], o.glass[1]) };
-  if (o.flat) U.uFlat = { value: new THREE.Vector4(0.5, 0.5, 0.5, 0) };
+  if (o.macro) U.uMacro = old.uMacro || { value: new THREE.Vector3(o.macro.scale ?? 0.02, o.macro.amount ?? 0.35, o.macro.hue ?? 0) };
+  if (o.sway) { U.uTime = shared.time; U.uSway = old.uSway || { value: o.sway }; }
+  if (o.glass) U.uGlass = old.uGlass || { value: new THREE.Vector2(o.glass[0], o.glass[1]) };
+  if (o.flat) U.uFlat = old.uFlat || { value: new THREE.Vector4(0.5, 0.5, 0.5, 0) };
   if (o.gi) Object.assign(U, shared.gi);
   mat.userData.u = U;
   mat.userData.fx = o;
@@ -120,6 +180,12 @@ function enhance(mat, o) {
       diffuseColor.rgb *= mix(1.0, uJoint.w, joint);`;
     f = f.replace('#include <map_fragment>', `#include <map_fragment>\n${post}`);
     if (o.joints) f = f.replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 0.85, joint);`);
+    // a lamp shade glows hotter at its lower rim and on the inside, where the bulb is; an opal
+    // globe darkens towards its rim, so neither reads as a flat disc of light
+    let glow = '';
+    if (o.shade) glow += `\n      totalEmissiveRadiance *= mix(1.0, 0.55, clamp(vMeters.y, 0.0, 1.0)) * (gl_FrontFacing ? 1.0 : 1.6);`;
+    if (o.opal) glow += `\n      totalEmissiveRadiance *= mix(0.5, 1.1, pow(abs(dot(normalize(normal), normalize(vViewPosition))), 0.7));`;
+    if (glow) f = f.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>${glow}`);
     if (o.glass) f = f.replace('#include <opaque_fragment>', `
       float gfr = pow(1.0 - clamp(abs(dot(normalize(normal), normalize(vViewPosition))), 0.0, 1.0), 4.0);
       float ga = mix(uGlass.x, uGlass.y, gfr);
@@ -129,26 +195,48 @@ function enhance(mat, o) {
   return mat;
 }
 
+// Material.clone() copies neither the shader patch nor the uniform objects (userData survives only
+// as JSON), so a clone of an enhanced material silently loses its features. This re-applies them.
+export function cloneEnhanced(m) {
+  const c = m.clone();
+  c.userData = { ...m.userData, u: undefined };
+  if (m.userData.fx) {
+    enhance(c, m.userData.fx);
+    for (const [k, u] of Object.entries(m.userData.u)) {
+      if (k in shared.gi || !c.userData.u[k]) continue;
+      if (u.value && u.value.copy) c.userData.u[k].value.copy(u.value); else c.userData.u[k].value = u.value;
+    }
+  }
+  return c;
+}
+
 export function createMaterials(T, { maxAniso = 8 } = {}) {
   const M = {};
   const glow = []; // { mat, day, dusk } emissive intensities driven by time of day
 
   const clone = (t, rx, ry) => { const c = t.clone(); c.repeat.set(rx, ry); c.anisotropy = maxAniso; return c; };
+  // A finish from a packed set. albedo: names the colour it should read as (the set's mean is divided
+  // out, as the styler does, and the GI bake reads the same number); color: is a plain tint for the
+  // few scans whose own colour is wanted. rough: is the finish's mean roughness whatever the map's
+  // own mean; flat: true gives a role the contrast control without using it. Keep one call per line with albedo/color before any nested option: bake-gi.mjs parses it.
   function pbr(name, o = {}) {
     const s = T[name];
     const tile = o.tile ?? 1, rx = 1 / tile, ry = 1 / (o.tileV ?? tile);
     const r = clone(s.r, rx, ry);
     const params = {
       map: clone(s.c, rx, ry), normalMap: clone(s.n, rx, ry), roughnessMap: r, aoMap: r,
-      color: new THREE.Color(o.color ?? 0xffffff), roughness: o.rough ?? 1, metalness: o.metal ?? 0,
+      color: roleColor(o, name), roughness: roleRoughness(o.rough ?? 1, name, true), metalness: o.metal ?? 0,
       normalScale: new THREE.Vector2(o.normal ?? 1, o.normal ?? 1), envMapIntensity: o.env ?? 1, aoMapIntensity: o.ao ?? 1,
       side: o.side ?? THREE.FrontSide,
     };
     let m;
     if (o.physical) m = new THREE.MeshPhysicalMaterial({ ...params, ...o.physical });
     else m = new THREE.MeshStandardMaterial(params);
-    if (o.joints || o.macro) enhance(m, { joints: o.joints, macro: o.macro });
+    if (o.joints || o.macro || o.flat) enhance(m, { joints: o.joints, macro: o.macro, flat: o.flat });
+    if (o.flat) { const a = new THREE.Color(o.albedo); m.userData.u.uFlat.value.set(a.r, a.g, a.b, typeof o.flat === 'number' ? o.flat : 0); }
     m.name = name;
+    m.userData.set = name;
+    m.userData.env0 = m.envMapIntensity;
     return m;
   }
   const std = (o) => new THREE.MeshStandardMaterial(o);
@@ -160,51 +248,66 @@ export function createMaterials(T, { maxAniso = 8 } = {}) {
   }
 
   // ---- architecture
-  M.render = pbr('plaster', { tile: 3.2, color: 0xf4f0ea, normal: 0.45, rough: 1 });
-  M.paint = pbr('plaster', { tile: 3.2, color: 0xf0ebe3, normal: 0.12, rough: 0.95, env: 0.25 });
-  M.ceiling = pbr('plaster', { tile: 3.2, color: 0xf5f2ec, normal: 0.08, rough: 1, env: 0.22 });
-  for (const m of [M.paint, M.ceiling]) enhance(m, { ...(m.userData.fx || {}), flat: true });
-  M.stone = pbr('marble', { tile: 2.6, color: 0x7b7976, rough: 0.75, normal: 0.6, env: 0.7, joints: { size: [1.2, 0.6], width: 0.005, shade: 0.45 } });
+  M.render = pbr('plaster', { tile: 3.2, albedo: 0xe6e1d7, normal: 0.45, rough: 1 });
+  M.paint = pbr('plaster', { tile: 3.2, albedo: 0xe8e2d9, flat: 0.7, normal: 0.12, rough: 0.95, env: 0.25 });
+  M.ceiling = pbr('plaster', { tile: 3.2, albedo: 0xf0ede8, flat: 0.8, normal: 0.08, rough: 1, env: 0.22 });
+  M.stone = pbr('marble', { tile: 2.6, albedo: 0x6a6765, rough: 0.75, normal: 0.6, env: 0.7, joints: { size: [1.2, 0.6], width: 0.005, shade: 0.45 } });
   M.bronze = std({ color: 0x6f5238, metalness: 0.85, roughness: 0.38 });
   M.frame = std({ color: 0x1c1d1f, metalness: 0.6, roughness: 0.42 });
-  M.glass = enhance(new THREE.MeshStandardMaterial({ color: 0x0b0d0e, roughness: 0.03, metalness: 0, transparent: true, premultipliedAlpha: true, depthWrite: false, side: THREE.DoubleSide }), { glass: [0.06, 0.75] });
-  M.glass.userData.noShadow = true;
+  // exterior glazing reflects a local probe of the street or the garden (atmosphere.js renders
+  // them); front and rear panes are separate keys so each face mirrors what is really outside it
+  const glass = (probe) => {
+    const m = enhance(new THREE.MeshStandardMaterial({ color: 0x0b0d0e, roughness: 0.03, metalness: 0, transparent: true, premultipliedAlpha: true, depthWrite: false, side: THREE.DoubleSide }), { glass: [0.06, 0.75] });
+    m.userData.noShadow = true;
+    m.userData.probe = probe;
+    return m;
+  };
+  M.glass = glass('front');
+  M.glassRear = glass('rear');
+  M.frame.userData.probe = 'front';
+  M.bronze.userData.probe = 'front';
   M.glassLight = enhance(new THREE.MeshStandardMaterial({ color: 0x0e1010, roughness: 0.02, metalness: 0, transparent: true, premultipliedAlpha: true, depthWrite: false, side: THREE.DoubleSide }), { glass: [0.03, 0.5] });
   M.glassLight.userData.noShadow = true;
-  M.wood = pbr('walnut', { tile: 1.6, color: 0x7a5e4b, rough: 0.75, normal: 0.6 });
-  M.pavers = pbr('pavers', { tile: 2.2, color: 0xd6c8b3, rough: 1, macro: { scale: 0.05, amount: 0.12 } });
-  M.sidewalk = pbr('sidewalk', { tile: 2.4, color: 0xddd1bf, rough: 1, macro: { scale: 0.03, amount: 0.15 } });
-  M.asphalt = pbr('asphalt', { tile: 5, color: 0x6c6965, rough: 1, normal: 0.6, macro: { scale: 0.012, amount: 0.16 } });
-  M.curb = pbr('plaster', { tile: 2, color: 0xc9c5bd, normal: 0.6, rough: 1 });
-  M.grass = pbr('grass', { tile: 2.6, color: 0xc8d6a0, rough: 1, normal: 0.8, macro: { scale: 0.08, amount: 0.22, hue: 0.4 } });
-  M.sand = pbr('sand', { tile: 9, color: 0xf1dfc4, rough: 1, normal: 0.9, macro: { scale: 0.012, amount: 0.2, hue: 0.5 } });
-  M.base = pbr('sand', { tile: 7, color: 0xe8d9c2, rough: 1, normal: 0.7, macro: { scale: 0.02, amount: 0.18, hue: 0.4 } });
+  M.wood = pbr('walnut', { tile: 1.6, albedo: 0x8a6a4e, rough: 0.75, normal: 0.6 });
+  M.pavers = pbr('pavers', { tile: 2.2, albedo: 0xb8ac99, rough: 1, macro: { scale: 0.05, amount: 0.12 } });
+  M.sidewalk = pbr('sidewalk', { tile: 2.4, albedo: 0xbdb4a6, rough: 1, macro: { scale: 0.03, amount: 0.15 } });
+  M.asphalt = pbr('asphalt', { tile: 5, albedo: 0x4a4845, rough: 1, normal: 0.6, macro: { scale: 0.012, amount: 0.25 } });
+  M.curb = pbr('plaster', { tile: 2, albedo: 0xcfcac2, normal: 0.6, rough: 1 });
+  M.grass = pbr('grass', { tile: 2.6, albedo: 0x4a7030, rough: 1, normal: 0.8, macro: { scale: 0.08, amount: 0.22, hue: 0.4 } });
+  // the sand scan's AO channel is weave-scale occlusion that means nothing at 7-34 m tiling
+  M.sand = pbr('sand', { tile: 9, albedo: 0xd8c3a2, rough: 1, normal: 0.9, ao: 0, macro: { scale: 0.012, amount: 0.2, hue: 0.5 } });
+  M.base = pbr('sand', { tile: 7, albedo: 0xd8c3a2, rough: 1, normal: 0.7, ao: 0, macro: { scale: 0.02, amount: 0.18, hue: 0.4 } });
   M.base.polygonOffset = true; M.base.polygonOffsetFactor = -1; M.base.polygonOffsetUnits = -2;
-  M.desert = pbr('sand', { tile: 34, color: 0xe6c696, rough: 1, normal: 1.2, macro: { scale: 0.004, amount: 0.22, hue: 0.7 } });
-  M.gravel = pbr('gravel', { tile: 1.4, color: 0xe9e4da, rough: 1 });
-  M.soil = pbr('gravel', { tile: 1.2, color: 0x6a5643, rough: 1 });
-  M.patio = pbr('patio', { tile: 2.4, color: 0xe2dbd0, rough: 0.9, normal: 0.6 });
-  M.bark = pbr('bark', { tile: 1, tileV: 1.4, color: 0x8c7f6c, rough: 1 });
-  M.travertine = pbr('travertine', { tile: 1.8, color: 0xf3ebde, rough: 0.55, env: 0.3, joints: { size: [1.2, 0.6], width: 0.003, shade: 0.72 } });
-  M.travertineSlab = pbr('travertine', { tile: 1.4, color: 0xf0e6d6, rough: 0.6, env: 0.3 });
-  M.oakFloor = pbr('woodfloor', { tile: 2.2, color: 0xffe9cc, rough: 0.75, env: 0.25 });
-  M.oak = pbr('oak', { tile: 1.4, color: 0xf6e3c8, rough: 0.7, env: 0.3 });
-  M.joinery = pbr('walnut', { tile: 1.2, color: 0xc09a80, rough: 0.5, env: 0.3 }); // doors, wardrobes, kitchen runs
-  M.walnut = pbr('walnut', { tile: 1.2, color: 0x8d715e, rough: 0.55, env: 0.3 });
-  M.marble = pbr('marble', { tile: 1.8, color: 0xffffff, rough: 0.5, env: 0.45, physical: { clearcoat: 0.6, clearcoatRoughness: 0.08 } });
-  M.marbleFloor = pbr('marble', { tile: 1.6, color: 0xf2f0ec, rough: 0.6, env: 0.35, joints: { size: [0.6, 0.6], width: 0.002, shade: 0.7 } });
-  M.boucle = pbr('boucle', { tile: 0.45, color: 0xefe8dc, rough: 1, normal: 1.4, env: 0.25, physical: { sheen: 0.6, sheenRoughness: 0.75, sheenColor: new THREE.Color(0xffffff) } });
-  M.linen = pbr('linen', { tile: 0.5, color: 0xf6f3ee, rough: 1, normal: 0.9, env: 0.25, physical: { sheen: 0.4, sheenRoughness: 0.8, sheenColor: new THREE.Color(0xffffff) } });
-  M.linenSand = pbr('linen', { tile: 0.5, color: 0xd9c8ae, rough: 1, normal: 0.9, env: 0.25, physical: { sheen: 0.4, sheenRoughness: 0.8, sheenColor: new THREE.Color(0xfff4e6) } });
-  M.linenGrey = pbr('linen', { tile: 0.5, color: 0xb9b4ac, rough: 1, normal: 0.9, env: 0.5 });
-  M.velvet = pbr('velvet', { tile: 0.7, color: 0x6e4f8f, rough: 0.9, normal: 0.6, env: 0.25, physical: { sheen: 1, sheenRoughness: 0.45, sheenColor: new THREE.Color(0xc7a9e6) } });
-  M.rug = pbr('rug', { tile: 0.9, color: 0xe8dfd2, rough: 1, normal: 1.1, env: 0.2 });
-  M.weave = pbr('linen', { tile: 0.3, color: 0xd9c19a, rough: 0.9, normal: 1.2, env: 0.3, side: THREE.DoubleSide });
+  M.desert = pbr('sand', { tile: 34, albedo: 0xcaa982, rough: 1, normal: 1.2, ao: 0, macro: { scale: 0.004, amount: 0.22, hue: 0.7 } });
+  M.gravel = pbr('gravel', { tile: 1.4, albedo: 0xbdb6a9, rough: 1 });
+  M.soil = pbr('gravel', { tile: 1.2, albedo: 0x4a3a2a, rough: 1 });
+  M.patio = pbr('patio', { tile: 2.4, albedo: 0xc9c3b8, rough: 0.9, normal: 0.6 });
+  M.bark = pbr('bark', { tile: 1, tileV: 1.4, albedo: 0x6b5a46, rough: 1 });
+  // interior roles: the Warm Minimal values, so the first frame and the bake agree with the styler
+  M.travertine = pbr('travertine', { tile: 1.8, albedo: 0xd8c8af, rough: 0.55, env: 0.3, joints: { size: [1.2, 0.6], width: 0.003, shade: 0.72 } });
+  M.travertineSlab = pbr('travertine', { tile: 1.4, albedo: 0xd8c8af, rough: 0.6, env: 0.3 });
+  M.oakFloor = pbr('woodfloor', { tile: 2.2, albedo: 0xc8a684, rough: 0.75, env: 0.25 });
+  M.oak = pbr('oak', { tile: 1.4, albedo: 0xc9a882, rough: 0.7, env: 0.3 });
+  M.joinery = pbr('walnut', { tile: 1.2, albedo: 0x5a4030, rough: 0.5, env: 0.3 }); // doors, wardrobes, kitchen runs
+  M.walnut = pbr('walnut', { tile: 1.2, albedo: 0x5a4030, rough: 0.55, env: 0.3 });
+  M.marble = pbr('marble', { tile: 1.8, albedo: 0xe6e3dd, rough: 0.5, env: 0.45, physical: { clearcoat: 0.6, clearcoatRoughness: 0.08 } });
+  M.marbleFloor = pbr('marble', { tile: 1.6, albedo: 0xe6e3dd, rough: 0.6, env: 0.35, joints: { size: [0.6, 0.6], width: 0.002, shade: 0.7 } });
+  // fabrics: the AO in these scans is at weave scale, so it is kept faint; flat lets a style pull a
+  // crushed velvet scan towards its colour so the sheen, not the noise, carries the velvet read
+  M.boucle = pbr('boucle', { tile: 0.45, albedo: 0xe3d9ca, rough: 1, normal: 1.4, env: 0.25, ao: 0.3, flat: true, physical: { sheen: 0.6, sheenRoughness: 0.75, sheenColor: new THREE.Color(0xffffff) } });
+  M.linen = pbr('linen', { tile: 0.22, albedo: 0xe9e4db, rough: 1, normal: 0.35, env: 0.25, ao: 0.3, physical: { sheen: 0.4, sheenRoughness: 0.8, sheenColor: new THREE.Color(0xffffff) } });
+  M.linenSand = pbr('linen', { tile: 0.3, albedo: 0xd8ccb8, rough: 1, normal: 0.5, env: 0.25, ao: 0.3, flat: true, physical: { sheen: 0.4, sheenRoughness: 0.8, sheenColor: new THREE.Color(0xfff4e6) } });
+  M.linenGrey = pbr('linen', { tile: 0.5, albedo: 0xbcb6ad, rough: 1, normal: 0.9, env: 0.5, ao: 0.3 });
+  M.velvet = pbr('velvet', { tile: 0.7, albedo: 0xa892c4, rough: 0.9, normal: 0.2, env: 0.25, ao: 0.3, flat: 0.5, physical: { sheen: 1, sheenRoughness: 0.3, sheenColor: new THREE.Color(0xc9b8de) } });
+  M.rug = pbr('rug', { tile: 0.9, albedo: 0xd9cebd, rough: 1, normal: 1.1, env: 0.2 });
+  M.weave = pbr('linen', { tile: 0.3, albedo: 0xb8946a, rough: 0.9, normal: 1.2, env: 0.3, side: THREE.DoubleSide });
   M.sheer = new THREE.MeshStandardMaterial({ map: clone(T.linen.c, 2, 2), color: 0xfbf8f2, roughness: 1, transparent: true, opacity: 0.72, side: THREE.DoubleSide, envMapIntensity: 0.4, depthWrite: false });
   M.sheer.userData.noShadow = true;
-  // backlit translucency: the panel glows with the daylight behind it, and barely at night
+  // backlit translucency: a hint of the daylight behind it by day, barely anything at night; the
+  // panel takes the room's baked light like everything else, so a shaded window does not glow
   M.sheer.emissive.set(0xfff4e8);
-  glow.push({ mat: M.sheer, day: 0.2, dusk: 0.012 });
+  glow.push({ mat: M.sheer, day: 0.05, dusk: 0.012 });
+  enhance(M.sheer, { gi: true });
 
   M.blackSatin = std({ color: 0x141414, roughness: 0.35, metalness: 0.2, envMapIntensity: 0.6 });
   M.tv = std({ color: 0x050505, roughness: 0.12, metalness: 0.1, envMapIntensity: 0.9 });
@@ -214,20 +317,27 @@ export function createMaterials(T, { maxAniso = 8 } = {}) {
   M.bloom = new THREE.MeshPhysicalMaterial({ color: 0xc3b1de, roughness: 0.65, sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xffffff) });
   M.bloomB = new THREE.MeshPhysicalMaterial({ color: 0xf3eee6, roughness: 0.65, sheen: 0.5, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xffffff) });
   M.stem = std({ color: 0x4d6a3a, roughness: 0.6 });
-  M.ceramic = new THREE.MeshPhysicalMaterial({ color: 0xf7f6f3, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 0.6 });
+  M.ceramic = new THREE.MeshPhysicalMaterial({ color: 0xe0ddd7, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 0.6 });
   M.mirror = std({ color: 0xe6e6e6, roughness: 0.02, metalness: 1, envMapIntensity: 0.9 });
-  M.concrete = pbr('plaster', { tile: 1.5, color: 0xb7b1a8, normal: 0.7, rough: 1 });
+  M.concrete = pbr('plaster', { tile: 1.5, albedo: 0x9a948c, normal: 0.7, rough: 1 });
   M.charcoal = std({ color: 0x2a2826, roughness: 0.8 });
 
   // ---- light emitters (intensity follows time of day)
-  M.lampShade = emissive(0xffd7a3, 0.25, 2.2, { base: 0xf1e7d6, params: { side: THREE.DoubleSide, roughness: 1 } });
-  M.bulb = emissive(0xffcf8f, 1.5, 7, {});
+  // the shade is linen over the bulb: its weave modulates the glow (the map's mean of 0.41 is folded
+  // into the intensities), the shader adds the rim-to-top gradient and the hotter inside
+  const shadeMap = clone(T.linen.c, 5, 1);
+  M.lampShade = emissive(0xffd7a3, 0.07, 1.5, { base: 0xf1e7d6, params: { side: THREE.DoubleSide, roughness: 1, map: shadeMap, emissiveMap: shadeMap } });
+  M.lampShade.color.copy(roleColor({ albedo: 0xf1e7d6 }, 'linen'));
+  M.lampShade.userData.set = 'linen';
+  enhance(M.lampShade, { shade: true });
+  M.bulb = enhance(emissive(0xffcf8f, 1.5, 4.5, {}), { opal: true });
   M.downlight = emissive(0xfff0dc, 1.2, 6, {});
   M.led = emissive(0xffd29c, 0.6, 5, {});
   M.fire = emissive(0xff8a3a, 0, 6, {});
   M.lampHead = emissive(0xffd9a6, 0.0, 9, { base: 0x2a2622 });
   M.roomLit = emissive(0xffdfb4, 0.08, 1.15, { base: 0x15110d, params: { map: P.roomTexture(), emissiveMap: P.roomTexture(), roughness: 0.9 } });
-  M.roomDim = std({ color: 0x0b0a09, roughness: 0.9, map: P.roomTexture() });
+  // an unlit neighbour's room: a dim interior with curtain folds rather than a black hole
+  M.roomDim = std({ color: 0xf0f0f0, roughness: 0.9, map: P.roomDimTexture() });
 
   // ---- vegetation (alpha-tested cards)
   const leafMat = (tex, color = 0xffffff) => {

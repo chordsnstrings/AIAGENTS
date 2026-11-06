@@ -44,10 +44,16 @@ export function createGI() {
   g.uGiB.value.set(0.5 / DIMS[0] - MIN[0] / (SP * DIMS[0]), 0.5 / DIMS[1] - MIN[1] / (SP * DIMS[1]), 0.5 / DIMS[2] - MIN[2] / (SP * DIMS[2]));
 
   const h = THREE.DataUtils.toHalfFloat;
+  const insideH = Uint16Array.from(inside, h);
+  // A weight is quantised to 1/128 so an easing light remixes a few times, not every frame, and
+  // sanitised: a NaN or Inf from a sky read-back would otherwise fill every probe (toHalfFloat
+  // turns NaN into a NaN half and Inf into 65504) and bloom would spread it over the frame.
+  const weight = (v) => (Number.isFinite(v) ? Math.round(Math.min(Math.max(v, 0), 64) * 128) / 128 : 0);
   let last = '';
   // kS, kU, kN: rgb weights for sky, sun bounce and lamps
   function set(kS, kU, kN, style) {
-    const key = [...kS, ...kU, ...kN].map((v) => v.toFixed(3)).join() + style;
+    kS = kS.map(weight); kU = kU.map(weight); kN = kN.map(weight);
+    const key = [...kS, ...kU, ...kN].join() + '|' + style;
     if (key === last) return false;
     last = key;
     const n = N[style] || N.minimal, a = t0.image.data, b = t1.image.data;
@@ -57,7 +63,7 @@ export function createGI() {
     for (let i = 0; i < NP; i++) {
       const o = i * 3, q = i * 4;
       for (let c = 0; c < 3; c++) a[q + c] = h(kS[c] * S.dc[o + c] + kU[c] * U.dc[o + c] + kN[c] * n.dc[o + c]);
-      a[q + 3] = h(inside[i]);
+      a[q + 3] = insideH[i];
       for (let k = 0; k < 3; k++) b[q + k] = h(lS * S.gr[o + k] + lU * U.gr[o + k] + lN * n.gr[o + k]);
     }
     t0.needsUpdate = true; t1.needsUpdate = true;

@@ -18,19 +18,20 @@ reference was read from the code at the time of writing; re-check line numbers o
 ## Dependency map
 
 `src/main.js` is the only entry point (esbuild bundles it to `dist/app.js`); it imports every other
-module and nothing imports it.
+module, directly or through them, and nothing imports it.
 
 | Module | Imports from the template | What flows out |
 | --- | --- | --- |
 | `plan.js` | nothing | `PLOT`, `H`, `ROOMS` → `house.js`, `interior.js`, `stylesets.js` (levels) and `ui.js` (rooms, plot) |
+| `look.js` | nothing | `LOOK` (eight photographic constants: GI fill and lamp weights, white balance, indoor exposure, dust brightness) → `main.js` only |
 | `builder.js` | nothing | `Builder`, `F`, `mirrorX`, `meshes`, `instanced` → every geometry module and both scripts |
 | `house.js` | `plan.js` (`H`), `builder.js` (`F`) | `buildShell(B, {hero})` → `main.js` (hero), `community.js` (neighbours), both scripts |
 | `interior.js` | `plan.js`, `builder.js`, `softgoods.js` | `makeKit`, `buildInterior` → `main.js`, `stylesets.js` (via the kit), both scripts |
 | `stylesets.js` | `plan.js`, `vegetation.js` | `buildStyleSet(B, key, kit)` → `main.js`, `bake-gi.mjs` |
-| `styles.js` | `proctex.js` (`artTexture`) | `STYLES`, `SET_AVG`, `createStyler` → `main.js`, `bake-gi.mjs` |
+| `styles.js` | `proctex.js` (`artTexture`) | `STYLES`, `SET_AVG`, `createStyler` → `main.js`, `bake-gi.mjs` (`BASE_SETS` is also exported; nothing reads it) |
 | `materials.js` | `proctex.js`, `volumetric.js` (`beamMaterial`) | `loadTextureSets`, `createMaterials` → `M`, `glow`; `shared` uniforms → `gi.js` |
 | `gi.js` | `gi-data.js`, `materials.js` (`shared`) | `createGI().set(...)` fills the two 3D textures `materials.js` samples |
-| `community.js` | `builder.js`, `house.js`, `vegetation.js` (plus an unused `H`) | `buildCommunity(M, spots, {lite})` → one `Group` |
+| `community.js` | `builder.js`, `house.js`, `vegetation.js` | `buildCommunity(M, spots, {lite})` → `{ group, stats }`; also exports `R`, `CENTER` |
 | `atmosphere.js` | three addons only | `Atmosphere` (sun, sky, fog, env map, shadow zones) → the frame loop |
 | `path.js` | nothing | `DronePath`, `DroneRig` → the frame loop and `check-path.mjs` |
 | `post.js` | `volumetric.js` (`VolumetricPass`), n8ao | `createPost(...)` → the composer the loop renders |
@@ -67,7 +68,7 @@ material samples through `shared.gi`); **post chain** `N8AOPass` (plain `RenderP
 - **Material keys** name the role a surface plays (`render`, `paint`, `ceiling`, `stone`, `joinery`,
   `oakFloor`, `frame`, `glass`, `bronze`, `brass`, `led`, `downlight`, `bulb`, `lampShade`, `fire`...).
   Styles re-parameterise only the keys in `STYLES[key].roles`; the rest keep their `materials.js` definition.
-- **Hero versus neighbour.** `buildShell(B, { hero })` is built twice: hero (`main.js:88`: real
+- **Hero versus neighbour.** `buildShell(B, { hero })` is built twice: hero (`main.js:86`: real
   balusters, slid-open panels, open door) and non-hero (`community.js:102`: `rail` alpha cards, fake
   lit `room` quads), the latter instanced and mirrored with `mirrorX(geo, 3.05)` for alternate units.
   Both return planting spots `{ bush, flower, palm, olive, pink }` as `[x, y, d, scale]` for `community.js`.
@@ -80,7 +81,7 @@ plinth, ground floor and ceiling, first floor and ceiling, roof-level floor and 
 slabs 0.3 m, storeys 2.9–3.0 m clear. `FACTS` (11–21): project, unit, type, beds, parking,
 completion, saleable areas; nothing imports it, the cards repeat the figures by hand. `ROOMS`
 (23–44): 20 entries `{ f, key, name, x: [x0, x1], d: [d0, d1], size? }` on floors 0/1/2; `key` is
-what `.plan[data-room]` in `index.html` names. `STAIR = { x: [0.1, 2.95], d: [6.65, 9.45] }` (48),
+what `.plan[data-room]` in `index.html` names. `STAIR = { x: [0.1, 2.95], d: [6.65, 9.45] }` (47),
 also unimported; the stair in `interior.js` uses the numbers directly. Why so small: a room here only
 has to be right for the mini-plan; 3D walls carry thicknesses, nibs and openings a rectangle cannot.
 
@@ -100,7 +101,8 @@ A material with `userData.noShadow = true` never casts (glass, sheers, emitters,
 holes = [[x0, x1, y0, y1]])` (wall along `x`, split around openings) and `wallD(k, x0, x1, y0, y1, d0,
 d1, holes = [[d0, d1, y0, y1]])` (along `d`), both duplicated verbatim in `interior.js`; `glaze(x0, x1,
 y0, y1, d, panels = 1, open = null, glassKey = 'glass')` (black frame and panes in plane `d`; `open`
-slides one panel behind its neighbour, hero only via `hero ? 2 : null`); `glazeD(x, d0, d1, y0, y1)`
+slides one panel behind its neighbour, hero only, written `hero ? n : null` with the panel index chosen
+per opening at 140, 159, 175, 178 and 203); `glazeD(x, d0, d1, y0, y1)`
 (one pane in plane `x`); `railing(alongX, a0, a1, y, at, ht = 1.1)` (`bronze` balusters when hero,
 else one `rail` card); `slats(x0, x1, y0, y1, d0, d1, pitch = 0.16, w = 0.045)` (pergola);
 `latticeD(x, d0, d1, y0, y1)`; `room(...)` (non-hero lit quads, lines 228–237).
@@ -141,29 +143,29 @@ vase at `x 4.85, d 12.7`, line 285, marks the table position every style set sha
 powder room. First floor 325–447: `of()` oak floors, linings, five `door` calls, ceilings, stair
 FF→RF (18 risers, 354–380), master, master bath, corridor art, family bath, bedrooms 2 and 3,
 balconies. Roof level 449–500: bedroom 4, bathroom, terrace with fire bowl. `lights` (503–508): four
-point lights `{ pos: [x, y, d], color, day, dusk, dist }`; `main.js` negates `d` and fades them with
-time of day. Daylight indoors is the baked volume, not these.
+point lights `{ type: 'point', name, pos: [x, y, d], color, day, dusk, dist }`; `main.js:113–118` negates
+`d` and `main.js:230` fades them with `smooth(tod, 0.25, 1.0)`. Daylight indoors is the baked volume, not these.
 
 ## src/softgoods.js
 
-Procedural cloth, no runtime simulation; used only by `bed` and `curtain`. `drape({ L, W, drop = 0.3,
-dropFoot = drop, r = 0.07, loft = 0.05, pleat = 0.03, seed, res = 0.03 })` lays cloth on a box top (x 0..L
+Procedural cloth, no runtime simulation; used only by `bed`, `curtain` and `curtainD`. `drape({ L, W, drop = 0.3,
+dropFoot = drop, r = 0.07, loft = 0.05, pleat = 0.03, seed = 1, res = 0.03 })` lays cloth on a box top (x 0..L
 from the head, z across, top at y 0) and rolls it over the edges; `geo.userData.head` holds 41 head-edge
-points for the rolled-hem tube. `pillow({ L = 0.7, D = 0.48, T = 0.17, seed, n = 16 })`: two faces at a
-piped seam with a plumped dent. `sheer(w, h, seed)`: x-y panel with pleats of uneven pitch.
+points for the rolled-hem tube. `pillow({ L = 0.7, D = 0.48, T = 0.17, seed = 1, n = 16 })`: two faces at a
+piped seam with a plumped dent. `sheer(w, h, seed = 1)`: x-y panel with pleats of uneven pitch.
 
 ## src/stylesets.js
 
 `buildStyleSet(B, key, K)`: furniture for the three rooms the flight dwells in, one `if (key === ...)`
 block per preset: `minimal` 79–117, `japandi` 120–178, `desert` 181–226, `luxe` 229–279. Each covers
 the living wall at `x 0.1`, the sofa group around `x 2.9, d 12.75`, the dining table at `x 4.85,
-d 12.7` with chairs at `x 4.15 / 5.55`, `d 12.1 / 12.7 / 13.3`, and the master bed at `x ≈ 4.85,
+d 12.7` with chairs at `x ≈ 4.15 / 5.55`, `d 12.1 / 12.7 / 13.3`, and the master bed at `x ≈ 4.85,
 d 5.05` with its head against the party wall (`x 5.84–5.96`), a lounge chair at `(2.95, 4.05)` and a
 side table at `(2.85, 4.75)`. Extra helpers on top of the kit: `S` (matrix with scale), `ellipsoid`, `oval`,
 `potPlant`, `cable`, `rug(cx, cd, w, l, y, organic)`, `arch(k, x, d0, d1, y0, straight, depth, toMinusX)`,
-`crescent` (seats on an arc), `barrel` (tub chair), `lantern` (pleated paper), `dome`. `main.js:92–98`
+`crescent` (seats on an arc), `barrel` (tub chair), `lantern` (pleated paper), `dome`. `main.js:90–96`
 builds each set into its own `Builder` and `Group`; all four are visible for the shader warm-up
-(`main.js:241`), then only the current one. Switching costs no geometry work, only a shadow-map refresh.
+(`main.js:239–244`), then only the current one. Switching costs no geometry work, only a shadow-map refresh.
 
 ## src/styles.js
 
@@ -184,9 +186,10 @@ builds each set into its own `Builder` and `Group`; all four are visible for the
   clearcoat (floor 0.02), the joint uniform and the lamp-shade emissive; then regenerates `art1..3`
   from `st.art`. A role absent from `M` is skipped.
 
-Caution: a role's `set` is swapped only if loaded, and only `sets` is loaded. `minimal.roles.weave` names
-`rattan`, which is neither a base set nor in `minimal.sets`, so `M.weave` keeps its `linen` map until
-another style loads `rattan`. List every set a preset's roles name.
+Caution: a role's `set` is swapped only if loaded, and only `sets` is loaded. `minimal.roles.weave` and
+`luxe.roles.weave` name `rattan`, which is neither a base set nor in their `sets`, so `M.weave` keeps its
+`linen` map until `desert` (whose `sets` include `rattan`) has been shown once. List every set a preset's
+roles name.
 
 ## src/materials.js
 
@@ -207,12 +210,15 @@ another style loads `rattan`. List every set a preset's roles name.
   metal, normal, env, ao, side, physical, joints, macro })` builds a `MeshStandardMaterial` (or
   `MeshPhysicalMaterial` with `physical`) from a set. `emissive(color, day, dusk, extra)` registers a
   time-of-day glow; `glow` entries are `{ mat, day, dusk, prop? }` (`'opacity'`, a uniform name, or
-  `emissiveIntensity`), lerped at `main.js:196–201` by `smooth(tod, 0.3, 0.95)`. Some seventy keys:
+  `emissiveIntensity`), lerped at `main.js:193–199` by `smooth(tod, 0.3, 0.95)`. Some seventy keys:
   architecture, interior roles, emitters, vegetation cards, decor and LOD cards, waters, lamp pools
   and beams. Lines 272–274 add `gi: true` to every opaque `MeshStandardMaterial` except the waters.
 
-`scripts/bake-gi.mjs` reads albedo from this file with `M\.(\w+) = pbr\('(\w+)', \{([^}]*)` (one
-`pbr` call per line, `color:` inside the braces): keep that shape for textured materials.
+`scripts/bake-gi.mjs:35` reads albedo from this file with `M\.(\w+) = pbr\('(\w+)', \{([^}]*)`; the
+capture stops at the first `}`, so keep `color:` ahead of any nested `joints`/`physical` object, and a
+`pbr` call without `color:` bakes as white × the set mean. Keys made with `std(...)` or a bare
+`new Mesh…Material` are not matched: give them an `ALB` entry in the bake or they trace as 0.5 grey
+(`bake-gi.mjs:112`).
 
 ## src/proctex.js and src/vegetation.js
 
@@ -233,13 +239,18 @@ the hero row `{ r: R, out: true, hero: true }`. Per row `step = (BLOCK * PLOT_W 
 near a `CROSS` angle become pocket parks; the hero's slot (`b === 0 && i === 3`) is skipped;
 alternate units are mirrored. A unit whose reference point `(3.05, 0, -9)` is within 72 m of the
 hero's is *full* (instanced shell), else *LOD*; the two attached neighbours (< 7 m) get no palm spots.
-`lodHouse(B)` (18–36): two boxes and four `lod` quads on the facade atlas, hard-coded to this unit
+The non-hero shell's `room` quads are pulled out of the instanced geometry (105–112) and drawn as
+`roomLit` or `roomDim` (62 % of units lit): there is no `M.room`, so a plain `meshes()` of a non-hero
+shell warns `missing material room`. `lodHouse(B)` (18–36): two body boxes, four `lod` quads on the
+facade atlas and flat fills (grass, pavers, pergola `wood`, `patio`, `gravel`), hard-coded to this unit
 (6.1 × 15.3 m, heights 6.95 and 10.0). Streets 121–172: five ring pairs (`streets`, 123), 2.2 m
 sidewalks, curbs, lamps every 6.5 m, hero frontage kept clear (`|x - 3.05| < 14`, `z` in `(-2, 14)`);
 `ring()`/`curb()` write annulus sectors with world-metre UVs. Lamps 174–194: pole, arm, head, pool and
-beam cone instanced, beams named `lampBeams` (hidden by day at `main.js:202`). Lagoon 196–223 at `(-260,
-0, -360)` rotated −0.6, about 170 × 85 m, with beach and 46 palms. Desert 225–244: a 4200 m plane, dunes
-from 470 m out. Returns `{ group, stats }`; `lite` (the `low` tier) halves the ground mesh and thins planting.
+beam cone instanced, beams named `lampBeams` (hidden by day at `main.js:200`). Lagoon 196–223 at `(-260,
+0, -360)` rotated −0.6, semi-axes 170 × 85 m (so roughly 340 × 170 m across), with beach and 46 palms.
+Desert 225–244: a 4200 m plane, dunes from 470 m out. Returns `{ group, stats }`; `lite` (the `low`
+tier) coarsens the desert mesh (130 instead of 220 segments a side) and keeps half of the street, verge
+and far-house planting.
 
 ## src/path.js
 
@@ -253,9 +264,9 @@ widens the FOV in portrait (aspect < 1.25, cap 82°); `still` snaps everything f
 
 | Progress | Camera (read off `K` against `plan.js`) | Card |
 | --- | --- | --- |
-| 0–0.185 | aerial approach from 140 m out, descending over the estate | Arrival, Community, The plot |
+| 0–0.185 | aerial approach from `(140, 60, 110)`, descending over the estate | Arrival, Community, The plot |
 | 0.228–0.305 | orbit down to street level in front of the facade | Facade |
-| 0.34–0.42 | carport and front door to the hall (`d 3.6 → 9.7`) | Ground floor |
+| 0.34–0.42 | from the street (`d −5.5`) through the carport and front door to the hall (`d 9.7`) | Ground floor |
 | 0.445–0.5 | living room, turning to the garden glazing | Living |
 | 0.522–0.558 | garden, rising past the rear balcony | Garden |
 | 0.578–0.655 | first floor at `y ≈ 5.1`: rear balcony → bedrooms → landing | Bedrooms |
@@ -265,9 +276,15 @@ widens the FOV in portrait (aspect < 1.25, cap 82°); `still` snaps everything f
 | 0.888–0.902 | terrace facing the sunset (`look (-18, 9.6, -32)`) | Roof terrace |
 | 0.93–1 | blue-hour climb to `(80, 64, 70)` | Summary |
 
-Rules the route obeys (`scripts/check-path.mjs` enforces them): lens ≥ 0.3 m from any solid, look
+Rules the route is held to (`scripts/check-path.mjs` `LIMITS`): lens ≥ 0.3 m from any solid, look
 target ≥ 2.4 m from the lens, pitch −35°..+40°, yaw ≤ 12° and pitch ≤ 6° per 0.005 of progress.
 Interpolate orientation through look *targets* far from the lens, never a point it passes (pitfall 19).
+The template as checked out does **not** yet meet them: `node scripts/check-path.mjs` exits 1 with 30
+breach runs, the worst in Living (0.452–0.495: yaw 167° per 0.005, pitch −80°, look target 0.8 m from
+the lens) and in the uncaptioned roof transit (0.802–0.825: pitch −86°, yaw −164° per 0.005). The skill's
+eval `route-polish-on-template` exists to fix exactly these; treat the limits as the target, not as
+something the copied `K` already satisfies. When reading the report, note its `worst` column keeps the
+largest magnitude, so for clearance and look distance read the minima in the per-chapter table instead.
 
 ## src/atmosphere.js
 
@@ -283,7 +300,8 @@ line 72), `FogExp2`, a PMREM environment from a small sky plus ground disc cache
 `${round(t*20)/20}|${round(az/6)*6}|${round(el)}` (≤ 8 entries), `skyLevel` (mean radiance per env,
 read back asynchronously via `LightProbeGenerator`, `onLevel` callback). `setShadowZone(zone)`:
 shadow half-size `{ aerial: 300, street: 60, house: 18 }`, target `(-40, 0, -20)` aerial else
-`(3.05, 4, -9)` (114), per-zone bias and radius; the map re-renders only on zone or sun change.
+`(3.05, 4, -9)` (114), per-zone bias and radius; the map re-renders only on zone or sun change
+(`renderer.shadowMap.autoUpdate = false` at `main.js:72`; `applyStyle` requests one more at `main.js:251`).
 `setSun(az, el)` has a 0.15° deadband; `update(t, time, az, el)` → state, or `null` when nothing changed
 (`main.js` keeps `atmo.last`). `skyRatio()` divides the current env level by the one at `BAKE_KEY =
 '0|-54|18'` (the bake's −55° quantised to 6°), with a fitted curve until both read-backs land (pitfall
@@ -296,7 +314,8 @@ shadow half-size `{ aerial: 300, street: 60, house: 18 }`, target `(-40, 0, -20)
 6 bytes per probe (7 for `S`, which adds the open-sky fraction): rgb DC as `2^(v/255*20 - 14)` then a
 luminance gradient relative to the DC. About 423 KB of the 1.39 MB bundle; JS rather than `.bin`
 because of pitfall 18. `createGI()` decodes once, derives `inside = 1 - smoothstep(open, 0.2, 0.4)`,
-creates two `HalfFloat` `Data3DTexture`s and sets `shared.gi.uGiA/uGiB/uGiDims`. `set(kS, kU, kN,
+creates two `HalfFloat` `Data3DTexture`s and sets `shared.gi.uGi0/uGi1/uGiA/uGiB`; `uGiDims` is written
+on the first `set` (64), which is what un-fades the shader lookup. `set(kS, kU, kN,
 style)` re-mixes `kS·S + kU·U + kN·N[style]` on the CPU (alpha of texture 0 = `inside`), skipping
 when weights are unchanged to three decimals; `N.minimal` stands in for a style with no lamp set.
 The shader half (`GI_FRAG`, `materials.js:33–57`) samples at `vWPos + normal * 0.22`, fades near the
@@ -307,7 +326,7 @@ volume edge, reconstructs the L1 lobe non-linearly (pitfall 14), replaces `iblIr
 
 `createPost(renderer, scene, camera, { ao, aoQuality, halfRes, bloom, smaa, sun, volSteps })` → `{ composer,
 aoPass, bloomPass, final, volPass, setSize(w, h, dpr) }`. N8AO `aoRadius 0.6` (per-zone override 5 / 1.4 /
-0.55 at `main.js:194`), `intensity 3.0`; lines 40–46 patch the `depthDownsampleTarget.texture` getter
+0.55 at `main.js:192`), `intensity 3.0`; lines 42–45 patch the `depthDownsampleTarget.texture` getter
 (pitfall 2). The volumetric pass exists only with AO (it reads `aoPass.beautyRenderTarget.depthTexture`), so
 `low` has haze from dust points only. Bloom half-res, strength 0.2, radius 0.32, threshold 9.0 (pitfall 4).
 `FinalShader`: split-tone grade, `uVignette 0.32`, `uGrain 0.022`.
@@ -331,39 +350,44 @@ styleLoading(b), ready(), fatal(msg), update(p, camera, pinWorld, w, h) }`. Card
 to the window's midpoint; a child `.plan[data-floor][data-room="key,key"]` receives a `planSVG`;
 `[data-style-line]` is filled with the style's swatches and blurb. In `update`, opacity fades over
 ±0.012 around each edge (line 100); `from ≤ 0` is visible from the start and `to ≥ 1` never fades
-out; the rail button is `on` within ±0.01; the meter scales with `p`; the plot pin is projected from
+out; the rail button is `on` within ±0.01; the plot pin is projected from
 `pinWorld` and shown between 0.045–0.07 (in) and 0.17–0.215 (out) (line 116).
 
 ## src/main.js
 
 Query parameters: `?p=0.42` renders one still at that progress (`STILL`, `FIXED_P`), `?q=high|mid|low`
 forces a tier, `?tod=day|night` forces time of day, `?ui=0` adds `body.noui`, `?style=` or `#japandi` picks
-the style (hash wins). `detectTier()` (24–31): `low` for coarse pointers, `deviceMemory ≤ 4` or a screen
-under 600 px, else `high`; `mid` only by query. `Q` (33–37): `high { dprMax 2, shadow 4096, ao 'Medium',
+the style (hash wins). `detectTier()` (22–29): `low` for coarse pointers, `deviceMemory ≤ 4` or a screen
+under 600 px, else `high`; `mid` only by query. `Q` (31–35): `high { dprMax 2, shadow 4096, ao 'Medium',
 halfRes, smaa, bloom }`, `mid { 1.5, 2048, 'Performance' }`, `low { 1.3, 2048, no ao, no smaa }`;
-`volSteps` 20 on `mid` else 28; dust `perCubic` 2.5 on `low` else 5. `GI_LAMP = 0.45, GI_FILL = 3.0,
-GI_WB = [1.0, 1.0, 0.97]` (21).
+`volSteps` 20 on `mid` else 28; dust `perCubic` 2.5 on `low` else 5. The photographic constants are not in
+this file: `src/look.js` (13 lines) exports `LOOK = { giFill 3.0, giLamp 0.45, giLampDay 0.12,
+giWhiteBalance [1.0, 1.0, 0.97], insideExposureDay 5.5, insideExposureNight 1.3, dustSun 0.4,
+dustAmbient 0.012 }`, kept apart from the loop so a new property can be re-tuned without touching `update`.
 
-Start-up 46–133, loader fractions: textures to 0.65, `Building plot XJ407B` 0.68 (85; hero shell and
+Start-up 44–136, loader fractions: textures to 0.65, `Building plot XJ407B` 0.68 (83; hero shell and
 interior into one `Builder`, one `Builder` per style set), community 0.76, point lights, `Atmosphere`
-then `atmo.envFor(0, -55, 18)` to seed the GI reference env, `createGI`, `createPost`, dust boxes
-(127–130, plan units), `pinWorld (3.05, 11.5, -9)` (138). `zoneFor(c)` (163–168): `aerial` above `y 42`,
-`house` inside the plot box or its margin, else `street`; `inHouse` (186) is a tighter box (`x 0.1–6.0`,
-`z -3.5…-14.85`, `y < 9.7`, minus the terrace where `y > 6.8 && z < -11.2`) driving exposure and dust.
+then `atmo.envFor(0, -55, 18)` (121) to seed the GI reference env, `createGI`, `createPost`, dust boxes
+(125–128, plan units `[x0, x1, y0, y1, d0, d1]`), `pinWorld (3.05, 11.5, -9)` (136). `zoneFor(c)` (161–166):
+`aerial` above `y 42`, `house` inside the plot box or its margin, else `street`; `inHouse` (184) is a tighter
+box (`x 0.1–6.0`, `z -3.5…-14.85`, `y < 9.7`, minus the terrace where `y > 6.8 && z < -11.2`) driving
+exposure and dust.
 
-`update(dt, time)` (170–238): eased progress; auto `tod = smooth(progress, 0.79, 0.975)`; sun `swing =
+`update(dt, time)` (168–236): eased progress; auto `tod = smooth(progress, 0.79, 0.975)`; sun `swing =
 smooth(progress, 0.735, 0.83)`, azimuth `lerp(-55, -128, swing)`, elevation `lerp(lerp(18, 11.5, swing), 4,
-smooth(progress, 0.868, 0.89))`; exposure `st.exp * lerp(1, lerp(5.5, 1.3, tod) * STYLES[styleKey].inside,
-inside)`; glow lerps; `gi.set(sky = skyRatio × st.env × GI_FILL × GI_WB, sunBounce = sunColour / (1, 0.81,
-0.6) × intensity / 4.3 × GI_FILL, lamps = GI_LAMP × lerp(0.12, 1, lamp))`; volumetric and dust uniforms per
-zone (densities 0.0024 / 0.0013 air / 0.03 inside, max distance 55 / 280 / 20 m); returns whether anything is
-still converging. Warm-up 240–265: all style groups visible, one `update`, `renderer.compileAsync`, then only
-the chosen style; `applyStyle` re-parameterises, toggles groups, refreshes shadows and writes `#style` to the
-URL; `window.__ready` is set after the first frame. `STILL` 267–279: removes the loader, waits up to 1.5 s for
-two sky read-backs, renders three settle frames, logs `[t] settled · calls · tris · programs · textures`, sets
-`window.__shot = true` (what `capture.cjs` waits for) and stops. Loop 282–307: render only while `awakeUntil`
-(1.6 s after any scroll, resize, visibility or UI event) or while converging; every 40 frames move `dpr` by
-−0.2 when the mean frame exceeds 26 ms (floor 0.75) or +0.1 under 13 ms (cap `Q.dprMax`).
+smooth(progress, 0.868, 0.89))` (178–180); exposure `st.exp * lerp(1, lerp(LOOK.insideExposureDay,
+LOOK.insideExposureNight, tod) * STYLES[styleKey].inside, inside)` (189); glow lerps; `gi.set(sky =
+skyRatio × st.env × LOOK.giFill × LOOK.giWhiteBalance, sunBounce = sunColour / (1, 0.81, 0.6) ×
+intensity / 4.3 × LOOK.giFill, lamps = LOOK.giLamp × lerp(LOOK.giLampDay, 1, lamp))` (202–205); volumetric
+and dust uniforms per zone (densities 0.0024 / 0.0013 air / 0.03 inside, max distance 55 / 280 / 20 m);
+returns whether anything is still converging. Warm-up 238–263: all style groups visible, one `update`,
+`renderer.compileAsync`, then only the chosen style; `applyStyle` re-parameterises, toggles groups,
+refreshes shadows and writes `#style` to the URL; `window.__ready` is set after the first frame. `STILL`
+265–277: removes the loader, waits up to 1.5 s for two sky read-backs, renders three settle frames, logs
+`[t] settled · calls · tris · programs · textures`, sets `window.__shot = true` (what `capture.cjs` waits
+for) and stops. Loop 279–305: render only while `awakeUntil` (1.6 s after any scroll, resize, visibility
+or UI event) or while converging; every 40 frames move `dpr` by −0.2 when the mean frame exceeds 26 ms
+(floor 0.75) or +0.1 under 13 ms (cap `Q.dprMax`).
 
 ## index.html and style.css
 
@@ -372,9 +396,11 @@ the brand and `[data-mode]` Auto/Day/Night buttons; `.styles#styles` (buttons ap
 `#toast`; `nav#rail`; `.meter`; `#pin`; `#cards` with twelve `section.card`s (36–171): the hero card
 `data-from="0" data-to="0.058"`, ten chapters, the `outro` summary `0.945–1`. Chapter cards carry
 `.eyebrow` with a number, `h3`, copy, optional `dl.figs`/`dl.times`, optional
-`p.style-line[data-style-line]`, and `.plan` (`data-floor`, `data-room` keys from `ROOMS`).
+`p.style-line[data-style-line]`, and an optional `.plan` (`data-floor`, `data-room` keys from `ROOMS`).
 `main#scroll` is the scroll spacer; the module script is `dist/app.js`. `check-path.mjs` parses cards
-with `data-from="…" data-to="…" data-rail="…"`, so keep those attributes in that order.
+with `data-from="…" data-to="…" data-rail="…"`, so keep those attributes in that order. As checked out,
+three stretches break the 0.03 no-card rule (pitfall 21): 0.33–0.372, 0.742–0.83 (the roof transit) and
+0.9–0.945; `check-path.mjs` lists them but does not fail on them.
 
 `style.css` (141 lines): `#scroll { height: 1700vh }` (12) is the scroll length, sixteen screens of
 travel; progress is `scrollY / (scrollHeight - innerHeight)`. Brand accent `--violet`/`--violet-deep`
@@ -392,7 +418,8 @@ light. `LAMP` (53): `downlight 18` (downward cos² lobe), `bulb 4`, `lampShade 6
 `fire 8`, each with a softening radius. Scene 89–102: hero shell and interior; non-hero shells at
 `x ± 6.1` (mirrored about 3.05) and `± 12.2`; two opposite rows rotated 180° at `z -37` and `z +12`
 for the same five offsets (straight stand-ins for the community rows `R - 37` and `R + 12`); a ground
-quad. `SKY` (122) and `sunDir` (22) must match `atmosphere.js` `STATES[0]` and the golden-hour sun.
+quad. `sunDir` (22), `SUN` (23, `4.3 × sunCol`) and `SKY` (122) must match `atmosphere.js` `STATES[0]`
+and the golden-hour sun `(-55, 18)`.
 `maskFor` marks probes with > 25 % back-face hits, `fill` refills them from neighbours, `pass` traces
 one bounce lit by the previous pass's probes, `bake` runs `S` and `U` once (minimal scene) and `N` per
 style, `encode` writes `src/gi-data.js`. `npm run bake` takes about ten minutes at 256 rays
@@ -413,7 +440,7 @@ stills with the skill's `scripts/sheet.py <dir> <out.jpg> <columns> <thumb-width
 ## package.json and the build
 
 `"type": "module"`. Scripts: `build` (`esbuild src/main.js --bundle --minify --format=esm --target=es2020
---outfile=dist/app.js`), `dev` (unminified, sourcemap, `--watch`), `serve` (`python3 -m http.server 8080`),
+--outfile=dist/app.js --legal-comments=none`), `dev` (unminified, sourcemap, `--watch`), `serve` (`python3 -m http.server 8080`),
 `bake`. Dependencies `three ^0.187.0`, `n8ao ^2.0.1`, `postprocessing ^6.39.6` (n8ao's peer), `esbuild
 ^0.28.2`; dev `three-mesh-bvh ^0.9.18`. `dist/app.js` (1.39 MB) is committed and `.gitignore` re-includes it
 with `!dist/` because the published page serves the bundle (pitfall 9). Module scripts need a server, not `file://`.
@@ -431,19 +458,20 @@ cards → `volumetric.js`/`main.js` boxes → `bake-gi.mjs` → `npm run build` 
 | `src/interior.js` | must | floor slabs per finish, `paint` linings with the shell's holes, doors, ceilings and downlight grids, both stairs (riser counts, run, landing), kitchen, bathrooms, fixed joinery (`wardrobeAlong*`), decor (`print`, `vase`, `rug`, `curtain`), the four `lights` |
 | `src/stylesets.js` | must | furniture positions in all four blocks to the new living, dining and master rooms; keep one table position shared by every style |
 | `src/community.js` | usually | `PLOT_W`, `BLOCK`, `GAP`, `rows`, `streets`, `CROSS`, the `(3.05, 0, -9)` hero reference and `mirrorX(…, 3.05)` (half the new width), `lodHouse` footprint and heights, lagoon and desert placement; or replace the arc layout for a different estate |
-| `src/path.js` | must | every row of `K`; keep ≥ 2.4 m look distance and ≥ 0.3 m clearance; re-run `check-path.mjs` until it exits 0 |
-| `src/main.js` | must | `zoneFor` and `inHouse` boxes (163–168, 186), dust boxes (127–130), `pinWorld` (138), the sun schedule (180–182) if the terrace faces elsewhere, loader copy (85); `Q` and `GI_*` only if the new scale demands |
+| `src/path.js` | must | every row of `K`; keep ≥ 2.4 m look distance and ≥ 0.3 m clearance; re-run `check-path.mjs` until it exits 0 (the copied `K` does not: 30 breach runs) |
+| `src/main.js` | must | `zoneFor` and `inHouse` boxes (161–166, 184), dust boxes (125–128), `pinWorld` (136), the sun schedule (178–180) if the terrace faces elsewhere, loader copy (83); `Q` only if the new scale demands |
+| `src/look.js` | usually | `LOOK`, after the first bake and stills: `giFill`/`giLamp` if interiors read dark or lamps loud, `insideExposureDay/Night` for the indoor stop, `dustSun`/`dustAmbient` |
 | `src/volumetric.js` | must | `uBoxMin`/`uBoxMax` (80) to the new interior envelope |
-| `src/atmosphere.js` | usually | `sun.target` and the house-zone target (72, 114) to the new plot centre; `STATES`, `BAKE_KEY` and the default `-55 / 18` sun only if the orientation changes (then the bake's `sunDir` too) |
+| `src/atmosphere.js` | usually | `sun.target` and the house-zone target (72, 114) to the new plot centre; `STATES`, `BAKE_KEY` and the default `-55 / 18` sun (75; seeded again at `main.js:121`, swung at `main.js:178–180`) only if the orientation changes (then the bake's `sunDir`, `SUN` and `SKY` too) |
 | `src/styles.js` | usually | palettes, blurbs, `art`, role colours per brief; `SET_AVG` entries for new texture sets; `roles` keys only if `materials.js` gains or loses a role |
 | `src/materials.js` | usually | add sets to `SETS` and one-line `pbr` entries for new finishes; facade palette (`render`, `stone`, `bronze`, `frame`) |
 | `src/proctex.js` | usually | `facadeAtlas()` elevations (189–207) to the new facade |
 | `src/ui.js` | leave alone | reads `PLOT` and `ROOMS`; only the pin window (116) if the aerial timing moves |
 | `src/gi.js`, `src/gi-data.js` | regenerate | never hand-edit; `npm run bake` after any wall, furniture or lamp change |
 | `src/builder.js`, `src/softgoods.js`, `src/vegetation.js`, `src/post.js` | leave alone | generic |
-| `index.html` | must | `<title>`, meta, loader and brand copy, every card's `data-from`/`data-to`/`data-rail`, eyebrows, copy, `dl.figs` figures, `.plan[data-floor][data-room]` keys, the summary table and fine print; no gap over 0.03 without a card |
+| `index.html` | must | `<title>`, meta, loader and brand copy, every card's `data-from`/`data-to`/`data-rail`, eyebrows, copy, `dl.figs` figures, `.plan[data-floor][data-room]` keys, the summary table and fine print; no gap over 0.03 without a card (the template still has three) |
 | `style.css` | usually | `#scroll` height if the route is much longer or shorter; `--violet` accent to the brand |
-| `scripts/bake-gi.mjs` | must | `MIN`/`DIMS` to cover the new envelope at `SP 0.5` (probe count drives bake time), the neighbour layout and `mirrorX(g, 3.05)` centre (94–100), `ALB` for new untextured keys, `LAMP` for new emitter keys, `sunDir`/`SKY` if the sun moves |
+| `scripts/bake-gi.mjs` | must | `MIN`/`DIMS` to cover the new envelope at `SP 0.5` (probe count drives bake time), the neighbour layout and `mirrorX(g, 3.05)` centre (94–100), `ALB` for new untextured keys, `LAMP` for new emitter keys, `sunDir`/`SUN`/`SKY` if the sun moves |
 | `scripts/check-path.mjs` | usually | attached-neighbour offsets and `mirrorX(g, 3.05)` centre (42–43) to the new plot width; `LIMITS` stay |
 | `scripts/capture.cjs`, `package.json` | leave alone | `name` and `description` only |
 | `assets/tex/` | usually | add sets with the skill's `scripts/textures.py`, then `SET_AVG` |

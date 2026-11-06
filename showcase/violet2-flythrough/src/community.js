@@ -15,6 +15,49 @@ const CROSS = [-0.36, 0.34];
 function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
 const v3 = new THREE.Vector3();
 
+// Palms are the heaviest instances by far: 1.1k triangles each, over five hundred of them, and
+// their one bounding sphere spans the estate so nothing is ever culled. Two InstancedMesh pairs
+// share the matrices: the full model within PALM_NEAR of the camera, the 190-triangle model
+// beyond. The split is redone once the camera has moved PALM_STEP; a 34 KB upload at most.
+// Chunking the instances into angular sectors was measured and rejected: a wedge of this arc has
+// a bounding sphere of 120 m or more, which no camera position on the route can cull.
+const PALM_NEAR = 70, PALM_STEP = 5;
+function palmLOD(M, matrices) {
+  const hi = palmGeometry(), lo = palmGeometry({ radial: 8, rings: 6, segs: 4, every: 2, flat: true });
+  const n = matrices.length;
+  const mk = (g, mat) => {
+    const im = new THREE.InstancedMesh(g, mat, Math.max(1, n));
+    im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    im.count = 0; im.visible = false;
+    im.castShadow = true; im.receiveShadow = true;
+    im.matrixAutoUpdate = false;
+    return im;
+  };
+  const meshes = [mk(hi.trunk, M.bark), mk(hi.fronds, M.frond), mk(lo.trunk, M.bark), mk(lo.fronds, M.frond)];
+  const pos = matrices.map((m) => new THREE.Vector3().setFromMatrixPosition(m));
+  const at = new THREE.Vector3(Infinity, 0, 0);
+  const update = (cam) => {
+    if (cam.distanceTo(at) < PALM_STEP) return;
+    at.copy(cam);
+    let a = 0, b = 0;
+    for (let i = 0; i < n; i++) {
+      if (pos[i].distanceToSquared(cam) < PALM_NEAR * PALM_NEAR) { meshes[0].setMatrixAt(a, matrices[i]); meshes[1].setMatrixAt(a, matrices[i]); a++; }
+      else { meshes[2].setMatrixAt(b, matrices[i]); meshes[3].setMatrixAt(b, matrices[i]); b++; }
+    }
+    meshes[0].count = meshes[1].count = a;
+    meshes[2].count = meshes[3].count = b;
+    for (const m of meshes) {
+      m.visible = m.count > 0;
+      m.instanceMatrix.needsUpdate = true;
+      if (m.visible) m.computeBoundingSphere();
+    }
+  };
+  // far palms cast only from the air: in the house and street zones they are outside the
+  // shadow frustum or too small to register, and every sun move redraws the whole map
+  const setZone = (zone) => { meshes[2].castShadow = meshes[3].castShadow = zone === 'aerial'; };
+  return { meshes, update, setZone };
+}
+
 function lodHouse(B) {
   const bx = (k, x0, x1, y0, y1, d0, d1, f) => B.box(k, x0, x1, y0, y1, -d1, -d0, f);
   bx('lodRoof', 0, 6.1, 0, 6.95, 1.5, 15.3, F.PY | F.PX | F.NX);
@@ -116,7 +159,8 @@ export function buildCommunity(M, heroSpots, { lite = false } = {}) {
   lodHouse(LB);
   const lg = LB.geometries();
   const lgM = new Map([...lg].map(([k, g]) => [k, mirrorX(g, 3.05)]));
-  group.add(instanced(lg, M, lod.n), instanced(lgM, M, lod.m));
+  const lodGroups = [instanced(lg, M, lod.n), instanced(lgM, M, lod.m)];
+  group.add(...lodGroups);
 
   // ---- streets, sidewalks, curbs
   const SBk = new Builder();
@@ -222,9 +266,10 @@ export function buildCommunity(M, heroSpots, { lite = false } = {}) {
     }
   }
 
-  // ---- desert ground with dunes beyond the community
+  // ---- desert ground with dunes beyond the community (the dunes start 470 m out and are
+  // low-frequency, so the coarse mesh serves every tier)
   {
-    const size = 4200, seg = lite ? 130 : 220;
+    const size = 4200, seg = 130;
     const g = new THREE.PlaneGeometry(size, size, seg, seg);
     g.rotateX(-Math.PI / 2);
     const pa = g.attributes.position;
@@ -244,7 +289,6 @@ export function buildCommunity(M, heroSpots, { lite = false } = {}) {
   }
 
   // ---- vegetation instances
-  const palm = palmGeometry();
   const bush = bushGeometry(14, 2, 0.75);
   const canopy = bushGeometry(18, 4, 1.0);
   const lists = { palm: [], bush: [], flower: [], pink: [], olive: [] };
@@ -268,12 +312,32 @@ export function buildCommunity(M, heroSpots, { lite = false } = {}) {
   for (const p of lodPalms) if (keep()) addSpot('palm', p, 0.75 + rand() * 0.35, null);
   for (const p of streetPalms) if (keep()) addSpot('palm', p, 0.85 + rand() * 0.4, null);
   for (const p of vergeBushes) if (keep()) addSpot(rand() < 0.3 ? 'flower' : 'bush', p, 0.7 + rand() * 0.3, null);
-  group.add(instancedFrom(palm.trunk, M.bark, lists.palm));
-  group.add(instancedFrom(palm.fronds, M.frond, lists.palm));
+  const palms = palmLOD(M, lists.palm);
+  group.add(...palms.meshes);
   group.add(instancedFrom(bush, M.leaf, lists.bush));
   group.add(instancedFrom(bush, M.flower, lists.flower));
   group.add(instancedFrom(bush, M.flowerPink, lists.pink));
   group.add(instancedFrom(canopy, M.leafOlive, lists.olive));
-  group.traverse((o) => { if (o.isMesh) { o.updateMatrix(); o.matrixAutoUpdate = false; } });
-  return { group, stats: { full: full.n.length + full.m.length, lod: lod.n.length + lod.m.length, palms: lists.palm.length } };
+  // Opaque community meshes draw after the hero's: the renderer sorts opaques by renderOrder
+  // before material, so the ground and facades no longer get shaded first and overwritten by
+  // the floors and furniture in front of them. Transparent ones keep their depth sort.
+  group.traverse((o) => {
+    if (!o.isMesh) return;
+    o.updateMatrix(); o.matrixAutoUpdate = false;
+    if (!o.material.transparent) o.renderOrder = 1;
+  });
+  let zone = null;
+  return {
+    group,
+    stats: { full: full.n.length + full.m.length, lod: lod.n.length + lod.m.length, palms: lists.palm.length },
+    // re-partition the palms around the camera (cheap: a distance check until it has moved)
+    update: (camPos) => palms.update(camPos),
+    // what casts into the sun's shadow map per zone: far houses and far palms only from the air
+    setShadowZone(z) {
+      if (z === zone) return;
+      zone = z;
+      palms.setZone(z);
+      for (const g of lodGroups) for (const m of g.children) m.castShadow = z === 'aerial';
+    },
+  };
 }
