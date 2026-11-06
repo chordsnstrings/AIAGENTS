@@ -127,7 +127,8 @@ export function initUI({ onMode, onJump, onStyle, styles }) {
     btn.title = st.name;
     btn.setAttribute('aria-pressed', 'false');
     btn.innerHTML = `<i style="background:conic-gradient(${st.palette.map((c, i) => `${c} ${i * 60}deg ${(i + 1) * 60}deg`).join(',')})"></i><span>${st.short}</span>`;
-    btn.addEventListener('click', () => onStyle(k));
+    // the switch is asynchronous; a rejection is the engine's to report, not an unhandled one
+    btn.addEventListener('click', () => { const r = onStyle(k); if (r && r.catch) r.catch(() => {}); });
     box.appendChild(btn);
     sbtn[k] = btn;
   }

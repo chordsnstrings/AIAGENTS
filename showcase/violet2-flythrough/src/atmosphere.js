@@ -7,9 +7,17 @@ import { LightProbeGenerator } from 'three/addons/lights/LightProbeGenerator.js'
 
 const D2R = Math.PI / 180;
 const dirFrom = (az, el, v = new THREE.Vector3()) => v.set(Math.sin(az * D2R) * Math.cos(el * D2R), Math.sin(el * D2R), Math.cos(az * D2R) * Math.cos(el * D2R));
-// environment maps are keyed by time of day in twentieths, azimuth in 6 degree steps, elevation in degrees
-const envKey = (t, az, el) => `${Math.round(t * 20) / 20}|${Math.round(az / 6) * 6}|${Math.round(el)}`;
-const BAKE_KEY = envKey(0, -55, 18); // the golden-hour env scripts/bake-gi.mjs lit the GI volume with
+// Environments are binned coarsely enough that the whole evening builds about a dozen of them,
+// not forty: time of day in tenths, the -55 -> -128 degree swing in three azimuth bins, elevation
+// in 4 degree steps anchored on the bake's 18 degrees. PMREMGenerator clamps its size to 256, so
+// each costs about 4 MB and tens of millions of samples whatever size is asked. The coarse set
+// (phones) halves the time steps and takes the swing in two.
+function envBin(t, az, el, coarse) {
+  const q = coarse ? Math.round(t * 5) / 5 : Math.round(t * 10) / 10;
+  const step = coarse ? 73 : 36.5, qa = Math.round((az + 55) / step);
+  const qe = Math.round((el - 18) / 4) * 4 + 18;
+  return { q, az: -55 + qa * step, el: qe, key: `${q}|${qa}|${qe}` };
+}
 
 const TWILIGHT = { horizon: [0.042, 0.038, 0.062], zenith: [0.006, 0.009, 0.026], glow: [0.11, 0.05, 0.03] };
 // A Gulf evening is dust-hazed rather than deep blue: high turbidity, little Rayleigh, a wide Mie glow.
@@ -62,11 +70,13 @@ function makeSky(scale) {
 }
 
 export class Atmosphere {
-  // envCacheSize: PMREM environments kept (about 4 MiB each; 3-4 on phones). probeSize: the
-  // reflection probes' cube face size (128 on phones).
-  constructor(renderer, scene, { shadowMapSize = 4096, envCacheSize = 8, probeSize = 256 } = {}) {
+  // envCacheSize: PMREM environments kept (about 4 MiB each; fewer on phones). probeSize: the
+  // reflection probes' cube face size (128 on phones). envBins: 'fine' | 'coarse' (see envBin).
+  constructor(renderer, scene, { shadowMapSize = 4096, envCacheSize = 16, probeSize = 256, envBins = 'fine' } = {}) {
     this.renderer = renderer;
     this.scene = scene;
+    this.coarse = envBins === 'coarse';
+    this.bakeKey = envBin(0, -55, 18, this.coarse).key; // the golden-hour env scripts/bake-gi.mjs lit the GI volume with
     this.sky = makeSky(9000);
     scene.add(this.sky);
 
@@ -162,32 +172,54 @@ export class Atmosphere {
     u.showSunDisc.value = s.disc;
   }
 
+  // the environment for this moment, made current for skyRatio
   envFor(t, az, el) {
-    const q = Math.round(t * 20) / 20, qa = Math.round(az / 6) * 6, qe = Math.round(el);
-    const key = envKey(t, az, el);
-    this.envKey = key;
+    const b = envBin(t, az, el, this.coarse);
+    this.envKey = b.key;
+    return this.build(b);
+  }
+
+  build(b) {
+    const key = b.key;
     let rt = this.envCache.get(key);
     if (rt) { // a hit moves to the back of the eviction order
       this.envCache.delete(key); this.envCache.set(key, rt);
       return rt.texture;
     }
-    const s = stateAt(q);
-    this.applySky(this.envSky, s, qa, this.skyElev(q, qe, s), q);
+    const s = stateAt(b.q);
+    this.applySky(this.envSky, s, b.az, this.skyElev(b.q, b.el, s), b.q);
     this.envGround.material.color.setRGB(...s.ground);
     rt = this.pmrem.fromScene(this.envScene, 0, 0.1, 1000, { size: 256 });
     if (!this.skyLevel.has(key) && !this.pendingLevel.has(key)) this.measure(key);
     this.envCache.set(key, rt);
     // The target is cached, not its texture: disposing a PMREM texture frees nothing in three (no
     // dispose listener is ever registered for a render-target texture), while rt.dispose() frees the
-    // texture and all 36 face framebuffers. The bake's reference env is pinned, because the first
-    // three quarters of the route use it and the ending alone would otherwise evict and rebuild it.
+    // texture and all 36 face framebuffers. The bake's reference env and the one on screen are
+    // pinned, because the first three quarters of the route use the former and the ending alone
+    // would otherwise evict and rebuild it.
     for (const k of this.envCache.keys()) {
       if (this.envCache.size <= this.envCacheSize) break;
-      if (k === BAKE_KEY || k === key) continue;
+      if (k === this.bakeKey || k === key || k === this.envKey) continue;
       this.envCache.get(k).dispose();
       this.envCache.delete(k);
     }
     return rt.texture;
+  }
+
+  // Build the environments of a schedule of [t, az, el] moments ahead of time, one per idle
+  // period and never while the page is busy (scrolling, easing), so a sunset reached by scrolling
+  // finds its skies ready instead of stalling on a PMREM render. The current key is untouched.
+  prebuild(list, busy = () => false) {
+    const seen = new Set(this.envCache.keys()), queue = [];
+    for (const [t, az, el] of list) { const b = envBin(t, az, el, this.coarse); if (!seen.has(b.key)) { seen.add(b.key); queue.push(b); } }
+    const later = (fn, ms) => (ms === undefined && typeof requestIdleCallback === 'function' ? requestIdleCallback(fn, { timeout: 600 }) : setTimeout(fn, ms ?? 120));
+    const step = () => {
+      if (!queue.length || this.renderer.getContext().isContextLost()) return;
+      if (busy()) { later(step, 300); return; }
+      this.build(queue.shift());
+      later(step);
+    };
+    later(step, 800);
   }
 
   // mean radiance of each environment (the L0 term of an 8px cube read back), so the baked sky
@@ -208,7 +240,7 @@ export class Atmosphere {
 
   // rgb ratio of the current env to the one the bake used, clamped to [0, 4]
   skyRatio() {
-    const a = this.skyLevel.get(this.envKey), b = this.skyLevel.get(BAKE_KEY);
+    const a = this.skyLevel.get(this.envKey), b = this.skyLevel.get(this.bakeKey);
     if (a && b) {
       this.lastRatio = [a.x / b.x, a.y / b.y, a.z / b.z].map((v) => Number.isFinite(v) ? THREE.MathUtils.clamp(v, 0, 4) : 0);
       return this.lastRatio;

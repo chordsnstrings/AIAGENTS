@@ -4,7 +4,7 @@ import { buildShell } from './house.js';
 import { buildInterior, makeKit } from './interior.js';
 import { buildStyleSet } from './stylesets.js';
 import { STYLES, createStyler } from './styles.js';
-import { buildCommunity } from './community.js';
+import { buildCommunity, dressShell } from './community.js';
 import { loadTextureSets, loadSet, adoptSet, createMaterials, shared, INTERIOR_SETS } from './materials.js';
 import { Atmosphere } from './atmosphere.js';
 import { DronePath, DroneRig } from './path.js';
@@ -19,6 +19,9 @@ import { TIERS, detectTier, pixelRatioFor, AdaptiveScale } from './tiers.js';
 const params = new URLSearchParams(location.search);
 const STILL = params.has('p');
 const FIXED_P = parseFloat(params.get('p') || '0');
+// ?hide=sheer,lampBeams,dust hides scene objects by name (a material key for the hero's merged
+// meshes and the instanced community meshes), to tell what a stray highlight in a still is
+const HIDDEN = new Set((params.get('hide') || '').split(',').filter(Boolean));
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -71,10 +74,18 @@ async function main() {
   // recovery, and the scroll position survives it
   let lost = false;
   const toast = document.getElementById('toast');
+  let toastT = 0;
+  const note = (title, text, ms = 0) => {
+    if (!toast) return;
+    toast.innerHTML = `<b>${title}</b><span>${text}</span>`;
+    toast.classList.add('show');
+    clearTimeout(toastT);
+    if (ms) toastT = setTimeout(() => toast.classList.remove('show'), ms);
+  };
   canvas.addEventListener('webglcontextlost', (e) => {
     e.preventDefault();
     lost = true;
-    if (toast) { toast.innerHTML = '<b>Graphics paused</b><span>The 3D view reloads when the device is ready.</span>'; toast.classList.add('show'); }
+    note('Graphics paused', 'The 3D view reloads when the device is ready.');
   });
   canvas.addEventListener('webglcontextrestored', () => location.reload());
 
@@ -109,6 +120,12 @@ async function main() {
   ui.progress(0.03, 'Loading photo-scanned materials');
   const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const texBase = TIER === 'low' ? 'assets/tex/512/' : 'assets/tex/';
+  const fromHash = location.hash.slice(1);
+  let styleKey = pickStyle(fromHash) || pickStyle(params.get('style')) || 'minimal';
+  // the baked light downloads beside the textures, not after the bundle has parsed; only the
+  // chosen style's lamp set comes now
+  const gi = createGI({ base: 'assets/gi/', style: styleKey });
+  const giReady = gi.ready.then(() => wake(), (e) => console.warn('baked light unavailable', e));
   // a still must be complete; the live page streams the interior sets behind the first frame,
   // since the camera starts in the air
   const deferred = STILL ? [] : INTERIOR_SETS;
@@ -123,16 +140,21 @@ async function main() {
   await nextFrame();
   const HB = new Builder();
   const shellSpots = buildShell(HB, { hero: true });
-  const { spots: inSpots, lights: lightDefs } = buildInterior(HB);
-  scene.add(meshes(HB.geometries(), M, { order: ORDER }));
-  const fromHash = location.hash.slice(1);
-  let styleKey = pickStyle(fromHash) || pickStyle(params.get('style')) || 'minimal';
+  const { spots: inSpots, lights: lightDefs, lamps: fixedLamps } = buildInterior(HB);
+  dressShell(HB);
+  const heroGeos = HB.geometries();
+  heroGeos.delete('pool'); // the car-port and patio pools are in the community's lamp map
+  scene.add(meshes(heroGeos, M, { order: ORDER }));
   // switchable furniture sets for living, dining and master: only the chosen one is built now;
-  // the others when their chip is hovered or focused, and compiled before they can show
-  const styleGroups = {}, stylePending = {};
+  // the others when their chip is hovered or focused, and compiled before they can show. Each
+  // kit records the bulbs of its own lamps for the night pool below.
+  const styleGroups = {}, stylePending = {}, kitLamps = {};
+  let atmo = null;
   const buildStyle = (key) => {
     const SB = new Builder();
-    buildStyleSet(SB, key, makeKit(SB, { bush: [], flower: [], olive: [], pink: [] }));
+    const kit = makeKit(SB, { bush: [], flower: [], olive: [], pink: [] });
+    buildStyleSet(SB, key, kit);
+    kitLamps[key] = kit.lamps;
     return meshes(SB.geometries(), M, { order: ORDER });
   };
   styleGroups[styleKey] = buildStyle(styleKey);
@@ -146,6 +168,7 @@ async function main() {
         g.visible = false;
         scene.add(g);
         styleGroups[key] = g;
+        if (atmo) atmo.refreshMaterials();
         return g;
       })();
     }
@@ -153,10 +176,19 @@ async function main() {
   };
   const keys = Object.keys(STYLES); // ui.js appends one chip per style in this order
   document.querySelectorAll('#styles button').forEach((b, i) => {
-    if (keys[i]) for (const ev of ['pointerenter', 'focus']) b.addEventListener(ev, () => ensureStyle(keys[i]));
+    if (keys[i]) for (const ev of ['pointerenter', 'focus']) b.addEventListener(ev, () => { ensureStyle(keys[i]); gi.prepare(keys[i]).catch(() => {}); });
   });
-  const styler = createStyler({ M, T: TS, base: texBase, anisotropy: aniso, onLoading: (b) => ui.styleLoading(b) });
-  await styler.apply(styleKey);
+  // a phone frees the style-only sets it no longer shows
+  const styler = createStyler({ M, T: TS, base: texBase, anisotropy: aniso, onLoading: (b) => ui.styleLoading(b), releaseUnused: TIER === 'low' });
+  try { await styler.apply(styleKey); } catch (e) {
+    // a style whose extra sets fail to download must not take the page down with it
+    console.warn('style', styleKey, e);
+    styleKey = 'minimal';
+    styleGroups[styleKey] = styleGroups[styleKey] || buildStyle(styleKey);
+    scene.add(styleGroups[styleKey]);
+    for (const [key, g] of Object.entries(styleGroups)) g.visible = key === styleKey;
+    await styler.apply(styleKey);
+  }
   const heroSpots = { ...shellSpots };
   for (const [k, v] of Object.entries(inSpots)) heroSpots[k] = [...(heroSpots[k] || []), ...v];
 
@@ -175,17 +207,45 @@ async function main() {
     scene.add(l);
     lights.push({ l, day: L.day, dusk: L.dusk });
   }
+  // ---- night lamps: a fixed pool of point lights parked on the bulbs nearest the camera, among
+  // the fixed fixtures and the current style's own. The baked volume carries the room light;
+  // these add the pool under each shade and the glints. The count never changes, so no program
+  // ever recompiles, and a slot cross-fades when it moves so a lamp never pops.
+  const pool = [];
+  for (let i = 0; i < LOOK.lampPool; i++) {
+    const l = new THREE.PointLight(0xffd2a0, 0, LOOK.lampReach, 2);
+    l.castShadow = false;
+    scene.add(l);
+    pool.push({ l, lamp: null, w: 0, want: 0 });
+  }
+  const lampPos = new THREE.Vector3();
+  function placeLamps(cam, level, dt) {
+    const all = [...fixedLamps, ...(kitLamps[styleKey] || [])];
+    const near = all.map((L) => ({ L, d: cam.distanceToSquared(lampPos.set(L[0], L[1], -L[2])) })).sort((a, b) => a.d - b.d).slice(0, pool.length).map((e) => e.L);
+    for (const s of pool) s.want = s.lamp && near.includes(s.lamp) ? 1 : 0;
+    for (const L of near) {
+      if (pool.some((s) => s.lamp === L)) continue;
+      const free = pool.find((s) => !s.lamp || (s.want === 0 && s.w < 0.02));
+      if (!free) continue;
+      free.lamp = L; free.w = 0; free.want = 1;
+      free.l.position.set(L[0], L[1], -L[2]);
+    }
+    for (const s of pool) {
+      s.w = STILL ? s.want : s.w + (s.want - s.w) * (1 - Math.exp(-dt * 7));
+      s.l.intensity = LOOK.lampIntensity * level * s.w;
+    }
+  }
 
-  const atmo = new Atmosphere(renderer, scene, { shadowMapSize: Q.shadow });
+  atmo = new Atmosphere(renderer, scene, { shadowMapSize: Q.shadow, envCacheSize: TIER === 'low' ? 6 : 16, probeSize: TIER === 'low' ? 128 : 256, envBins: TIER === 'low' ? 'coarse' : 'fine' });
   atmo.envFor(0, -55, 18); // reference sky for the GI volume
   atmo.onLevel = () => wake();
-  const gi = createGI();
   post = createPost(renderer, scene, camera, { ...Q, sun: atmo.sun });
   post.setSize(view.w, view.h, view.dpr);
   const dust = makeDust([
     [0.3, 5.8, 0.4, 3.0, 10.8, 14.6], [2.0, 3.1, 0.4, 3.0, 6.8, 10.5], [2.6, 5.9, 3.7, 6.3, 3.6, 6.5],
     [0.4, 5.6, 3.65, 6.3, 1.6, 3.3], [3.1, 5.9, 3.7, 6.3, 10.8, 14.0], [0.3, 5.8, 6.9, 9.4, 11.3, 14.0], [3.0, 5.9, 6.9, 9.5, 8.1, 11.0],
   ], TIER === 'low' ? 0.8 : 1.5);
+  dust.name = 'dust';
   scene.add(dust);
   const beams = community.group.getObjectByName('lampBeams');
 
@@ -207,13 +267,37 @@ async function main() {
   addEventListener('scroll', () => { readScroll(); wake(); }, { passive: true });
   document.addEventListener('visibilitychange', wake);
 
-  let tod = mode === 'night' ? 1 : 0, exposure = 0.6, inside = 0, giTick = 0;
+  let tod = mode === 'night' ? 1 : 0, exposure = 0.6, inside = 0, lookOut = 0, shade = 0, giTick = 0;
   const zoneFor = (c) => {
     const inHouse = c.x > 0.05 && c.x < 6.05 && c.z < -1.4 && c.z > -15.4 && c.y < 10.2;
     if (c.y > 42) return 'aerial';
     if (inHouse || (c.x > -2 && c.x < 8 && c.z < 0 && c.z > -18.5 && c.y < 12)) return 'house';
     return 'street';
   };
+  // the rooms proper: the plot box less the open roof terrace
+  const inHouseBox = (v) => v.x > 0.1 && v.x < 6.0 && v.z < -3.5 && v.z > -14.85 && v.y < 9.7 && !(v.y > 6.8 && v.z < -11.2);
+  // Where the view goes, up to 7.5 m along it: from outside, the distance at which it enters the
+  // rooms (a look in through glazing); from inside, the distance at which it leaves them through a
+  // front, rear or roof face, the ones with glazing (party walls never are). The route interpolates
+  // orientation, so the look point itself always sits 10 m out and says nothing about either.
+  const viewDir = new THREE.Vector3(), probe = new THREE.Vector3();
+  function viewCrossing(c) {
+    camera.getWorldDirection(viewDir);
+    const from = inHouseBox(c);
+    for (let d = 0.5; d <= 7.5; d += 0.5) {
+      probe.copy(c).addScaledVector(viewDir, d);
+      if (inHouseBox(probe) !== from) return from && (probe.x <= 0.1 || probe.x >= 6.0) ? Infinity : d;
+    }
+    return Infinity;
+  }
+  // the sun schedule by progress, for the frame and for the environment prebuild: it holds
+  // south-west through the master suite, swings north-west in the stair core, then sets
+  const todAt = (p) => (mode === 'day' ? 0 : mode === 'night' ? 1 : smooth(p, TOD.sunsetFrom, TOD.nightBy));
+  const sunAt = (p) => {
+    const swing = smooth(p, SUN.swing[0], SUN.swing[1]);
+    return { swing, az: lerp(-55, -128, swing), el: lerp(lerp(18, 11.5, swing), 4, smooth(p, SUN.set[0], SUN.set[1])) };
+  };
+  const ease = (cur, to, dt, k) => (STILL ? to : cur + (to - cur) * (1 - Math.exp(-dt * k)));
 
   function update(dt, time) {
     // reduced motion: the view follows the scroll almost directly, with no easing drift after
@@ -224,25 +308,34 @@ async function main() {
     rig.update(pos, look, fov, dt, time, { hover: reduceMotion ? 0 : 1, still: STILL, shift: path.shift });
     camera.updateMatrixWorld();
 
-    const todTarget = mode === 'day' ? 0 : mode === 'night' ? 1 : smooth(progress, TOD.sunsetFrom, TOD.nightBy);
-    tod = STILL ? todTarget : tod + (todTarget - tod) * (1 - Math.exp(-dt * 2.5));
-    // sun holds south-west through the master suite, swings north-west for the terrace, then sets
-    const swing = smooth(progress, SUN.swing[0], SUN.swing[1]);
-    const sunEl = lerp(lerp(18, 11.5, swing), 4, smooth(progress, SUN.set[0], SUN.set[1]));
-    const s = atmo.update(tod, time, lerp(-55, -128, swing), sunEl);
+    const todTarget = todAt(progress);
+    tod = ease(tod, todTarget, dt, 2.5);
+    const sun = sunAt(progress);
+    const s = atmo.update(tod, time, sun.az, sun.el);
     const zone = zoneFor(camera.position);
     atmo.setShadowZone(zone);
     community.setShadowZone(zone);
     community.update(camera.position);
     const c = camera.position;
-    const inHouse = c.x > 0.1 && c.x < 6.0 && c.z < -3.5 && c.z > -14.85 && c.y < 9.7 && !(c.y > 6.8 && c.z < -11.2) ? 1 : 0;
-    inside = STILL ? inHouse : inside + (inHouse - inside) * (1 - Math.exp(-dt * 2.2));
+    const camIn = inHouseBox(c) ? 1 : 0;
+    const crossing = viewCrossing(c), nearW = 1 - smooth(crossing, 5, 7.5);
+    // looking in through glazing from outside opens up about a stop; looking out from inside gives
+    // part of the indoor lift back so the sunlit garden or terrace keeps its highlights
+    inside = ease(inside, Math.max(camIn, (1 - camIn) * nearW * LOOK.lookInExposure), dt, 2.2);
+    lookOut = ease(lookOut, camIn * nearW * LOOK.lookOutExposure, dt, 2.2);
+    // behind the house the rear elevation is in the sun's shade: expose for the shade, as a
+    // photographer would, rather than for the sunlit street
+    shade = ease(shade, c.x > -1 && c.x < 7 && c.z < -15 && c.z > -21.5 && c.y < 7.5 ? 1 : 0, dt, 2.2);
     const st = s || atmo.last;
     if (s) atmo.last = s;
     // indoors the camera opens up, as an interiors photographer would: ~2 stops by day, less at night
-    const expTarget = st.exp * lerp(1, lerp(LOOK.insideExposureDay, LOOK.insideExposureNight, tod) * STYLES[styleKey].inside, inside);
-    exposure = STILL ? expTarget : exposure + (expTarget - exposure) * (1 - Math.exp(-dt * 2.0));
+    const expIn = st.exp * lerp(1, lerp(LOOK.insideExposureDay, LOOK.insideExposureNight, tod) * STYLES[styleKey].inside, inside);
+    const expTarget = lerp(expIn, st.exp, lookOut) * lerp(1, LOOK.gardenShadeExposure, shade);
+    exposure = ease(exposure, expTarget, dt, 2.0);
     renderer.toneMappingExposure = exposure;
+    // bloom rides with the exposure: lamps halo at night, sunlit render by day does not (a threshold
+    // of 1 / exposure would pass every sunlit patch whole)
+    if (post.bloomPass) { post.bloomPass.threshold = LOOK.bloomThresholdK / exposure; post.bloomPass.strength = LOOK.bloomStrength; }
     // the phone tier's AO has fewer samples, so it keeps a tighter radius indoors
     if (post.aoPass) post.aoPass.configuration.aoRadius = zone === 'aerial' ? 5 : zone === 'street' ? 1.4 : Q.aoZones ? 0.35 : 0.55;
     if (Q.aoZones) post.setAO(zone !== 'aerial');
@@ -253,15 +346,19 @@ async function main() {
       else if (g.prop) g.mat.uniforms[g.prop].value = v;
       else g.mat.emissiveIntensity = v;
     }
-    if (beams) beams.visible = M.beam.uniforms.uOpacity.value > 0.003;
-    // baked light for this moment: sky as the env map sees it, sun bounce as the sun shines, lamps
-    // at dusk. The remix is CPU work plus two 3D uploads, so while the light eases it runs every
-    // third frame; once settled, every frame (gi.set itself skips unchanged weights).
+    if (beams) beams.visible = M.beam.uniforms.uOpacity.value > 0.003 && !HIDDEN.has('lampBeams');
+    placeLamps(c, lamp, dt);
+    // the street lamps' baked pools on the ground, warm and only as the lamps come on
+    shared.lampMap.uLampCol.value.set(1, 0.79, 0.54).multiplyScalar(LOOK.streetLamp * lamp);
+    // baked light for this moment: sky as the env map sees it, sun bounce as the sun shines (the
+    // held and the swung sun cross-faded with the swing), lamps at dusk. The remix is CPU work plus
+    // two 3D uploads, so while the light eases it runs every third frame; once settled, every
+    // frame (gi.set itself skips unchanged weights).
     const sr = atmo.skyRatio(), sk = atmo.sun.intensity / 4.3, sc = atmo.sun.color;
-    const fk = sk * LOOK.giFill;
+    const fk = sk * LOOK.giFill, kU = [sc.r * fk, sc.g / 0.81 * fk, sc.b / 0.6 * fk].map((v, ch) => v * LOOK.giSunBalance[ch]);
     const lk = LOOK.giLamp * lerp(LOOK.giLampDay, 1, lamp);
     if (STILL || Math.abs(todTarget - tod) < 1e-4 || giTick++ % 3 === 0) {
-      gi.set(sr.map((v, ch) => v * st.env * LOOK.giFill * LOOK.giWhiteBalance[ch]), [sc.r * fk, sc.g / 0.81 * fk, sc.b / 0.6 * fk], [lk, lk, lk], styleKey);
+      gi.set(sr.map((v, ch) => v * st.env * LOOK.giFill * LOOK.giWhiteBalance[ch]), kU.map((v) => v * (1 - sun.swing)), kU.map((v) => v * sun.swing), [lk, lk, lk], styleKey);
     }
     // volumetrics: dusty air indoors, thin height haze outside, long thin haze from the air
     const sunK = atmo.sun.intensity;
@@ -272,7 +369,7 @@ async function main() {
     du.uShadowMatrix.value.copy(sm.matrix);
     du.uSunCol.value.copy(atmo.sun.color).multiplyScalar(sunK * LOOK.dustSun * inside);
     du.uAmb.value.setRGB(1, 0.92, 0.83).multiplyScalar(LOOK.dustAmbient * inside * (1 - tod * 0.6));
-    dust.visible = inside > 0.02 && !!sm.map;
+    dust.visible = inside > 0.02 && !!sm.map && !HIDDEN.has('dust');
     if (post.volPass) {
       // dusty, beam-forming air inside the house volume; thin height haze outside, where a
       // dozen steps resolve it
@@ -300,6 +397,7 @@ async function main() {
   // ---- warm up: compile every program before revealing. The lamp beams and the dust are hidden
   // by day, and compileAsync only visits what is visible, so they are shown for the compile.
   ui.progress(0.86, 'Compiling shaders');
+  await giReady;
   update(0.016, 0);
   const warm = [beams, dust].filter(Boolean);
   for (const o of warm) o.visible = true;
@@ -307,9 +405,19 @@ async function main() {
   try { await renderer.compileAsync(scene, camera); } catch (e) { /* older drivers: compile lazily */ }
   for (const o of warm) o.visible = false;
   ui.setStyle(styleKey);
+  // No early return for the current style: the styler's request token lets the last click win,
+  // so clicking back to the style on screen cancels a pending switch. A switch resolves every
+  // texture, the furniture group and the style's baked lamps before anything changes.
   applyStyle = async (k) => {
-    if (!Object.hasOwn(STYLES, k) || k === styler.current) return;
-    await Promise.all([styler.apply(k), ensureStyle(k)]);
+    if (!Object.hasOwn(STYLES, k)) return;
+    try {
+      await Promise.all([styler.apply(k), ensureStyle(k), gi.prepare(k).catch((e) => console.warn('lamp set', k, e))]);
+    } catch (e) {
+      console.warn('style', k, e);
+      note('Style unavailable', `${STYLES[k].name} did not finish loading; try again.`, 3200);
+      return;
+    }
+    if (styler.current !== k) return; // superseded by a later click, which will finish the switch
     styleKey = k;
     for (const [key, g] of Object.entries(styleGroups)) g.visible = key === k;
     renderer.shadowMap.needsUpdate = true;
@@ -325,6 +433,13 @@ async function main() {
   ui.progress(1, 'Ready');
   ui.ready();
   window.__ready = true;
+  // the evening's environments, built one per idle moment while nothing scrolls, so the sunset
+  // never stalls on a PMREM render (in auto mode; a fixed day or night needs none)
+  if (!STILL && mode === 'auto') {
+    const plan = [];
+    for (let p = 0.72; p <= 1.0001; p += 0.01) { const su = sunAt(p); plan.push([todAt(p), su.az, su.el]); }
+    atmo.prebuild(plan, () => performance.now() < awakeUntil);
+  }
 
   if (STILL) {
     document.getElementById('loader')?.remove();
@@ -334,6 +449,7 @@ async function main() {
       const c = params.get('cam').split(',').map(Number);
       if (c.length >= 6 && c.every(Number.isFinite)) path.override({ pos: new THREE.Vector3(c[0], c[1], c[2]), look: new THREE.Vector3(c[3], c[4], c[5]), fov: c[6], shift: c[7] });
     }
+    if (HIDDEN.size) scene.traverse((o) => { if (HIDDEN.has(o.name)) o.visible = false; });
     // the sky level behind the baked light is read back asynchronously; give it a moment
     for (let i = 0; i < 15 && atmo.skyLevel.size < 2; i++) await new Promise((r) => setTimeout(r, 100));
     // render a few frames so shadow and AO settle, then signal the capture harness

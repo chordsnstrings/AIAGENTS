@@ -161,14 +161,25 @@ export function makeDust(boxes, perCubic = 5, seed = 9) {
   return pts;
 }
 
-// Soft light cone below a lamp head (additive, view-dependent edge falloff).
+// Soft light cone below a lamp head (additive, view-dependent edge falloff). The cones are one
+// InstancedMesh, and a ShaderMaterial must apply instanceMatrix itself: without it every cone
+// drew at the mesh's origin, stacked into one blazing cone at the hero's front corner.
 export function beamMaterial(color = 0xffcf96) {
   return new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     uniforms: { uColor: { value: new THREE.Color(color) }, uOpacity: { value: 0 } },
     vertexShader: /* glsl */`
       varying float vH; varying vec3 vN, vV;
-      void main(){ vH = uv.y; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
+      void main(){
+        vH = uv.y;
+        vec4 lp = vec4(position, 1.0); vec3 ln = normal;
+        #ifdef USE_INSTANCING
+          lp = instanceMatrix * lp; ln = mat3(instanceMatrix) * ln;
+        #endif
+        vec4 mv = modelViewMatrix * lp;
+        vN = normalize(normalMatrix * ln); vV = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
     fragmentShader: /* glsl */`
       uniform vec3 uColor; uniform float uOpacity; varying float vH; varying vec3 vN, vV;
       void main(){

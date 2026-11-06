@@ -502,7 +502,7 @@ export function buildInterior(B) {
   wallX('paint', 2.9, 6.0, F2, C2, 11.038, 11.05, [[2.9, 5.65, F2, F2 + 2.75]]);
   wallX('marble', 0.1, 2.15, F2, C2 - 0.3, 11.038, 11.05, [[0.5, 1.6, F2 + 1.4, F2 + 2.4]]);
   bx('glassLight', 2.94, 2.952, F2, F2 + 1.0, 7.5, 7.95);
-  door(3.3, 8.0, F2, 0.85, 1.0, true);
+  door(3.3, 8.0, F2, 0.85, 1.45, true); // swung flat like the others, so the route passes it straight
   bx('ceiling', 0.1, 4.5, C2 - 0.012, C2, 6.75, 11.05, F.NY);
   bx('ceiling', 4.5, 6.0, C2 - 0.012, C2, 8.1, 11.05, F.NY);
   for (const [x, d] of [[3.7, 7.3], [4.0, 9.0], [4.0, 10.4], [1.4, 8.0]]) downlight(x, C2 - 0.012, d);
@@ -518,7 +518,7 @@ export function buildInterior(B) {
   rb('walnut', 2.65, F2 + 0.74, 10.6, 0.7, 0.04, 0.5, 0.01);
   vase(2.45, F2 + 0.76, 10.5, { h: 0.24, r: 0.07, stems: 13, spread: 0.16, height: 0.38, bloom: 0.055, seed: 11 });
   tray(2.78, F2 + 0.76, 10.62);
-  plant(4.1, F2, 7.4, 0.9, 'leaf');
+  plant(5.2, F2, 7.3, 0.9, 'leaf'); // on the gravel roof outside the landing glazing, so the lobby stays clear for the route
   // roof bathroom
   rb('walnut', 0.4, F2 + 0.72, 10.35, 0.45, 0.22, 0.9, 0.01);
   rb('ceramic', 0.4, F2 + 0.86, 10.35, 0.36, 0.08, 0.46, 0.04);
