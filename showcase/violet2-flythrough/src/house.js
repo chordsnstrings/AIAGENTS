@@ -134,13 +134,10 @@ export function buildShell(B, { hero = false } = {}) {
   }
   for (const x of [1.5, 4.6]) {
     B.add('downlight', new THREE.CylinderGeometry(0.07, 0.07, 0.01, 20), new THREE.Matrix4().makeTranslation(x, C0 - 0.004, -3.6));
-    B.quad('pool', [x - 1.6, 0.075, -2.0], [x + 1.6, 0.075, -2.0], [x + 1.6, 0.075, -5.2], [x - 1.6, 0.075, -5.2]);
   }
-  B.quad('pool', [1.4, 0.075, -5.9], [3.6, 0.075, -5.9], [3.6, 0.075, -7.0], [1.4, 0.075, -7.0]);
   bx('led', 1.9, 3.1, C0 - 0.02, C0 - 0.005, 6.1, 6.16);
   glaze(0.1, 6.0, F0, C0, 14.9, 4, hero ? 2 : null, 'glassRear');
   bx('led', 0.3, 5.8, C0 - 0.03, C0 - 0.01, 15.2, 15.24);
-  B.quad('pool', [0.3, 0.205, -15.0], [5.8, 0.205, -15.0], [5.8, 0.205, -16.6], [0.3, 0.205, -16.6]);
 
   // ---------- first floor
   bx('render', 0.1, 6.0, C0, F1, 1.5, 6.65);

@@ -121,13 +121,6 @@ export function railTexture() {
   return tex(c, { srgb: false, repeat: true });
 }
 
-export function radialTexture(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)', size = 128) {
-  const [c, g] = canvas(size, size);
-  const gr = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  gr.addColorStop(0, inner); gr.addColorStop(1, outer);
-  g.fillStyle = gr; g.fillRect(0, 0, size, size);
-  return tex(c, { srgb: false });
-}
 
 // Quiet abstract canvas: colour fields in sand, ivory and violet with dry-brush texture.
 export function artTexture(seed, palette) {

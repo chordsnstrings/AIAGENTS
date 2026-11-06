@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { Builder, mirrorX } from '../src/builder.js';
 import { buildShell } from '../src/house.js';
 import { buildInterior } from '../src/interior.js';
+import { dressShell } from '../src/community.js';
 import { DronePath, KEYS, MAX_SHIFT } from '../src/path.js';
 import { CHAPTERS, FADE } from '../src/story.js';
 
@@ -38,8 +39,8 @@ function addGeos(geos, mat) {
     for (let i = 0; i < idx.length; i += 3) tris.push([pts[idx[i]], pts[idx[i + 1]], pts[idx[i + 2]], k]);
   }
 }
-const H = new Builder(); buildShell(H, { hero: true }); buildInterior(H); addGeos(H.geometries());
-const N = new Builder(); buildShell(N, { hero: false });
+const H = new Builder(); buildShell(H, { hero: true }); buildInterior(H); dressShell(H); addGeos(H.geometries());
+const N = new Builder(); buildShell(N, { hero: false }); dressShell(N);
 const NM = new Map([...N.geometries()].map(([k, g]) => [k, mirrorX(g, 3.05)]));
 for (const ox of [-6.1, 6.1]) addGeos(NM, new THREE.Matrix4().makeTranslation(ox, 0, 0));
 const CELL = 0.5, grid = new Map(), cellKey = (x, y, z) => `${x},${y},${z}`;

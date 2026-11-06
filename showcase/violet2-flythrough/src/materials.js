@@ -425,10 +425,6 @@ export function createMaterials(T, { maxAniso = 8 } = {}) {
   M.water.userData.noShadow = true;
   M.poolWater = new THREE.MeshStandardMaterial({ color: 0x3fb7c4, roughness: 0.05, normalMap: wn, normalScale: new THREE.Vector2(0.25, 0.25), envMapIntensity: 1.2 });
 
-  const blob = P.radialTexture('rgba(255,255,255,1)', 'rgba(255,255,255,0)');
-  M.pool = new THREE.MeshBasicMaterial({ map: blob, color: 0xffc98a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: true });
-  M.pool.userData.noShadow = true;
-  glow.push({ mat: M.pool, day: 0, dusk: 0.55, prop: 'opacity' });
 
   M.beam = beamMaterial(0xffcf96);
   M.beam.userData.noShadow = true;
