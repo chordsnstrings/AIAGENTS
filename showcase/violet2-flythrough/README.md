@@ -85,17 +85,37 @@ sunset view so the rays meet the visible sun.
 
 ## Performance decisions
 
-- Sun direction is fixed; the shadow map renders once per zone (aerial 600 m, street 120 m,
-  house 36 m) instead of every frame. Time of day changes light, sky and environment only.
-- ~1 M triangles but ~150 draw calls: per-material merging for the hero, instancing for
-  every neighbour, palm and shrub.
-- Rendering sleeps when the scroll has settled; resolution adapts to frame time
-  (pixel ratio 0.75–2). Quality tiers: `?q=high|mid|low` (mobile defaults to `low`: no AO,
-  2048 shadows).
-- Indoor light is two 3D texture fetches per pixel instead of area lights, re-mixed on the CPU
-  only when the sky, sun, dusk or style actually changes.
-- Debug/capture: `?p=0.42` renders a single still at that progress; `?tod=night` forces night;
-  `&ui=0` hides the overlay.
+- Three quality tiers are pixel budgets, not device-pixel-ratio caps (`src/tiers.js`): `high`
+  3.7 MP, `mid` 2.1 MP, `low` 0.6 MP of device pixels per frame. The tier comes from the GPU name
+  (`WEBGL_debug_renderer_info`): discrete GPUs and Apple Pro/Max chips `high`, integrated laptop
+  GPUs, base M1/M2 and iPads `mid`, phones and software renderers `low`; `?q=high|mid|low`
+  overrides it. The pixel ratio follows from the budget and the canvas box, and an adaptive
+  scaler walks rungs of 0.6–1.3× that ratio on measured frame cost (the GPU timer where the
+  browser offers one), stepping up only once the scroll has settled.
+- Sun direction is fixed; the shadow map (2048² on every tier) renders once per zone (aerial
+  600 m, street 120 m, house 36 m) and during the terrace sun swing. Far houses and far palms
+  cast only from the air, so the swing redraws about 0.4 M caster triangles instead of 1.1 M.
+- Palms are two instanced models, 1,112 and 192 triangles, split at 70 m from the camera and
+  re-partitioned once it has moved 5 m. A frame is 0.77–0.81 M triangles (was 1.21–1.27 M) in
+  142–179 draw calls: per-material merging for the hero, instancing for every neighbour, palm
+  and shrub, opaque community meshes drawn after the hero so interiors are not shaded twice.
+- The post chain is two full-resolution passes: the scene through N8AO (a plain render pass on
+  `low` outside the house and street zones) and one finish pass that adds the half-resolution
+  volumetric march and the bloom in linear light, then tone-maps, encodes and grades. SMAA runs
+  only while the pixel ratio is under 1.75; `low` skips the volumetric march.
+- Textures: 18 base sets; the 11 exterior ones are awaited, the 7 interior-only sets stream in
+  behind the first frame (the camera starts in the air). Phones read `assets/tex/512/`
+  (3.0 MB for all 29 sets against 8.6 MB), about 58 MiB of texture memory instead of 232 MiB.
+- Rendering sleeps when the scroll has settled. Indoor light is two 3D texture fetches per
+  pixel instead of area lights, re-mixed on the CPU with weights quantised to 1/128, at most
+  every third frame while the light eases.
+- The drawing buffer, camera and overlay are sized from the canvas box (the large viewport)
+  through a `ResizeObserver` with a 150 ms debounce, so a phone's toolbar never reallocates the
+  render targets mid-scroll. A lost WebGL context shows a notice and reloads on restore.
+- Debug/capture: `?p=0.42` renders a single still at that progress (every texture set is
+  awaited, so stills are complete); `?tod=night` forces night; `&ui=0` hides the overlay.
+  Regenerate the 512 tier after re-packing sets: Lanczos to 512 px, WebP quality 82, method 6,
+  files already at 512 px copied.
 
 ## Credits
 
