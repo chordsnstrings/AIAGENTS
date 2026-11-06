@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: route-polish-on-template
+expected_outcome: |
+  The template is copied, built and served; src/path.js keyframes for the master suite and bedroom 2 are changed to level 3/4 views; node scripts/check-path.mjs exits 0; before and after stills of both rooms exist and are shown; the final message explains the composition choices.

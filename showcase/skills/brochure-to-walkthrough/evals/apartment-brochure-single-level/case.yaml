@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: apartment-brochure-single-level
+expected_outcome: |
+  A walkthrough adapted to a single-level apartment in a tower: no garden, roof terrace or townhouse rows; the approach shows the tower and marina context; the interior has the brochure's rooms at the brochure's sizes with the balcony on the west (sea) side; the route and cards cover lobby, kitchen, living & dining, balcony, both bedrooms and bathrooms; GI re-baked; check-path passes; styles and day/night work; stills inspected; honest README; final report with cost.
+context:
+  scaffold_script: place-files.sh

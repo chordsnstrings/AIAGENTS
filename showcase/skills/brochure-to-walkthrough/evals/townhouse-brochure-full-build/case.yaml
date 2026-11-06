@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: townhouse-brochure-full-build
+expected_outcome: |
+  A complete walkthrough project in ./sunridge built from the skill template: src/plan.js carries the brochure's plot (12 x 20 m), three levels and every room with the brochure's internal sizes; the shell, interior and community are adapted (end unit, garden to the rear, pergola roof terrace, golf community); the GI bake was re-run; the route passes scripts/check-path.mjs; chapter cards name and size every room; stills were rendered and inspected at desktop and phone sizes, day and night and in each style; the README states what is real and what is illustrative and carries no price or buyer details; the final message explains how to view the page, what was verified, the limits, and the token cost.
+context:
+  scaffold_script: place-files.sh
