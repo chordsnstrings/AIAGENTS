@@ -30,8 +30,8 @@ sRGB) → `FinalShader` → SMAA. Rendering is on demand; `?p=<progress>` render
 
 ### `STATES` and `stateAt()`
 
-Three keyframes over `t` (0 golden hour, 0.5 sunset, 1 blue hour), linearly interpolated field by field in
-`stateAt(t)` (lines 13–29):
+Three keyframes over `t` (0 golden hour, 0.5 sunset, 1 blue hour) in `STATES` (lines 13–17), linearly
+interpolated field by field in `stateAt(t)` (lines 19–29):
 
 | Field | t=0 | t=0.5 | t=1 | Drives |
 | --- | --- | --- | --- | --- |
@@ -45,8 +45,8 @@ Three keyframes over `t` (0 golden hour, 0.5 sunset, 1 blue hour), linearly inte
 | `ground` | (0.55, 0.5, 0.44) | (0.42, 0.34, 0.28) | (0.06, 0.065, 0.085) | the env scene's ground disc |
 | `disc` | 1 | 1 | 0 | `showSunDisc` |
 
-After interpolation the fog colour is pulled towards `TWILIGHT.horizon` by `smoothstep(t, 0.55, 0.92)` (line
-26); a linear blend glows at the horizon (pitfall 12). `skyElev(t, el, s)` (line 187) lets the sky's sun sink to
+After interpolation the fog colour is pulled towards `TWILIGHT.horizon` by `smoothstep(t, 0.55, 0.92)` (lines
+26–27); a linear blend glows at the horizon (pitfall 12). `skyElev(t, el, s)` (line 187) lets the sky's sun sink to
 `s.elev` while the shadow-casting sun stays where the route put it, because the shadow map cannot follow.
 
 ### The Preetham patches in `makeSky()`
@@ -75,16 +75,18 @@ y 42 aerial; inside the plot box house; otherwise street.
 
 `envFor(t, az, el)` (lines 147–163) quantises to `t` 0.05, azimuth 6°, elevation 1° and keys a `Map` of PMREM
 textures (`pmrem.fromScene(envScene, 0, 0.1, 1000, { size: 256 })`), keeping the last 8 and disposing the
-oldest. `envScene` is a 400-scale sky over a 300 m ground disc at y −8 coloured by `STATES.ground` (warm bounce
-from below). The first time a key is built, `measure(key)` renders an 8 px half-float cube and resolves its L0
+oldest. `envScene` is a 400-scale sky over a 300 m-radius ground disc at y −8 coloured by `STATES.ground` (warm
+bounce from below). The first time a key is built, `measure(key)` renders an 8 px half-float cube and resolves its L0
 term through `LightProbeGenerator`, storing it in `skyLevel`; the read-back is asynchronous (pitfall 15), so
 `onLevel` wakes the render loop when it lands. `skyRatio()` (lines 178–185) returns the rgb ratio of the current
 env's L0 to the one under `BAKE_KEY = '0|-54|18'` (the quantised key of the golden-hour env the bake used; `-54`
 because −55 rounds to the nearest 6°). Until both are measured, or where read-back fails, a fitted curve stands
-in: 1 → 0.55 over t 0–0.5, then → 0.05 by t 1, tinted bluer.
+in: 1 → 0.55 over t 0–0.5, then multiplied by a factor falling to 0.05 by t 1 (0.0275 overall), tinted bluer.
 
-The sun target (lines 72 and 114) is the plot centre: set it to `(PLOT.w / 2, 4, -PLOT.d / 2)`. Zone half-sizes
-(line 109) only grow if the house or community is larger. If you move the golden-hour sun, change `sunDir` (line
+The sun target (line 72 at construction, line 114 per zone) is the house centre (3.05, 4, −9): `PLOT.w / 2`
+across and the middle of the house box in depth (not `-PLOT.d / 2`, which would be −9.25). Set it to the
+centre of your house box; the `house` zone's 18 m half-size is measured from it. Zone half-sizes (line 109)
+only grow if the house or community is larger. If you move the golden-hour sun, change `sunDir` (line
 75), `BAKE_KEY` (line 9), and every entry in section 10. Leave `STATES` alone until the exterior is otherwise
 right; then adjust `exp` and `env` first, colour second.
 
@@ -92,9 +94,10 @@ right; then adjust `exp` and `env` first, colour second.
 
 ### Pass order and constants
 
-`createPost(renderer, scene, camera, { ao, aoQuality = 'Medium', halfRes = true, bloom = true, smaa = true, sun
-= null, volSteps = 28 })` builds an `EffectComposer` on a `HalfFloatType` target (line 33). With `ao`,
-`N8AOPass` renders the beauty pass and AO together; its configuration (line 39) is `halfRes`, `aoRadius 0.6`
+`createPost(renderer, scene, camera, { ao = true, aoQuality = 'Medium', halfRes = true, bloom = true, smaa =
+true, sun = null, volSteps = 28 })` builds an `EffectComposer` on a `HalfFloatType` target (line 33). With `ao`,
+`N8AOPass` renders the beauty pass and AO together; `setQualityMode(aoQuality)` (line 38) gets `Medium` on
+`high` and `Performance` on `mid` (`Q` in `main.js` lines 33–37); its configuration (line 39) is `halfRes`, `aoRadius 0.6`
 (overridden per zone in `main.js` line 194: 5 aerial, 1.4 street, 0.55 house), `distanceFalloff 1.0`, `intensity
 3.0`, `gammaCorrection false`, `transparencyAware false`. Without `ao` a plain `RenderPass` runs and, because
 the volumetric pass reads `aoPass.beautyRenderTarget.depthTexture`, there are **no volumetrics on `?q=low`**;
@@ -146,7 +149,7 @@ A white veil over window views is almost never the volumetrics (pitfall 10): bef
 `makeDust(boxes, perCubic = 5, seed = 9)` fills plan-space boxes `[x0, x1, y0, y1, d0, d1]` (negating d) with
 motes lit only where the shadow map says the sun reaches (`main.js` lines 127–131: seven boxes in the sunlit
 rooms; 2.5 per m³ on `low`); lines 211–217 feed its shadow matrix and colours (`uSunCol` = sun × 0.4 × inside,
-`uAmb` ≈ 0.012 × inside) and hide it outside. `beamMaterial(0xffcf96)` is the additive cone under street-lamp
+`uAmb` ≈ 0.012 × inside × (1 − 0.6 tod)) and hide it outside. `beamMaterial(0xffcf96)` is the additive cone under street-lamp
 heads (`community.js` lines 189–193, `lampBeams`), driven by the glow list and toggled at `main.js` line 202.
 Move the dust boxes to your sunlit rooms; redo `uBoxMin/uBoxMax`.
 
@@ -167,9 +170,11 @@ herringbone, smokedwalnut) load on first use through the styler. Pack new sets w
 `tile` metres per repeat (`repeat = 1 / tile`), `tileV` for a different vertical tile, `color` (a tint over the
 scan), `rough`, `metal`, `normal` (normal scale), `env` (`envMapIntensity`), `ao`, `side`, `physical` (switches
 to `MeshPhysicalMaterial` and spreads its keys: clearcoat, sheen…), `joints`, `macro`. Textures are cloned per
-material with the repeat baked in. Keep new textured materials on one line in the form `M.key = pbr('set', {
-..., color: 0x..., ... })`: `bake-gi.mjs` parses that exact shape by regex to learn each key's set and tint
-(section 7).
+material with the repeat baked in. Keep new textured materials in the shape `M.key = pbr('set', { ..., color:
+0x..., ... })`: `bake-gi.mjs` (line 35) parses `materials.js` with `/M\.(\w+) = pbr\('(\w+)', \{([^}]*)/` to learn
+each key's set and tint (section 7). The capture stops at the first `}`, so write `color` as a hex literal
+before any nested option object (`joints`, `macro`, `physical`), and give the set a `SET_AVG` entry, or the key
+is skipped (line 37) and bakes as 0.5 grey.
 
 ### `enhance(mat, o)` features (lines 68–130)
 
@@ -189,13 +194,13 @@ only in uniform values share a program. All features get the varyings `vMeters` 
   into `gl_FragColor` with premultiplied alpha. `M.glass` (0.06, 0.75), `M.glassLight` (0.03, 0.5).
 - `sway: k` → vertex displacement growing with distance from (0, 7, 0) in object space, phased by instance
   position (`M.frond`).
-- `gi: true` → the `shared.gi` uniforms and `GI_FRAG` after `lights_fragment_maps`. Applied at lines 272–273 to
-  every opaque `MeshStandardMaterial`/`MeshPhysicalMaterial` except `water` and `poolWater`.
+- `gi: true` → the `shared.gi` uniforms and `GI_FRAG` after `lights_fragment_maps`. Applied at lines 272–274 to
+  every non-transparent `MeshStandardMaterial`/`MeshPhysicalMaterial` except `water` and `poolWater`.
 
 ### `GI_FRAG`: lookup, non-linear L1 reconstruction, inside mask (lines 33–57)
 
-The sample point is the world position pushed 0.22 m along the normal (half a probe spacing, so a wall samples
-the room-side probe, not the one in the wall). `uGiA`/`uGiB` map world to texture coordinates; `gF` fades to
+The sample point is the world position pushed 0.22 m along the normal (just under half the 0.5 m probe
+spacing, so a wall samples the room-side probe, not the one in the wall). `uGiA`/`uGiB` map world to texture coordinates; `gF` fades to
 zero over the outer 0.4 texels so the volume edge never shows. `g0.rgb` is DC irradiance, `g0.a` the inside
 mask, `g1` the luminance gradient. The reconstruction is the Geomerics/Hazel non-linear form: `gR = g1 /
 lum(g0)`, `x = min(0.433 |gR|, 0.95)`, `q = ½(1 + n·ĝR)`, `p = 1 + 2x`, `a = (1 − x)/(1 + x)`, `E = DC (a + (1 −
