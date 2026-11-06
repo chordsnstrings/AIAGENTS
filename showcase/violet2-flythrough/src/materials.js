@@ -3,23 +3,74 @@ import * as P from './proctex.js';
 import { beamMaterial } from './volumetric.js';
 import { SET_AVG, roleColor, roleRoughness } from './styles.js';
 
-const SETS = ['plaster', 'stone', 'walnut', 'oak', 'woodfloor', 'patio', 'pavers', 'sidewalk', 'asphalt', 'sand',
+// The base sets every material is built from (style-only sets load on first use). The seven in
+// INTERIOR_SETS are seen only indoors, so the page can start on the exterior ones and stream
+// the rest behind the first frame; the phone tier reads the same files from assets/tex/512/.
+export const SETS = ['plaster', 'walnut', 'oak', 'woodfloor', 'patio', 'pavers', 'sidewalk', 'asphalt', 'sand',
   'gravel', 'bark', 'velvet', 'rug', 'boucle', 'linen', 'grass', 'marble', 'travertine'];
+export const INTERIOR_SETS = ['travertine', 'woodfloor', 'oak', 'boucle', 'linen', 'velvet', 'rug'];
 
-export async function loadTextureSets(base, anisotropy, onProgress) {
+const prep = (t, s, anisotropy) => {
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = anisotropy;
+  if (s === 'c') t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+};
+
+export async function loadSet(base, name, anisotropy, onEach = () => {}) {
   const loader = new THREE.TextureLoader();
+  const set = {};
+  await Promise.all(['c', 'n', 'r'].map(async (s) => {
+    set[s] = prep(await loader.loadAsync(`${base}${name}_${s}.webp`), s, anisotropy);
+    onEach();
+  }));
+  return set;
+}
+
+// A deferred set is three 1x1 textures with the channel's neutral value (mid grey, flat normal,
+// full AO at half roughness), tagged so adoptSet can find every clone a material took from them.
+// r187 allocates texture storage immutably, so a placeholder is never grown in place.
+export function placeholderSet(name, anisotropy) {
+  const px = { c: [128, 128, 128, 255], n: [128, 128, 255, 255], r: [255, 128, 0, 255] };
+  const set = {};
+  for (const s of ['c', 'n', 'r']) {
+    const t = prep(new THREE.DataTexture(new Uint8Array(px[s]), 1, 1), s, anisotropy);
+    t.userData.placeholder = name; t.userData.ch = s;
+    t.needsUpdate = true;
+    set[s] = t;
+  }
+  return set;
+}
+
+// load, then clone: a texture cloned before it has loaded renders black (pitfall 1)
+export async function loadTextureSets(base, anisotropy, onProgress, { defer = [] } = {}) {
   const out = {};
+  const names = SETS.filter((n) => !defer.includes(n));
   let done = 0;
-  const total = SETS.length * 3;
-  await Promise.all(SETS.flatMap((name) => ['c', 'n', 'r'].map(async (s) => {
-    const t = await loader.loadAsync(`${base}${name}_${s}.webp`);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.anisotropy = anisotropy;
-    if (s === 'c') t.colorSpace = THREE.SRGBColorSpace;
-    (out[name] ||= {})[s] = t;
-    onProgress(++done / total);
-  })));
+  const total = names.length * 3;
+  await Promise.all(names.map(async (name) => { out[name] = await loadSet(base, name, anisotropy, () => onProgress(++done / total)); }));
+  for (const name of defer) out[name] = placeholderSet(name, anisotropy);
   return out;
+}
+
+// Replace every placeholder clone of `name` in the materials with a fresh clone of the real
+// texture, keeping the repeat each material chose. Map presence does not change, so no
+// program recompiles; the renderer picks the new texture up on the next frame.
+export function adoptSet(M, name, set) {
+  const fresh = new Map();
+  const swap = (old) => {
+    if (!old || old.userData.placeholder !== name) return old;
+    if (!fresh.has(old)) {
+      const t = set[old.userData.ch].clone();
+      t.repeat.copy(old.repeat); t.anisotropy = old.anisotropy;
+      fresh.set(old, t);
+    }
+    return fresh.get(old);
+  };
+  for (const m of Object.values(M)) {
+    for (const slot of ['map', 'normalMap', 'roughnessMap', 'aoMap', 'emissiveMap']) if (m[slot]) m[slot] = swap(m[slot]);
+  }
+  for (const old of fresh.keys()) old.dispose();
 }
 
 export const shared = {

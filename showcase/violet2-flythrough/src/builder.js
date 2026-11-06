@@ -125,7 +125,10 @@ export function mirrorX(geo, cx) {
   return g;
 }
 
-export function meshes(geos, mats, { cast = true, receive = true } = {}) {
+// order: renderOrder per key. Transparent meshes are sorted by the projected centre of their
+// whole merged geometry, so house-wide sheers and glazing would otherwise swap order with the
+// camera; an explicit order keeps the sheer under the glass from every position.
+export function meshes(geos, mats, { cast = true, receive = true, order = {} } = {}) {
   const group = new THREE.Group();
   for (const [k, g] of geos) {
     const m = mats[k];
@@ -135,6 +138,7 @@ export function meshes(geos, mats, { cast = true, receive = true } = {}) {
     mesh.castShadow = cast && !m.userData.noShadow;
     mesh.receiveShadow = receive;
     mesh.matrixAutoUpdate = false;
+    if (order[k] !== undefined) mesh.renderOrder = order[k];
     group.add(mesh);
   }
   return group;
