@@ -7,10 +7,11 @@ import { Sky } from 'three/addons/objects/Sky.js';
 const D2R = Math.PI / 180;
 const dirFrom = (az, el, v = new THREE.Vector3()) => v.set(Math.sin(az * D2R) * Math.cos(el * D2R), Math.sin(el * D2R), Math.cos(az * D2R) * Math.cos(el * D2R));
 
+const TWILIGHT = { horizon: [0.042, 0.038, 0.062], zenith: [0.006, 0.009, 0.026], glow: [0.11, 0.05, 0.03] };
 const STATES = [
   { t: 0.0, elev: 17, turb: 5.0, ray: 1.6, mie: 0.0024, mieG: 0.72, gain: 0.82, sun: 4.3, sunCol: [1.0, 0.81, 0.6], fog: [0.84, 0.78, 0.71], fogD: 0.0009, exp: 0.7, env: 0.55, ground: [0.55, 0.5, 0.44], disc: 1 },
   { t: 0.5, elev: 3.0, turb: 6.0, ray: 2.4, mie: 0.0034, mieG: 0.76, gain: 0.95, sun: 2.2, sunCol: [1.0, 0.62, 0.4], fog: [0.84, 0.66, 0.55], fogD: 0.0011, exp: 0.88, env: 0.6, ground: [0.42, 0.34, 0.28], disc: 1 },
-  { t: 1.0, elev: 0.4, turb: 2.0, ray: 4.2, mie: 0.002, mieG: 0.75, gain: 0.6, sun: 0.0, sunCol: [0.55, 0.6, 0.85], fog: [0.2, 0.23, 0.34], fogD: 0.0009, exp: 2.0, env: 1.4, ground: [0.06, 0.065, 0.085], disc: 0 },
+  { t: 1.0, elev: 0.4, turb: 2.0, ray: 4.2, mie: 0.002, mieG: 0.75, gain: 0.6, sun: 0.0, sunCol: [0.55, 0.6, 0.85], fog: TWILIGHT.horizon, fogD: 0.0011, exp: 2.0, env: 1.4, ground: [0.06, 0.065, 0.085], disc: 0 },
 ];
 const lerp = THREE.MathUtils.lerp;
 function stateAt(t) {
@@ -19,6 +20,9 @@ function stateAt(t) {
   const k = THREE.MathUtils.clamp((t - a.t) / (b.t - a.t), 0, 1);
   const o = {};
   for (const key of Object.keys(a)) o[key] = Array.isArray(a[key]) ? a[key].map((v, i) => lerp(v, b[key][i], k)) : lerp(a[key], b[key], k);
+  // the haze must darken with the twilight sky, not linearly, or it glows at the horizon
+  const tw = THREE.MathUtils.smoothstep(t, 0.55, 0.92);
+  o.fog = o.fog.map((v, i) => lerp(v, TWILIGHT.horizon[i], tw));
   return o;
 }
 
@@ -26,9 +30,21 @@ function makeSky(scale) {
   const sky = new Sky();
   sky.scale.setScalar(scale);
   const m = sky.material;
-  m.uniforms.uGain = { value: 1 };
-  m.fragmentShader = 'uniform float uGain;\n' + m.fragmentShader
-    .replace('gl_FragColor = vec4( texColor, 1.0 );', 'gl_FragColor = vec4( texColor * uGain, 1.0 );')
+  Object.assign(m.uniforms, {
+    uGain: { value: 1 }, uTwK: { value: 0 }, uHz: { value: 0.04 }, uFog: { value: new THREE.Vector3(0.8, 0.75, 0.7) },
+    uTwH: { value: new THREE.Vector3(...TWILIGHT.horizon) }, uTwZ: { value: new THREE.Vector3(...TWILIGHT.zenith) }, uTwG: { value: new THREE.Vector3(...TWILIGHT.glow) },
+  });
+  // Preetham has no twilight: past sunset blend to an analytic gradient (afterglow towards the
+  // sun's azimuth, deep blue overhead), then melt the horizon into the fog colour so distant
+  // terrain and sky meet without a seam.
+  m.fragmentShader = 'uniform float uGain, uTwK, uHz; uniform vec3 uFog, uTwH, uTwZ, uTwG;\n' + m.fragmentShader
+    .replace('gl_FragColor = vec4( texColor, 1.0 );', `
+      float hh = max(direction.y, 0.0);
+      float sa = max(dot(normalize(direction.xz + 1e-5), normalize(vSunDirection.xz + 1e-5)), 0.0);
+      vec3 tw = mix(uTwH, uTwZ, pow(hh, 0.5)) + uTwG * pow(sa, 5.0) * exp(-hh * 7.0);
+      vec3 col = mix(texColor * uGain, tw, uTwK);
+      col = mix(uFog, col, smoothstep(-0.015, uHz, direction.y));
+      gl_FragColor = vec4(col, 1.0);`)
     .replace('( 760.0 * sundisc )', '( 25.0 * sundisc )');
   m.uniforms.cloudCoverage.value = 0.22;
   m.uniforms.cloudDensity.value = 0.32;
@@ -113,9 +129,12 @@ export class Atmosphere {
     this.renderer.shadowMap.needsUpdate = true;
   }
 
-  applySky(sky, s, az, el) {
+  applySky(sky, s, az, el, t = 0) {
     const u = sky.material.uniforms;
     dirFrom(az, el, u.sunPosition.value);
+    u.uTwK.value = THREE.MathUtils.smoothstep(t, 0.55, 0.92);
+    u.uHz.value = lerp(0.035, 0.1, THREE.MathUtils.smoothstep(t, 0.5, 1.0));
+    u.uFog.value.set(...s.fog);
     u.turbidity.value = s.turb; u.rayleigh.value = s.ray; u.mieCoefficient.value = s.mie; u.mieDirectionalG.value = s.mieG;
     u.uGain.value = s.gain;
     u.showSunDisc.value = s.disc;
@@ -126,7 +145,7 @@ export class Atmosphere {
     const key = `${q}|${qa}|${qe}`;
     if (this.envCache.has(key)) return this.envCache.get(key);
     const s = stateAt(q);
-    this.applySky(this.envSky, s, qa, this.skyElev(q, qe, s));
+    this.applySky(this.envSky, s, qa, this.skyElev(q, qe, s), q);
     this.envGround.material.color.setRGB(...s.ground);
     const rt = this.pmrem.fromScene(this.envScene, 0, 0.1, 1000, { size: 256 });
     this.envCache.set(key, rt.texture);
@@ -146,7 +165,7 @@ export class Atmosphere {
     if (Math.abs(t - this.t) < 1e-4 && !moved) return null;
     this.t = t;
     const s = stateAt(t);
-    this.applySky(this.sky, s, az, this.skyElev(t, el, s));
+    this.applySky(this.sky, s, az, this.skyElev(t, el, s), t);
     this.sun.color.setRGB(...s.sunCol);
     this.sun.intensity = s.sun;
     this.scene.fog.color.setRGB(...s.fog);
