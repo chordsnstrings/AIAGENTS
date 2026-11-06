@@ -12,13 +12,11 @@ import { createPost } from './post.js';
 import { initUI } from './ui.js';
 import { makeDust } from './volumetric.js';
 import { createGI } from './gi.js';
+import { LOOK } from './look.js';
 
 const params = new URLSearchParams(location.search);
 const STILL = params.has('p');
 const FIXED_P = parseFloat(params.get('p') || '0');
-// baked volume -> page units: lamps at dusk, and a fill factor on daylight for the bounces past
-// the two the bake traces (light walls keep interreflecting)
-const GI_LAMP = 0.45, GI_FILL = 3.0, GI_WB = [1.0, 1.0, 0.97];
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function detectTier() {
@@ -188,7 +186,7 @@ async function main() {
     const st = s || atmo.last;
     if (s) atmo.last = s;
     // indoors the camera opens up, as an interiors photographer would: ~2 stops by day, less at night
-    const expTarget = st.exp * lerp(1, lerp(5.5, 1.3, tod) * STYLES[styleKey].inside, inside);
+    const expTarget = st.exp * lerp(1, lerp(LOOK.insideExposureDay, LOOK.insideExposureNight, tod) * STYLES[styleKey].inside, inside);
     exposure = STILL ? expTarget : exposure + (expTarget - exposure) * (1 - Math.exp(-dt * 2.0));
     renderer.toneMappingExposure = exposure;
     if (post.aoPass) post.aoPass.configuration.aoRadius = zone === 'aerial' ? 5 : zone === 'street' ? 1.4 : 0.55;
@@ -202,9 +200,9 @@ async function main() {
     if (beams) beams.visible = M.beam.uniforms.uOpacity.value > 0.003;
     // baked light for this moment: sky as the env map sees it, sun bounce as the sun shines, lamps at dusk
     const sr = atmo.skyRatio(), sk = atmo.sun.intensity / 4.3, sc = atmo.sun.color;
-    const fk = sk * GI_FILL;
-    const lk = GI_LAMP * lerp(0.12, 1, lamp); // staged: lamps on, dimmed, by day
-    gi.set(sr.map((v, c) => v * st.env * GI_FILL * GI_WB[c]), [sc.r * fk, sc.g / 0.81 * fk, sc.b / 0.6 * fk], [lk, lk, lk], styleKey);
+    const fk = sk * LOOK.giFill;
+    const lk = LOOK.giLamp * lerp(LOOK.giLampDay, 1, lamp);
+    gi.set(sr.map((v, c) => v * st.env * LOOK.giFill * LOOK.giWhiteBalance[c]), [sc.r * fk, sc.g / 0.81 * fk, sc.b / 0.6 * fk], [lk, lk, lk], styleKey);
     // volumetrics: dusty air indoors, thin height haze outside, long thin haze from the air
     const sunK = atmo.sun.intensity;
     const sm = atmo.sun.shadow;
@@ -212,8 +210,8 @@ async function main() {
     du.uTime.value = time;
     du.uShadow.value = sm.map ? sm.map.depthTexture : null;
     du.uShadowMatrix.value.copy(sm.matrix);
-    du.uSunCol.value.copy(atmo.sun.color).multiplyScalar(sunK * 0.4 * inside);
-    du.uAmb.value.setRGB(0.012, 0.011, 0.01).multiplyScalar(inside * (1 - tod * 0.6));
+    du.uSunCol.value.copy(atmo.sun.color).multiplyScalar(sunK * LOOK.dustSun * inside);
+    du.uAmb.value.setRGB(1, 0.92, 0.83).multiplyScalar(LOOK.dustAmbient * inside * (1 - tod * 0.6));
     dust.visible = inside > 0.02 && !!sm.map;
     if (post.volPass) {
       // dusty, beam-forming air inside the house volume; thin height haze outside

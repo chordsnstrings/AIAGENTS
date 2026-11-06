@@ -63,14 +63,14 @@ def pack(d, out, name):
 
 def measure(out, names):
     """Mean linear albedo of each packed colour map, for SET_AVG in src/styles.js and the GI bake."""
+    # linearise every texel first, then average: averaging gamma-encoded values (or a resized
+    # image) understates bright, contrasty scans by up to 20 %
+    lut = [((v / 255) / 12.92 if v / 255 <= 0.04045 else (((v / 255) + 0.055) / 1.055) ** 2.4) for v in range(256)]
     res = {}
     for name in names:
-        im = Image.open(os.path.join(out, f'{name}_c.webp')).convert('RGB').resize((64, 64))
-        acc = [0.0, 0.0, 0.0]; px = list(im.getdata())
-        for p in px:
-            for i in range(3):
-                c = p[i] / 255; acc[i] += c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-        res[name] = [round(a / len(px), 3) for a in acc]
+        im = Image.open(os.path.join(out, f'{name}_c.webp')).convert('RGB')
+        hist = im.histogram()
+        res[name] = [round(sum(lut[v] * hist[c * 256 + v] for v in range(256)) / (im.width * im.height), 3) for c in range(3)]
     return res
 
 if __name__ == '__main__':
