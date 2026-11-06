@@ -253,7 +253,8 @@ Material types and `enhance` features are fixed at `createMaterials`; `apply(key
 `map`/`normalMap`/`roughnessMap` (+`aoMap`) to cached clones keyed `set|channel|tile`, and writes colour,
 roughness, metalness, normal scale, `envMapIntensity` (restoring the material's original `env0` when a role
 omits `env`), `sheenColor`, `clearcoat` (never below 0.02, because 0 would drop `USE_CLEARCOAT` and recompile),
-`uJoint` and `uFlat` uniforms, and the `lampShade` emissive (role colour lerped 55 % towards 0xffc98a). Artworks
+`uJoint`, `uFlat` (only through `albedo`: rgb = the albedo, amount = the role's `flat`, line 184), and the
+`lampShade` emissive (role colour lerped 55 % towards 0xffc98a). Artworks
 are regenerated with `artTexture()` and the old maps disposed. A texture swap never changes a define as long as
 the map stays non-null, so a style switch costs one frame.
 
@@ -267,7 +268,12 @@ style (`&style=<key>`).
 ### The probe box and the components
 
 `SP = 0.5`, `MIN = [0, 0, -15.6]`, `DIMS = [13, 22, 30]` (bake line 19): 8 580 probes covering x 0–6.0, y
-0–10.5, z −15.6 to −1.1, i.e. the house with ~0.75 m of margin. Three linear components are stored separately so
+0–10.5, z −15.6 to −1.1: the full plot width, 0.5 m above the roof top (`H.R2 = 10.0`), and in depth just clear
+of the front piers (d 1.4) and the rear pier (d 15.38). In z and y every interior surface sits ≥ 0.5 m inside
+the edge, which the 0.22 m normal offset plus the 0.2 m edge fade in `GI_FRAG` need. In x the volume ends at the
+party walls because the neighbours are attached: a wall's own sample point (0.22 m into the room) still reads
+the full volume, but floor and ceiling within ~0.2 m of a party wall fade back to the env map. For a detached
+house add that margin in x too. Three linear components are stored separately so
 the page can relight without re-baking: `S` sky light (Preetham, golden-hour constants `SKY` line 122 identical
 to `STATES[0]`, no clouds, no twilight) plus the **open-sky fraction** per probe; `U` sunlight bounced off
 surfaces (direct sun stays real-time); `N` each style's lamps. `S` and `U` are baked once with the `minimal`
@@ -277,7 +283,8 @@ furniture, `N` once per style (lines 302–312).
 
 The scene is the hero shell and interior, the neighbours (`buildShell(hero: false)` at ±6.1 and ±12.2 m,
 mirrored at ±6.1, plus the opposite rows at z −37 and 12, lines 94–100) and a ground quad; `SKIP` (line 51)
-drops glass, sheers, lattice, rails and foliage cards so they do not block rays. Per-triangle albedo comes from
+drops glass, sheers, lattice, rails, foliage cards, the `pool` light blobs and the neighbours' `room` window
+quads so they do not block rays. Per-triangle albedo comes from
 `albedoFor(style)`: `ALB` by hand for untextured keys (line 29), set mean × tint for every `pbr()` line parsed
 from `materials.js`, then the style's roles on top. A key missing from both gets 0.5 grey, so add new untextured
 materials to `ALB`. `PASSES = 3`: pass 1 is light arriving directly (sky radiance on a miss for `S`; sun × cos ×
@@ -298,7 +305,7 @@ neighbours over 8 iterations.
 
 `encode()` (lines 285–300) writes per probe: DC rgb as `log2` over 20 stops from 2⁻¹⁴ (byte 0 = black), the
 luminance gradient `(x, y, z)` relative to DC in [−2, 2] as three bytes, and for `S` the open fraction; base64
-into `src/gi-data.js` (~416 kB, bundled). `decode()` in `gi.js` (lines 12–23) inverts it. `createGI()` derives
+into `src/gi-data.js` (~423 kB, bundled). `decode()` in `gi.js` (lines 12–23) inverts it. `createGI()` derives
 `inside = 1 − smoothstep(open, 0.2, 0.4)` and sets `uGiA`/`uGiB` from `GI.spacing/min/dims`.
 
 `set(kS, kU, kN, style)` (lines 49–66) skips when the inputs (3 decimals) have not moved, then writes two
@@ -363,7 +370,8 @@ Procedural cloth, no simulation (decision "Soft goods are procedural"). `drape({
 drop, r 0.07, loft 0.05, pleat 0.03, seed, res 0.03 })` lays cloth on a box top of `L × W` (x from the head, z
 across, top at y 0): spare cloth rolls over an edge of radius `r`, falls `drop` at the sides and `dropFoot` at
 the foot (0 = flat foot), with `loft` puff and diagonal creases on top and pleats of amplitude `pleat` growing
-towards the hem, corners hanging 1.7× lower; `g.userData.head` is the head edge for a rolled hem. `pillow({ L
+towards the hem, 1.7× deeper at the corners (line 58), which also hang lower because the diagonal overhang is
+longer; `g.userData.head` is the head edge for a rolled hem. `pillow({ L
 0.7, D 0.48, T 0.17, seed, n 16 })`: two faces meeting at a piped seam, loft shaped by a superellipse so corners
 stay thin, a plumped dent along the middle. `sheer(w, h, seed)`: a panel in the x–y plane with pleat pitch 0.17
 + 0.09·noise m, depth 0.026 + 0.022·noise, flaring towards the hem. `bed()` in `interior.js` (from line 174)
@@ -376,7 +384,7 @@ shadeR 0.17)` ceramic base plus an open `lampShade` drum; `pendantGlobe(x, y, d,
 deformed-icosahedron blooms (`bloom`/`bloomB`, the first follows the style) and leaves; `print(k, x, d0, d1, y0,
 y1, plusX)` frame, `ceiling`-coloured mat and an `art1..3` quad inset 13 %; `frameArt`/`frameArtX` walnut-framed
 art; `rug(cx, y, d, sx, sz, edge 'linenGrey')` bound edge in a second tone; `plant()` concrete pot, soil, bark
-trunk, foliage spot handed to `vegetation.js`; `chair`, `loungeChair`, `nightstand` (with a small lamp),
+trunk and a foliage spot that `community.js` instances with a `vegetation.js` canopy; `chair`, `loungeChair`, `nightstand` (with a small lamp),
 `wardrobeAlongX/D` (`joinery` carcass with 24 mm fluted slats every 50 mm). Every helper writes material keys,
 never materials, so styles restyle decor for free.
 
@@ -387,9 +395,9 @@ never materials, so styles restyle decor for free.
 | Golden-hour sun az −55°, el 18° | `atmosphere.js` 75 (`sunDir`), 9 (`BAKE_KEY '0\|-54\|18'`); `main.js` 123 (`envFor(0, -55, 18)`), 181–182 (route lerps); `bake-gi.mjs` 22 |
 | Sun intensity 4.3, colour (1, 0.81, 0.6) | `STATES[0]`; `bake-gi.mjs` 23 (`SUN`); `main.js` 204–207 (`/ 4.3`, `/ 0.81`, `/ 0.6`) |
 | Sky constants 5.0 / 1.6 / 0.0024 / 0.72 / 0.82 | `STATES[0]`; `bake-gi.mjs` 122 (`SKY`) |
-| House box x 0.1–6.0, y 0.25–9.7, z −14.85 to −3.55 | `volumetric.js` 80; `main.js` 164–166 (`zoneFor`), 186 (`inHouse`) |
+| House box x 0.1–6.0, y 0.25–9.7, z −14.85 to −3.55 | `volumetric.js` 80; `main.js` 186 (`inHouse`, z to −3.5); 164 (`zoneFor`, deliberately padded: x 0.05–6.05, z −15.4 to −1.4, y < 10.2) |
 | Probe box | `bake-gi.mjs` 19; read by the page from `gi-data.js` |
-| Plot centre (3.05, −9), neighbour pitch 6.1 | `atmosphere.js` 72, 114; `bake-gi.mjs` 96–100; `main.js` 138 |
+| House centre (3.05, −9), neighbour pitch 6.1 | `atmosphere.js` 72, 114 (sun target); `main.js` 138 (`pinWorld`); `bake-gi.mjs` 96–100 (mirror about x 3.05, offsets ±6.1, ±12.2) |
 | Lamp brightness | `materials.js` 223–228 (emissive dusk); `bake-gi.mjs` 53 (`LAMP`); `GI_LAMP` |
 | Finish albedo | `SET_AVG`; roles `albedo`; `bake-gi.mjs` `albedoFor()` |
 
@@ -398,13 +406,14 @@ never materials, so styles restyle decor for free.
 ### Order of operations
 
 1. Change geometry (`plan.js`, `house.js`, `interior.js`, `stylesets.js`), then every row of section 10 that
-   mentions the plot, the house box or the probe box. Set `DIMS` so the volume clears the house by ≥ 0.5 m on
-   every side and `MIN` at the plot's near corner.
+   mentions the plot, the house box or the probe box. Set `MIN` to the volume's minimum corner (x 0, y 0 and the rear
+   z, since world z = −d) and `DIMS` so every interior surface sits ≥ 0.5 m inside the volume in z and y, and
+   in x too for a detached house (section 7 explains the party-wall exception).
 2. `npm run build` and `node scripts/check-path.mjs`; fix the route first, every still depends on it.
-3. Draft bake: `RAYS=16 npm run bake` (2 min 21 s on the reference build; 256 rays ≈ 10 min). Per component it
-   prints `mean`, `indoor mean` (probes under 15 % open sky; `-` for `S`, which produces that mask) and `max`.
-   Reference figures at 16 rays: `U` mean 0.094, indoor 0.058, max 0.88; `N` indoor mean 3.6–4.0, max ≈ 62
-   (94–99 lamp points per style). An `N` max ten times that, or a `U` indoor mean near zero, means a
+3. Draft bake: `RAYS=16 npm run bake` (≈ 2 min 20 s on the reference build; 256 rays ≈ 10 min). Per component
+   it prints `mean`, `indoor mean` (unmasked probes under 15 % open sky; `-` for `S`, which produces that mask)
+   and `max`. Reference figures at 16 rays: `S` mean 0.351, max 2.93; `U` mean 0.094, indoor 0.058, max 0.88;
+   `N` indoor mean 3.65–3.99, max ≈ 62 (94–99 lamp points per style; ~250–264 k triangles). An `N` max ten times that, or a `U` indoor mean near zero, means a
    misclassified emitter, a wrong `LAMP` entry or a sealed room.
 4. `npm run build` again (`gi-data.js` is bundled), then capture (below) and tune.
 5. When the look holds on the draft, `npm run bake` at 256 rays, rebuild, recapture the same frames and a
@@ -417,7 +426,7 @@ cd violet2-flythrough
 nohup npm run serve > /dev/null 2>&1 &          # python3 -m http.server 8080 (pitfall 17)
 curl -sI http://localhost:8080/index.html | head -1
 mkdir -p out/day out/night
-# four interiors by day: ground-floor hall, living, bedrooms, master (mid progress of each card)
+# four interiors by day: ground floor (study/kitchen), living, bedrooms, master (mid progress of each card)
 node scripts/capture.cjs http://localhost:8080 out/day high 0.40,0.47,0.62,0.70 "&ui=0"
 node scripts/capture.cjs http://localhost:8080 out/night high 0.40,0.47,0.62,0.70 "&ui=0&tod=night"
 # one style at a time: append &style=japandi (desert, luxe); defaults to minimal
@@ -428,7 +437,9 @@ python3 ../skills/brochure-to-walkthrough/scripts/sheet.py out/night out/night.j
 For a new property take the mid progress of each interior card's `data-from`/`data-to` in `index.html`.
 `capture.cjs` renders at 1024 × 576 (`W`, `H` env), waits for `window.__shot` (the still mode, `main.js` lines
 267–278, waits up to 1.5 s for the sky read-back and settles three frames), uses a 180 s screenshot timeout
-(pitfall 16) and prints console errors; kill stray Chromium between batches. Review contact sheets, not frames.
+(pitfall 16) and prints console errors; kill stray Chromium between batches. It needs `playwright`, which is not
+in `package.json` and resolves from the global install (`npm root -g`); on a fresh machine run `npm i -g
+playwright && npx playwright install chromium`. `sheet.py` needs Pillow. Review contact sheets, not frames.
 
 ### What to tune, in which order, and the target look
 
