@@ -19,10 +19,12 @@ import * as THREE from 'three';
 // straight verticals, while the bed is framed low, as a tilt-shift lens would.
 
 export const KEYS = [
-  // aerial approach: the house stays centred from the first frame
-  [0.000, [140, 60, 110], [3, 5, -9], 50],
-  [0.040, [112, 50, 88], [3, 5, -9], 50],
-  [0.090, [66, 38, 50], [3, 4.5, -9], 52],
+  // aerial approach: the house stays centred from the first frame. The opener sits about 110 m
+  // out, near enough that the hero row reads through the haze as houses rather than a field of
+  // blocks, with the lagoon still in the top of the frame
+  [0.000, [80, 40, 64], [3, 5, -9], 50],
+  [0.040, [72, 37, 57], [3, 5, -9], 50],
+  [0.090, [56, 33, 42], [3, 4.5, -9], 52],
   [0.130, [30, 22, 20], [3, 4.5, -8], 52],
   // facade: orbit down to the street
   [0.150, [13, 14, 10.5], [3.0, 4.5, -5], 52],
@@ -79,11 +81,15 @@ export const KEYS = [
   [0.700, [4.22, 4.9, -3.3], [5.7, 4.25, 1.2], 58, 0.3],
   [0.712, [4.05, 4.9, -5.2], [5.5, 4.9, -0.4], 58],
   [0.720, [3.75, 4.9, -6.9], [5.2, 4.9, -1.8], 58],
-  // the stair: into the well (x 0.95-2.95, d 7.5-8.6) and up to the roof landing
+  // the stair: back into the well (x 0.95-2.95, d 7.5-8.6) and up over the half landing to a
+  // hold that reads the dog-leg: the upper flight and its rail climbing to the roof landing and
+  // its window, the first-floor hall below. The lens keeps to the rear of the well, half a metre
+  // clear of the front flight's rail, then rises to the roof landing short of the bedroom wall
   [0.730, [3.5, 5.0, -7.7], [5.5, 5.0, -3.0], 60],
-  [0.746, [2.6, 5.6, -7.9], [4.4, 5.2, -6.1], 60],
-  [0.762, [1.6, 7.3, -7.95], [4.45, 7.3, -7.1], 60],
-  [0.776, [2.95, 8.3, -7.6], [5.9, 8.0, -7.5], 60],
+  [0.744, [2.45, 5.75, -8.05], [4.6, 5.45, -6.4], 60],
+  [0.756, [1.2, 7.3, -8.18], [4.4, 6.2, -7.2], 62],
+  [0.767, [1.1, 7.5, -8.2], [4.4, 6.2, -7.2], 62],
+  [0.781, [2.85, 8.3, -7.3], [5.9, 7.7, -7.6], 60],
   [0.812, [3.2, 8.3, -7.1], [5.3, 7.9, -10.6], 58],
   [0.822, [3.72, 8.2, -8.05], [5.3, 7.9, -11.0], 58, 0.08],
   [0.834, [4.0, 8.2, -8.4], [5.3, 7.9, -11.0], 58, 0.1],
