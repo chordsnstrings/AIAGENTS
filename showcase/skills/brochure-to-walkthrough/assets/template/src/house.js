@@ -46,6 +46,7 @@ export function buildShell(B, { hero = false } = {}) {
   }
 
   // Black aluminium frame with glass panes in the plane d. open: index of a slid-open panel.
+  // Panes facing the garden take 'glassRear' so they mirror the rear reflection probe, not the street.
   function glaze(x0, x1, y0, y1, d, panels = 1, open = null, glassKey = 'glass') {
     const t = 0.055, h = 0.045;
     bx('frame', x0, x1, y1 - t, y1, d - h, d + h);
@@ -133,13 +134,10 @@ export function buildShell(B, { hero = false } = {}) {
   }
   for (const x of [1.5, 4.6]) {
     B.add('downlight', new THREE.CylinderGeometry(0.07, 0.07, 0.01, 20), new THREE.Matrix4().makeTranslation(x, C0 - 0.004, -3.6));
-    B.quad('pool', [x - 1.6, 0.075, -2.0], [x + 1.6, 0.075, -2.0], [x + 1.6, 0.075, -5.2], [x - 1.6, 0.075, -5.2]);
   }
-  B.quad('pool', [1.4, 0.075, -5.9], [3.6, 0.075, -5.9], [3.6, 0.075, -7.0], [1.4, 0.075, -7.0]);
   bx('led', 1.9, 3.1, C0 - 0.02, C0 - 0.005, 6.1, 6.16);
-  glaze(0.1, 6.0, F0, C0, 14.9, 4, hero ? 2 : null);
+  glaze(0.1, 6.0, F0, C0, 14.9, 4, hero ? 2 : null, 'glassRear');
   bx('led', 0.3, 5.8, C0 - 0.03, C0 - 0.01, 15.2, 15.24);
-  B.quad('pool', [0.3, 0.205, -15.0], [5.8, 0.205, -15.0], [5.8, 0.205, -16.6], [0.3, 0.205, -16.6]);
 
   // ---------- first floor
   bx('render', 0.1, 6.0, C0, F1, 1.5, 6.65);
@@ -172,10 +170,10 @@ export function buildShell(B, { hero = false } = {}) {
   bx('patio', 2.95, 6.0, F1, F1 + 0.02, 14.26, 15.28, F.PY);
   railing(true, 0.3, 5.8, F1, 15.2);
   wallX('stone', 0.1, 2.95, F1, C1, 13.29, 13.44, [[0.35, 2.6, F1, F1 + 2.7]]);
-  glaze(0.35, 2.6, F1, F1 + 2.7, 13.365, 2, hero ? 1 : null);
+  glaze(0.35, 2.6, F1, F1 + 2.7, 13.365, 2, hero ? 1 : null, 'glassRear');
   bx('stone', 2.95, 3.05, F1, C1, 13.29, 14.26);
   wallX('stone', 3.05, 6.0, F1, C1, 14.11, 14.26, [[3.3, 5.75, F1, F1 + 2.7]]);
-  glaze(3.3, 5.75, F1, F1 + 2.7, 14.185, 2, hero ? 0 : null);
+  glaze(3.3, 5.75, F1, F1 + 2.7, 14.185, 2, hero ? 0 : null, 'glassRear');
   latticeD(0.38, 13.5, 14.9, F1, C1 - 0.05);
   slats(0.3, 2.95, C1 + 0.1, F2, 13.44, 14.93);
   slats(3.05, 5.8, C1 + 0.1, F2, 14.26, 14.93);
@@ -198,9 +196,9 @@ export function buildShell(B, { hero = false } = {}) {
   wallX('render', 4.4, 6.0, F2, C2, 7.95, 8.1, [[4.85, 5.65, F2 + 0.9, F2 + 2.4]]);
   glaze(4.85, 5.65, F2 + 0.9, F2 + 2.4, 8.025, 1);
   wallX('stone', 0.1, 2.9, F2, C2, 11.05, 11.2, [[0.5, 1.6, F2 + 1.4, F2 + 2.4]]);
-  glaze(0.5, 1.6, F2 + 1.4, F2 + 2.4, 11.125, 1);
+  glaze(0.5, 1.6, F2 + 1.4, F2 + 2.4, 11.125, 1, null, 'glassRear');
   wallX('render', 2.9, 6.0, F2, C2, 11.05, 11.2, [[2.9, 5.65, F2, F2 + 2.75]]);
-  glaze(2.9, 5.65, F2, F2 + 2.75, 11.125, 2, hero ? 1 : null);
+  glaze(2.9, 5.65, F2, F2 + 2.75, 11.125, 2, hero ? 1 : null, 'glassRear');
   bx('paint', 0, 0.1, F2, C2, 6.6, 11.2);
   bx('paint', 6.0, 6.1, F2, C2, 7.95, 11.2);
   bx('render', 0, 4.5, C2, R2, 6.3, 11.2);

@@ -121,13 +121,6 @@ export function railTexture() {
   return tex(c, { srgb: false, repeat: true });
 }
 
-export function radialTexture(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)', size = 128) {
-  const [c, g] = canvas(size, size);
-  const gr = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  gr.addColorStop(0, inner); gr.addColorStop(1, outer);
-  g.fillStyle = gr; g.fillRect(0, 0, size, size);
-  return tex(c, { srgb: false });
-}
 
 // Quiet abstract canvas: colour fields in sand, ivory and violet with dry-brush texture.
 export function artTexture(seed, palette) {
@@ -165,6 +158,22 @@ export function roomTexture() {
     g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
   }
   g.fillStyle = 'rgba(40,32,26,0.55)'; g.fillRect(30, 150, 120, 50); g.fillRect(170, 120, 60, 90);
+  return tex(c);
+}
+
+// An unlit neighbour's room (about 0.06 albedo): a dim gradient with soft curtain folds and a dark
+// band of furniture, so an off window reads as a room behind glass rather than a black hole.
+export function roomDimTexture() {
+  const [c, g] = canvas(256, 256);
+  let gr = g.createLinearGradient(0, 0, 0, 256);
+  gr.addColorStop(0, '#5a5048'); gr.addColorStop(0.6, '#3e3630'); gr.addColorStop(1, '#231e1a');
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  for (let x = 0; x < 256; x += 22) {
+    gr = g.createLinearGradient(x, 0, x + 22, 0);
+    gr.addColorStop(0, 'rgba(255,240,220,0)'); gr.addColorStop(0.45, 'rgba(255,240,220,0.16)'); gr.addColorStop(1, 'rgba(0,0,0,0.12)');
+    g.fillStyle = gr; g.fillRect(x, 0, 22, 256);
+  }
+  g.fillStyle = 'rgba(30,24,20,0.5)'; g.fillRect(0, 150, 256, 106);
   return tex(c);
 }
 

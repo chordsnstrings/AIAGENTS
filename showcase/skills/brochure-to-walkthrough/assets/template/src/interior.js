@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { H } from './plan.js';
 import { F } from './builder.js';
-import { drape, pillow, sheer } from './softgoods.js';
+import { drape, loftAt, pillow, sheer } from './softgoods.js';
 
 // Interior of the hero unit only: finishes, stair, doors, kitchen, bathrooms and a minimal
 // warm-modern furniture scheme at true sizes. Everything is placed in plan coordinates.
@@ -142,13 +142,38 @@ export function makeKit(B, spots) {
     B.add('sheer', sheer(d1 - d0, y1 - y0, Math.round(x * 13 + d0 * 7)), M4(x, (y0 + y1) / 2, (d0 + d1) / 2, Math.PI / 2), 'keep');
   }
   const downlight = (x, y, d) => B.add('downlight', new THREE.CylinderGeometry(0.045, 0.045, 0.01, 18), M4(x, y - 0.004, d));
+  // bulb positions [x, y, d] of every lamp placed through the kit, for the engine's pool of night
+  // point lights (the baked volume carries the room light; the pool adds the pools and glints)
+  const lamps = [];
+  const lampAt = (x, y, d) => lamps.push([x, y, d]);
+  // an open linen drum with its UVs kept at unit scale, so the shade shader's rim-to-top gradient
+  // spans the drum whatever its size
+  const shade = (x, y, d, r0, r1, h, seg = 28) => { B.add('lampShade', new THREE.CylinderGeometry(r0, r1, h, seg, 1, true), M4(x, y, d), 'keep'); lampAt(x, y, d); };
   function lamp(x, y, d, h = 0.55, shadeR = 0.17) { // table lamp: ceramic base + linen drum
     cyl('ceramic', x, y + h * 0.3, d, 0.07, 0.09, h * 0.6, 20);
-    cyl('lampShade', x, y + h * 0.8, d, shadeR * 0.9, shadeR, h * 0.4, 28, null, true);
+    shade(x, y + h * 0.8, d, shadeR * 0.9, shadeR, h * 0.4);
   }
   function pendantGlobe(x, y, d, drop = 0.9, r = 0.11) {
     cyl('frame', x, y - drop / 2, d, 0.003, 0.003, drop, 6);
     sphere('bulb', x, y - drop - r * 0.8, d, r);
+    lampAt(x, y - drop - r * 0.8, d);
+  }
+  // the everyday clutter a staged room lacks: a short stack of books with a cup beside it
+  function books(x, y, d, ry = 0, n = 3) {
+    const ks = ['linenSand', 'velvet', 'joinery'];
+    let yy = y;
+    for (let i = 0; i < n; i++) {
+      const h = 0.022 + 0.005 * ((i * 7) % 3);
+      rb(ks[i % 3], x + 0.006 * (i % 2 ? 1 : -1), yy + h / 2, d, 0.15 - 0.012 * i, h, 0.22 - 0.015 * i, 0.003, ry + (i % 2 ? 0.14 : -0.1));
+      yy += h;
+    }
+    cyl('ceramic', x, y + 0.04, d + 0.16, 0.034, 0.04, 0.08, 16);
+  }
+  function tray(x, y, d) { // brass tray with a carafe and a glass
+    rb('brass', x, y + 0.006, d, 0.32, 0.012, 0.22, 0.004);
+    const prof = [[0.001, 0], [0.045, 0], [0.05, 0.06], [0.03, 0.14], [0.018, 0.2], [0.02, 0.23]];
+    B.add('glassLight', new THREE.LatheGeometry(prof.map(([a, b]) => new THREE.Vector2(a, b)), 20), M4(x - 0.07, y + 0.012, d), 'box');
+    cyl('glassLight', x + 0.08, y + 0.057, d + 0.03, 0.03, 0.034, 0.09, 16, null, true);
   }
   function chair(x, d, ry, seatK = 'boucle') {
     const P = M4(x, F0, d, ry);
@@ -183,12 +208,15 @@ export function makeKit(B, spots) {
     const base = M4(head0, top, d, dir > 0 ? Math.PI : 0);
     const put = (k, g, x, yy, z, tilt = 0, uv = 'keep') => B.add(k, g, base.clone().multiply(new THREE.Matrix4().makeTranslation(x, yy, z)
       .multiply(new THREE.Matrix4().makeRotationZ(-tilt)).multiply(new THREE.Matrix4().makeRotationY(-Math.PI / 2))), uv);
-    // duvet turned down below the pillows, with a rolled top edge; a throw across the foot
-    const s0 = 0.6, dv = drape({ L: len - 0.05 - s0, W: w - 0.02, drop: 0.3, dropFoot: 0.27, seed });
+    // duvet turned down below the pillows, with a rolled top edge; a throw dropped across the foot,
+    // hanging long on one side and short on the other with an uneven hem, as a thrown one does
+    const s0 = 0.6, dv = drape({ L: len - 0.05 - s0, W: w - 0.02, drop: 0.3, dropFoot: 0.27, loft: 0.09, hem: 0.08, seed });
     B.add(cover, dv, base.clone().multiply(new THREE.Matrix4().makeTranslation(s0, 0.004, 0)), 'keep');
     B.add(cover, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(dv.userData.head), 60, 0.032, 8), base.clone().multiply(new THREE.Matrix4().makeTranslation(s0 + 0.012, 0.02, 0)), 'box');
-    B.add('velvet', drape({ L: 0.48, W: w + 0.1, drop: 0.27, dropFoot: 0, r: 0.1, loft: 0.012, pleat: 0.04, seed: seed + 2 }),
-      base.clone().multiply(new THREE.Matrix4().makeTranslation(len - 0.75, 0.055, 0)), 'keep');
+    const long = seed % 2 ? 0.45 : 0.12, ts = len - 0.75;
+    const onDuvet = (s, t) => { const [p, c] = loftAt(s + ts - s0, t, 0.09, seed); return p - c; };
+    B.add('velvet', drape({ L: 0.65, W: w + 0.1, dropL: long, dropR: 0.57 - long, dropFoot: 0, r: 0.1, loft: 0.012, pleat: 0.04, crease: 0.008, fold: 0.03, hem: 0.3, under: onDuvet, seed: seed + 2 }),
+      base.clone().multiply(new THREE.Matrix4().makeTranslation(ts, 0.012, 0)), 'keep');
     // two sleeping pillows leaning on the headboard, a pair of cushions in front
     const pl = Math.min(0.72, w * 0.44);
     for (const [i, o] of [-0.26, 0.26].entries()) put('linen', pillow({ L: pl, D: 0.5, T: 0.17, seed: seed + i }), 0.22, 0.25, o * w / 1.6 * 1.05, 1.0);
@@ -196,28 +224,46 @@ export function makeKit(B, spots) {
     put('linenSand', pillow({ L: 0.45, D: 0.45, T: 0.2, seed: seed + 6 }), 0.47, 0.21, 0.21, 1.18);
     return { foot: headX - dir * (len + 0.11) };
   }
-  function nightstand(x, y, d) {
+  // bedside table: a lamp, or a lamp pushed towards the wall with books in front of it, or a full
+  // arrangement of flowers where a pendant hangs above instead (the wall is at x 0.1 or 6.0)
+  function nightstand(x, y, d, { lamp: withLamp = true, books: withBooks = false, flowers = false, seed = 1 } = {}) {
     rb('walnut', x, y + 0.27, d, 0.42, 0.42, 0.42, 0.02);
     rb('blackSatin', x, y + 0.03, d, 0.36, 0.06, 0.36, 0.005);
-    lamp(x, y + 0.48, d, 0.42, 0.13);
+    const top = y + 0.48, ws = x > 3.05 ? 1 : -1;
+    if (withLamp) lamp(x + (withBooks ? 0.09 * ws : 0), top, d, 0.42, 0.13);
+    if (flowers) vase(x + 0.05 * ws, top, d, { h: 0.24, r: 0.07, stems: 13, spread: 0.16, height: 0.38, bloom: 0.055, seed });
+    if (withBooks) books(x - 0.11 * ws, top, d, ws * 0.1, withLamp || flowers ? 2 : 3);
+  }
+  // brass bar pulls where door leaves meet, a pair per meeting line; face is the plane of the
+  // fluted front, out the direction away from the carcass
+  function pulls(alongX, a0, a1, y, face, out) {
+    const n = Math.max(1, Math.round((a1 - a0) / 0.55)), f0 = Math.min(face, face + out * 0.025), f1 = Math.max(face, face + out * 0.025);
+    for (let i = 1; i < n; i++) for (const s of [-1, 1]) {
+      const c = a0 + (a1 - a0) * i / n + s * 0.035;
+      if (alongX) bx('brass', c - 0.008, c + 0.008, y + 0.825, y + 1.275, f0, f1);
+      else bx('brass', f0, f1, y + 0.825, y + 1.275, c - 0.008, c + 0.008);
+    }
   }
   function wardrobeAlongX(x0, x1, y, d0, d1, h = 2.45, frontAtD1 = false) { // fluted oak doors on one long face
     bx('joinery', x0, x1, y, y + h, d0, d1);
     const a = frontAtD1 ? d1 : d0 - 0.012, b = frontAtD1 ? d1 + 0.012 : d0;
     for (let x = x0 + 0.03; x < x1 - 0.01; x += 0.05) bx('joinery', x - 0.012, x + 0.012, y + 0.02, y + h - 0.02, a, b);
+    pulls(true, x0, x1, y, frontAtD1 ? b : a, frontAtD1 ? 1 : -1);
   }
   function wardrobeAlongD(x0, x1, y, d0, d1, faceMinusX, h = 2.45) {
     bx('joinery', x0, x1, y, y + h, d0, d1);
     const xf = faceMinusX ? x0 : x1;
     for (let d = d0 + 0.03; d < d1 - 0.01; d += 0.05) bx('joinery', faceMinusX ? xf - 0.012 : xf, faceMinusX ? xf : xf + 0.012, y + 0.02, y + h - 0.02, d - 0.012, d + 0.012);
+    pulls(false, d0, d1, y, faceMinusX ? xf - 0.012 : xf + 0.012, faceMinusX ? -1 : 1);
   }
-  return { M4, bx, rb, cyl, sphere, wallX, wallD, door, quadArt, quadArtX, frameArt, frameArtX, print, rug, vase, curtain, curtainD, downlight, lamp, pendantGlobe, chair, loungeChair, plant, bed, nightstand, wardrobeAlongX, wardrobeAlongD };
+  return { M4, bx, rb, cyl, sphere, wallX, wallD, door, quadArt, quadArtX, frameArt, frameArtX, print, rug, vase, curtain, curtainD, downlight, lamp, shade, lampAt, lamps, books, tray, pendantGlobe, chair, loungeChair, plant, bed, nightstand, wardrobeAlongX, wardrobeAlongD };
 }
 
 export function buildInterior(B) {
   const { F0, C0, F1, C1, F2, C2 } = H;
   const spots = { bush: [], flower: [], olive: [], pink: [] };
-  const { bx, rb, cyl, sphere, wallX, wallD, door, frameArt, frameArtX, print, rug, vase, curtain, downlight, lamp, pendantGlobe, chair, loungeChair, plant, bed, nightstand, wardrobeAlongX, wardrobeAlongD } = makeKit(B, spots);
+  const kit = makeKit(B, spots);
+  const { bx, rb, cyl, sphere, wallX, wallD, door, frameArt, frameArtX, print, rug, vase, curtain, downlight, lamp, shade, lampAt, tray, pendantGlobe, chair, loungeChair, plant, bed, nightstand, wardrobeAlongX, wardrobeAlongD } = kit;
 
   // ======================================================= GROUND FLOOR
   bx('travertine', 0.1, 6.0, F0, F0 + 0.012, 6.75, 9.05, F.PY);
@@ -274,7 +320,7 @@ export function buildInterior(B) {
   chair(1.35, 7.62, 0, 'velvet');
   cyl('brass', 1.0, F0 + 0.78, 7.05, 0.07, 0.07, 0.015, 20);
   cyl('brass', 1.0, F0 + 0.98, 7.05, 0.008, 0.008, 0.4, 8);
-  cyl('lampShade', 1.0, F0 + 1.2, 7.05, 0.06, 0.11, 0.12, 20, null, true);
+  shade(1.0, F0 + 1.2, 7.05, 0.06, 0.11, 0.12, 20);
   rb('linenSand', 1.6, F0 + 0.79, 7.0, 0.3, 0.05, 0.22, 0.01);
   vase(1.85, F0 + 0.76, 6.95, { h: 0.12, r: 0.04, stems: 4, spread: 0.05, height: 0.16, bloom: 0.028, seed: 3 });
   rug(1.35, F0 + 0.02, 7.55, 1.5, 1.2);
@@ -378,9 +424,9 @@ export function buildInterior(B) {
     bx('glassLight', 2.94, 2.952, F1, F1 + 1.0, 7.5, 8.6);
     bx('oak', 2.92, 2.98, F1 + 1.0, F1 + 1.04, 7.5, 8.6);
   }
-  // ---- master bedroom
-  nightstand(5.68, F1, 3.85);
-  nightstand(5.68, F1, 6.25);
+  // ---- master bedroom: a lamp and books on one side, a full arrangement under the pendant on the other
+  nightstand(5.68, F1, 3.85, { books: true });
+  nightstand(5.68, F1, 6.25, { lamp: false, flowers: true, seed: 5 });
   pendantGlobe(5.45, C1, 3.85, 1.0, 0.1);
   pendantGlobe(5.45, C1, 6.25, 1.0, 0.1);
   curtain(2.55, 3.15, F1 + 0.02, C1 - 0.15, 3.65);
@@ -410,20 +456,19 @@ export function buildInterior(B) {
   rb('ceramic', 5.7, F1 + 0.38, 9.8, 0.36, 0.4, 0.36, 0.12);
   // ---- bedroom 2
   bed(4.95, 12.75, F1 + 0.012, 1.6, 2.0, 5.98, 'linenSand');
-  nightstand(5.7, F1, 11.68);
-  nightstand(5.7, F1, 13.82);
+  nightstand(5.7, F1, 11.68, { lamp: false, flowers: true, seed: 8 });
+  nightstand(5.7, F1, 13.82, { books: true });
   pendantGlobe(5.45, C1, 11.68, 1.05, 0.09);
   pendantGlobe(5.45, C1, 13.82, 1.05, 0.09);
   wardrobeAlongX(4.15, 6.0, F1, 10.7, 11.3, 2.45, true);
   rug(4.6, F1 + 0.02, 12.75, 2.55, 2.55);
   for (const [i, d0] of [12.17, 12.83].entries()) print(['art1', 'art3'][i], 5.995, d0, d0 + 0.5, F1 + 1.42, F1 + 2.08, false);
-  vase(5.7, F1 + 0.48, 11.515, { h: 0.11, r: 0.035, stems: 3, spread: 0.03, height: 0.14, bloom: 0.026, seed: 8 });
   curtain(3.35, 3.85, F1 + 0.02, C1 - 0.15, 13.98);
   curtain(5.3, 5.85, F1 + 0.02, C1 - 0.15, 13.98);
   // ---- bedroom 3
   bed(1.15, 11.45, F1 + 0.012, 1.6, 2.0, 0.12, 'linen');
-  nightstand(0.4, F1, 10.4);
-  nightstand(0.4, F1, 12.5);
+  nightstand(0.4, F1, 10.4, { books: true });
+  nightstand(0.4, F1, 12.5, { lamp: false, flowers: true, seed: 9 });
   wardrobeAlongX(0.15, 1.95, F1, 9.55, 10.12, 2.45, true);
   loungeChair(2.45, F1 + 0.012, 12.6, -Math.PI * 0.7, 'velvet');
   curtain(0.4, 0.95, F1 + 0.02, C1 - 0.15, 13.15);
@@ -431,12 +476,10 @@ export function buildInterior(B) {
   pendantGlobe(1.2, C1, 11.45, 0.7, 0.16);
   rug(1.75, F1 + 0.02, 11.45, 2.05, 2.3);
   for (const [i, d0] of [10.87, 11.53].entries()) print(['art3', 'art1'][i], 0.105, d0, d0 + 0.5, F1 + 1.42, F1 + 2.08, true);
-  vase(0.4, F1 + 0.48, 12.665, { h: 0.11, r: 0.035, stems: 3, spread: 0.03, height: 0.14, bloom: 0.026, seed: 9 });
   // ---- balconies
   for (const [x, ry] of [[3.6, 0.2], [4.6, -0.2]]) loungeChair(x, F1 + 0.02, 2.35, ry, 'linenGrey');
-  // master: a print beside the bath door, flowers on the far nightstand and the vanity
+  // master: a print beside the bath door, flowers on the vanity
   print('art2', 2.45, 5.1, 5.6, F1 + 1.15, F1 + 1.85, true);
-  vase(5.68, F1 + 0.48, 6.415, { h: 0.11, r: 0.035, stems: 3, spread: 0.03, height: 0.14, bloom: 0.026, seed: 5 });
   vase(0.3, F1 + 0.875, 5.825, { h: 0.1, r: 0.035, stems: 3, spread: 0.03, height: 0.12, bloom: 0.024, k: 'travertineSlab', seed: 6 });
   vase(5.8, F1 + 0.83, 9.64, { h: 0.1, r: 0.035, stems: 3, spread: 0.03, height: 0.12, bloom: 0.024, k: 'travertineSlab', seed: 7 });
   cyl('travertineSlab', 4.1, F1 + 0.25, 2.1, 0.22, 0.22, 0.45, 30);
@@ -459,22 +502,26 @@ export function buildInterior(B) {
   wallX('paint', 2.9, 6.0, F2, C2, 11.038, 11.05, [[2.9, 5.65, F2, F2 + 2.75]]);
   wallX('marble', 0.1, 2.15, F2, C2 - 0.3, 11.038, 11.05, [[0.5, 1.6, F2 + 1.4, F2 + 2.4]]);
   bx('glassLight', 2.94, 2.952, F2, F2 + 1.0, 7.5, 7.95);
-  door(3.3, 8.0, F2, 0.85, 1.0, true);
+  door(3.3, 8.0, F2, 0.85, 1.45, true); // swung flat like the others, so the route passes it straight
   bx('ceiling', 0.1, 4.5, C2 - 0.012, C2, 6.75, 11.05, F.NY);
   bx('ceiling', 4.5, 6.0, C2 - 0.012, C2, 8.1, 11.05, F.NY);
   for (const [x, d] of [[3.7, 7.3], [4.0, 9.0], [4.0, 10.4], [1.4, 8.0]]) downlight(x, C2 - 0.012, d);
   bed(4.95, 9.55, F2 + 0.012, 1.6, 2.0, 5.98, 'linen');
   nightstand(5.7, F2, 8.48);
-  nightstand(5.7, F2, 10.62);
+  nightstand(5.7, F2, 10.62, { books: true });
   rug(4.5, F2 + 0.02, 9.55, 2.55, 2.35);
   for (const [i, d0] of [8.97, 9.63].entries()) print(['art2', 'art1'][i], 5.995, d0, d0 + 0.5, F2 + 1.42, F2 + 2.08, false);
-  vase(5.7, F2 + 0.48, 10.785, { h: 0.11, r: 0.035, stems: 3, spread: 0.03, height: 0.14, bloom: 0.026, seed: 10 });
-  vase(2.85, F2 + 0.76, 10.5, { h: 0.16, r: 0.05, stems: 5, spread: 0.07, height: 0.2, bloom: 0.034, seed: 11 });
   curtain(2.95, 3.45, F2 + 0.02, C2 - 0.15, 10.92);
   curtain(5.1, 5.6, F2 + 0.02, C2 - 0.15, 10.92);
   frameArtX('art3', 3.051, 8.35, 9.25, F2 + 1.0, F2 + 1.9, true);
-  rb('walnut', 2.65, F2 + 0.74, 10.6, 0.7, 0.04, 0.5, 0.01);
-  plant(4.1, F2, 7.4, 0.9, 'leaf');
+  // the desk carries this room's arrangement and a tray with a carafe. It stands before the fixed
+  // pane of the terrace glazing, inside the key frame from the foot of the bed; in the west corner
+  // it sat 58 degrees off the lens axis and no shot ever saw it.
+  rb('walnut', 3.6, F2 + 0.74, 10.58, 0.7, 0.04, 0.45, 0.01);
+  for (const x of [3.29, 3.91]) for (const d of [10.39, 10.77]) bx('walnut', x - 0.015, x + 0.015, F2, F2 + 0.72, d - 0.015, d + 0.015);
+  vase(3.4, F2 + 0.76, 10.62, { h: 0.24, r: 0.07, stems: 13, spread: 0.16, height: 0.38, bloom: 0.055, seed: 11 });
+  tray(3.73, F2 + 0.76, 10.55);
+  plant(5.2, F2, 7.3, 0.9, 'leaf'); // on the gravel roof outside the landing glazing, so the lobby stays clear for the route
   // roof bathroom
   rb('walnut', 0.4, F2 + 0.72, 10.35, 0.45, 0.22, 0.9, 0.01);
   rb('ceramic', 0.4, F2 + 0.86, 10.35, 0.36, 0.08, 0.46, 0.04);
@@ -496,15 +543,17 @@ export function buildInterior(B) {
     bx('soil', 5.55, 5.9, F2 + 0.6, F2 + 0.62, 11.45, 13.9, F.PY);
     spots.flower.push([5.72, F2 + 0.62, 11.9, 0.75], [5.72, F2 + 0.62, 12.7, 0.8], [5.72, F2 + 0.62, 13.5, 0.7]);
     plant(5.6, F2, 13.75, 0.95);
-    for (const [x, d] of [[1.3, 13.0], [2.6, 11.45]]) { rb('frame', x, y + 0.2, d, 0.18, 0.4, 0.18, 0.01); sphere('bulb', x, y + 0.2, d, 0.05); }
+    for (const [x, d] of [[1.3, 13.0], [2.6, 11.45]]) { rb('frame', x, y + 0.2, d, 0.18, 0.4, 0.18, 0.01); sphere('bulb', x, y + 0.2, d, 0.05); lampAt(x, y + 0.2, d); }
   }
 
-  // ---------- lights (hero only); intensities are scaled by time of day in main.js
+  // ---------- lights (hero only); intensities are scaled by time of day in main.js. The rooms
+  // have no ceiling-level fill lights: a point light under the ceiling of the living room and of
+  // each landing lit every wall to the same level at night, an even wash with no pools. Room light
+  // at night is the baked lamp volume plus the pool lights parked on the nearest bulbs; only the
+  // terrace fire, which the bake does not carry, keeps a light of its own.
   const lights = [
-    { type: 'point', name: 'hall', pos: [2.6, C0 - 0.4, 8.2], color: 0xffd9a8, day: 0, dusk: 1.5, dist: 7 },
-    { type: 'point', name: 'livingWarm', pos: [3.0, C0 - 0.5, 12.6], color: 0xffd2a0, day: 0, dusk: 2.2, dist: 9 },
-    { type: 'point', name: 'ff', pos: [3.8, C1 - 0.4, 8.5], color: 0xffd9a8, day: 0, dusk: 1.8, dist: 8 },
     { type: 'point', name: 'fire', pos: [1.95, F2 + 0.9, 12.3], color: 0xff9a4a, day: 0, dusk: 7, dist: 7 },
   ];
-  return { spots, lights };
+  // lamps: bulb positions [x, y, d] of the fixed fixtures, for a pool of point lights near the camera
+  return { spots, lights, lamps: kit.lamps };
 }

@@ -2,13 +2,18 @@
 // Linear components, so the page can relight by time of day and style without re-baking:
 //   S - sky light (golden-hour Preetham sky, same model and gain as the page), plus how open
 //       each probe is to the sky, which tells the page where "indoors" is
-//   U - sunlight bounced off surfaces (direct sun stays real-time, with its shadow map)
+//   U - sunlight bounced off surfaces (direct sun stays real-time, with its shadow map), for the
+//       sun the page holds through the house; U2 the same for the sun swung north-west for the
+//       terrace chapters, so the bounce pattern follows the real sun across the swing
 //   N - each style's night lamps, as soft point emitters
 // Pass 1 is the light arriving directly; every later pass lights each ray hit with the previous
 // pass's interpolated probes, so two bounces need no per-surface light sampling at all.
+// Each component is written to assets/gi/<name>.json (base64 bytes with the grid's metadata), where
+// the page fetches it beside the textures: the host refuses raw binaries, and the bundle stays free
+// of data only one style needs.
 import * as THREE from 'three';
 import { MeshBVH } from 'three-mesh-bvh';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { Builder, mirrorX } from '../src/builder.js';
 import { buildShell } from '../src/house.js';
 import { buildInterior, makeKit } from '../src/interior.js';
@@ -19,7 +24,11 @@ const RAYS = +(process.env.RAYS || 256), PASSES = 3;
 const SP = 0.5, MIN = [0.0, 0.0, -15.6], DIMS = [13, 22, 30];
 const NP = DIMS[0] * DIMS[1] * DIMS[2];
 const D2R = Math.PI / 180;
-const sunDir = new THREE.Vector3(Math.sin(-55 * D2R) * Math.cos(18 * D2R), Math.sin(18 * D2R), Math.cos(-55 * D2R) * Math.cos(18 * D2R));
+const dirOf = (az, el) => new THREE.Vector3(Math.sin(az * D2R) * Math.cos(el * D2R), Math.sin(el * D2R), Math.cos(az * D2R) * Math.cos(el * D2R));
+// the golden-hour sun lights the sky component and U; U2 takes the swung sun of story.js's SUN
+// schedule at the elevation it holds while the camera is in bedroom 4 (main.js sunAt)
+const sunDir = dirOf(-55, 18);
+const SUN_DIRS = { U: sunDir, U2: dirOf(-128, 11.5) };
 const SUN = [4.3 * 1.0, 4.3 * 0.81, 4.3 * 0.6];
 const LUM = [0.2126, 0.7152, 0.0722];
 const lin = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
@@ -29,14 +38,16 @@ const lin = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
 const ALB = {
   frame: lin(0x1c1c1c), tv: lin(0x101010), blackSatin: lin(0x151515), brass: lin(0xb9975c), chrome: lin(0xbbbbbb), mirror: lin(0xaaaaaa),
   ceramic: lin(0xeeeeec), charcoal: lin(0x2a2826), soil: lin(0x5a4a3a), bronze: lin(0x5a4430), ground: lin(0xb59f82), poolWater: lin(0x5aa8b0),
+  equipment: lin(0xb4b7b6), lodRoof: lin(0xe9e4dc),
 };
 const BASESET = {};
 const matSrc = readFileSync(new URL('../src/materials.js', import.meta.url), 'utf8');
 for (const m of matSrc.matchAll(/M\.(\w+) = pbr\('(\w+)', \{([^}]*)/g)) {
-  const c = /color: (0x[0-9a-f]+)/i.exec(m[3]), a = SET_AVG[m[2]];
+  const c = /color: (0x[0-9a-f]+)/i.exec(m[3]), al = /albedo: (0x[0-9a-f]+)/i.exec(m[3]), a = SET_AVG[m[2]];
   if (!a) continue;
   BASESET[m[1]] = m[2];
-  ALB[m[1]] = lin(c ? +c[1] : 0xffffff).map((v, i) => v * a[i]);
+  // albedo: is already the perceived colour (the page divides the set's mean out); color: is a tint on it
+  ALB[m[1]] = al ? lin(+al[1]) : lin(c ? +c[1] : 0xffffff).map((v, i) => v * a[i]);
 }
 function albedoFor(style) {
   const out = { ...ALB };
@@ -48,7 +59,7 @@ function albedoFor(style) {
   }
   return out;
 }
-const SKIP = new Set(['glass', 'glassLight', 'sheer', 'lattice', 'rail', 'pool', 'room', 'leaf', 'leafOlive', 'flower', 'flowerPink', 'frond']);
+const SKIP = new Set(['glass', 'glassRear', 'glassLight', 'sheer', 'lattice', 'rail', 'pool', 'room', 'leaf', 'leafOlive', 'flower', 'flowerPink', 'frond']);
 // night fixtures: intensity (candela-like, page units), softening radius, and a downward lobe
 const LAMP = { downlight: { I: 18, r: 0.12, lobe: true }, bulb: { I: 4, r: 0.15 }, lampShade: { I: 6, r: 0.25 }, led: { I: 1.2, r: 0.3 }, fire: { I: 8, r: 0.3 } };
 const WARM = [1, 0.72, 0.45];
@@ -119,7 +130,7 @@ function sceneFor(style) {
 }
 
 // ---------- Preetham sky, ported from three/examples/jsm/objects/Sky.js (golden-hour state)
-const SKY = { turbidity: 5.0, rayleigh: 1.6, mie: 0.0024, mieG: 0.72, gain: 0.82 };
+const SKY = { turbidity: 8.0, rayleigh: 2.6, mie: 0.005, mieG: 0.62, gain: 0.56 };
 const totalRayleigh = [5.804542996261093e-6, 1.3562911419845635e-5, 3.0265902468824876e-5];
 const MieConst = [1.8399918514433978e14, 2.7798023919660528e14, 4.0790479543861094e14];
 const sunE = (() => { const z = Math.max(-1, Math.min(1, sunDir.y)); return 1000 * Math.max(0, 1 - Math.exp(-((1.6110731556870734 - Math.acos(z)) / 1.5))); })();
@@ -219,7 +230,9 @@ function addDirect(C, i, p, { bvh, lamps }) {
     const reach = dist - l.rad - 0.03;
     if (reach > 0.01 && !visible(bvh, p, tmp, reach)) continue;
     const lobe = LAMP[l.k].lobe ? Math.max(0, tmp.y) ** 2 : 1;
-    const e = l.I * lobe / (dist * dist + l.r * l.r);
+    // a probe closer than half a cell to a fixture sees it no nearer than that, or one probe spikes
+    const d2 = Math.max(dist * dist, (SP * 0.5) ** 2);
+    const e = l.I * lobe / (d2 + l.r * l.r);
     for (let c = 0; c < 3; c++) {
       const ec = e * WARM[c], o = i * 12 + c * 4;
       C[o] += K0 * ec; C[o + 1] += K1 * ec * tmp.y; C[o + 2] += K1 * ec * tmp.z; C[o + 3] += K1 * ec * tmp.x;
@@ -249,7 +262,7 @@ function pass(ctx, comp, prev, bad) {
           const fi = h.face.a;
           hp.copy(h.point).addScaledVector(nrm, 0.01);
           let E = [0, 0, 0];
-          if (comp === 'U') { const c = nrm.dot(sunDir); if (c > 0 && visible(bvh, hp, sunDir, 300)) E = SUN.map((s) => s * c); }
+          if (SUN_DIRS[comp]) { const sd = SUN_DIRS[comp], c = nrm.dot(sd); if (c > 0 && visible(bvh, hp, sd, 300)) E = SUN.map((s) => s * c); }
           if (prev) { const ep = evalProbes(prev, hp.clone().addScaledVector(nrm, 0.2), nrm); E = E.map((v, k) => v + ep[k]); }
           rad = [col.getX(fi) / Math.PI * E[0], col.getY(fi) / Math.PI * E[1], col.getZ(fi) / Math.PI * E[2]];
         }
@@ -299,16 +312,19 @@ function encode(C, open) {
   return Buffer.from(out).toString('base64');
 }
 
-const res = { N: {} };
+const outDir = new URL('../assets/gi/', import.meta.url);
+mkdirSync(outDir, { recursive: true });
+const write = (name, data, stride) => {
+  writeFileSync(new URL(`${name}.json`, outDir), JSON.stringify({ spacing: SP, min: MIN, dims: DIMS, stride, data }));
+  console.log(`wrote assets/gi/${name}.json`);
+};
 for (const style of Object.keys(STYLES)) {
   const ctx = sceneFor(style), bad = maskFor(ctx);
   if (style === 'minimal') {
     const s = bake(ctx, 'S', bad);
     globalThis.OPEN = s.open;
-    res.S = encode(s.C, s.open);
-    res.U = encode(bake(ctx, 'U', bad).C);
+    write('S', encode(s.C, s.open), 7);
+    for (const comp of Object.keys(SUN_DIRS)) write(comp, encode(bake(ctx, comp, bad).C), 6);
   }
-  res.N[style] = encode(bake(ctx, 'N', bad).C);
+  write(`N-${style}`, encode(bake(ctx, 'N', bad).C), 6);
 }
-writeFileSync(new URL('../src/gi-data.js', import.meta.url), `// Generated by scripts/bake-gi.mjs - do not edit.\nexport const GI = ${JSON.stringify({ spacing: SP, min: MIN, dims: DIMS, ...res })};\n`);
-console.log('wrote src/gi-data.js');

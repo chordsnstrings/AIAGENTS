@@ -9,7 +9,7 @@ import { bushGeometry } from './vegetation.js';
 export function buildStyleSet(B, key, K) {
   const { F0, C0, F1, C1 } = H;
   const yG = F0 + 0.012, yF = F1 + 0.012;
-  const { M4, bx, rb, cyl, sphere, chair, loungeChair, bed, frameArtX } = K;
+  const { M4, bx, rb, cyl, sphere, chair, loungeChair, bed, frameArtX, shade, lampAt } = K;
   const add = (k, geo, m, uv = 'box') => B.add(k, geo, m, uv);
   const S = (x, y, d, sx, sy, sz, ry = 0) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, -d), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), new THREE.Vector3(sx, sy, sz));
   const ellipsoid = (k, x, y, d, rx, ry, rz) => add(k, new THREE.SphereGeometry(1, 40, 20), S(x, y, d, rx, ry, rz));
@@ -72,6 +72,7 @@ export function buildStyleSet(B, key, K) {
     }
     g.computeVertexNormals();
     add('lampShade', g, M4(x, y, d), 'keep');
+    lampAt(x, y, d);
   };
   const dome = (k, x, y, d, r) => add(k, new THREE.SphereGeometry(r, 40, 14, 0, Math.PI * 2, 0, Math.PI / 2), M4(x, y, d), 'box');
 
@@ -99,19 +100,20 @@ export function buildStyleSet(B, key, K) {
     barrel('boucle', 1.0, yG, 11.25, Math.PI * 0.88, 'boucle');
     cyl('brass', 0.45, yG + 0.8, 14.25, 0.012, 0.012, 1.55, 8);
     cyl('brass', 0.45, yG + 0.01, 14.25, 0.14, 0.14, 0.02, 24);
-    cyl('lampShade', 0.45, yG + 1.65, 14.25, 0.2, 0.22, 0.3, 32, null, true);
+    shade(0.45, yG + 1.65, 14.25, 0.2, 0.22, 0.3, 32);
     potPlant('leafOlive', 5.5, yG, 14.3, 1.25);
     // oval oak pedestal table, globe cluster
     oval('oak', 4.85, yG + 0.75, 12.7, 0.5, 1.0, 0.045);
     for (const d of [12.25, 13.15]) { cyl('oak', 4.85, yG + 0.37, d, 0.09, 0.15, 0.72, 24); cyl('oak', 4.85, yG + 0.02, d, 0.24, 0.24, 0.03, 32); }
     for (const d of [12.1, 12.7, 13.3]) { chair(4.15, d, Math.PI / 2, 'boucle'); chair(5.55, d, -Math.PI / 2, 'boucle'); }
-    for (const [d, drop, r] of [[12.25, 0.7, 0.13], [12.7, 0.95, 0.16], [13.15, 0.78, 0.12]]) { cable(4.85, d, C0, C0 - drop); sphere('bulb', 4.85, C0 - drop - r * 0.9, d, r); }
+    for (const [d, drop, r] of [[12.25, 0.7, 0.13], [12.7, 0.95, 0.16], [13.15, 0.78, 0.12]]) { cable(4.85, d, C0, C0 - drop); sphere('bulb', 4.85, C0 - drop - r * 0.9, d, r); lampAt(4.85, C0 - drop - r * 0.9, d); }
     // master: fluted oak wall, padded headboard
     for (let d = 3.62; d < 6.55; d += 0.06) bx('oak', 5.965, 6.0, F1, F1 + 2.55, d - 0.022, d + 0.022);
     bx('led', 5.95, 5.97, F1 + 2.55, F1 + 2.57, 3.6, 6.55);
     bed(4.9, 5.05, yF, 1.8, 2.05, 5.96);
     rug(4.5, 5.05, 3.0, 3.0, yF + 0.008);
     rb('velvet', 3.42, yF + 0.23, 5.05, 0.42, 0.44, 1.5, 0.06);
+    rb('linenSand', 3.4, yF + 0.47, 5.32, 0.4, 0.04, 0.5, 0.015, 0.12); // a folded throw on the bench
     barrel('boucle', 2.95, yF, 4.05, Math.PI * 0.75, 'boucle');
     cyl('travertineSlab', 2.85, yF + 0.27, 4.75, 0.2, 0.2, 0.55, 32);
   }
@@ -146,6 +148,7 @@ export function buildStyleSet(B, key, K) {
     cyl('brass', 0.45, yG + 0.75, 14.25, 0.009, 0.009, 1.5, 8);
     cyl('brass', 0.45, yG + 0.01, 14.25, 0.13, 0.13, 0.02, 24);
     sphere('lampShade', 0.45, yG + 1.62, 14.25, 0.2);
+    lampAt(0.45, yG + 1.62, 14.25);
     rb('travertineSlab', 5.5, yG + 0.21, 14.25, 0.5, 0.42, 0.5, 0.01);
     potPlant('leaf', 5.5, yG + 0.42, 14.25, 0.95, 'concrete', 1.4);
     // trestle table, spindle chairs, bench, pleated paper lantern
@@ -202,6 +205,7 @@ export function buildStyleSet(B, key, K) {
     cyl('paint', 1.4, yG + 0.5, 14.42, 0.09, 0.14, 1.0, 24);
     sphere('paint', 1.4, yG + 1.06, 14.42, 0.13);
     sphere('lampShade', 1.4, yG + 1.33, 14.42, 0.16);
+    lampAt(1.4, yG + 1.33, 14.42);
     potPlant('leafOlive', 5.5, yG, 14.3, 1.2, 'concrete');
     // oval elm pedestal table, cane-back chairs, rattan dome
     oval('walnut', 4.85, yG + 0.75, 12.7, 0.5, 0.98, 0.045);
@@ -216,6 +220,7 @@ export function buildStyleSet(B, key, K) {
     cable(4.85, 12.7, C0, C0 - 0.55);
     dome('weave', 4.85, C0 - 0.95, 12.7, 0.46);
     sphere('bulb', 4.85, C0 - 0.82, 12.7, 0.07);
+    lampAt(4.85, C0 - 0.82, 12.7);
     // master: arched mauve headboard, rattan barrel chair, rattan bench
     arch('velvet', 5.96, 4.1, 6.0, yF + 0.2, 0.7, 0.1, true);
     bed(4.85, 5.05, yF, 1.8, 2.0, 5.84, 'linen', false);
@@ -254,6 +259,7 @@ export function buildStyleSet(B, key, K) {
     cyl('brass', 0.5, yG + 0.012, 14.25, 0.15, 0.17, 0.025, 24);
     cyl('brass', 0.5, yG + 1.74, 14.25, 0.2, 0.06, 0.12, 32, null, true);
     cyl('bulb', 0.5, yG + 1.79, 14.25, 0.17, 0.17, 0.006, 24);
+    lampAt(0.5, yG + 1.79, 14.25);
     potPlant('leaf', 5.5, yG, 14.3, 1.15, 'concrete', 1.5);
     add('leaf', bushGeometry(16, 31, 1.0), S(5.45, yG + 2.05, 14.25, 0.7, 0.7, 0.7), 'keep');
     // racetrack walnut table, velvet barrel chairs, Murano-glass chandelier
@@ -268,6 +274,7 @@ export function buildStyleSet(B, key, K) {
       cable(x, d, C0 - 0.72, C0 - 0.72 - drop);
       sphere('bulb', x, C0 - 0.78 - drop, d, 0.06);
     }
+    lampAt(4.85, C0 - 0.95, 12.7); // the chandelier as one fixture
     // master: wall-to-wall channelled aubergine headboard
     for (let d = 3.7; d < 6.52; d += 0.2) rb('boucle', 5.9, yF + 0.95, d, 0.12, 1.5, 0.19, 0.05);
     bx('brass', 5.84, 5.98, yF + 1.7, yF + 1.72, 3.62, 6.55);

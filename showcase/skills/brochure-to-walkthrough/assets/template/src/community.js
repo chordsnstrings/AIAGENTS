@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { Builder, F, mirrorX, instanced } from './builder.js';
 import { buildShell } from './house.js';
+import { H } from './plan.js';
 import { palmGeometry, bushGeometry, instancedFrom } from './vegetation.js';
+import { shared, cloneEnhanced } from './materials.js';
 
 // Violet 2 sits in a cluster of curving streets lined with back-to-back townhouse rows. The
 // hero unit (XJ407B) is the middle of a seven-unit block; its frame is the world frame.
@@ -15,10 +17,84 @@ const CROSS = [-0.36, 0.34];
 function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
 const v3 = new THREE.Vector3();
 
+// Palms are the heaviest instances by far: 1.1k triangles each, over five hundred of them, and
+// their one bounding sphere spans the estate so nothing is ever culled. Two InstancedMesh pairs
+// share the matrices: the full model within PALM_NEAR of the camera, the 190-triangle model
+// beyond. The split is redone once the camera has moved PALM_STEP; a 34 KB upload at most.
+// Chunking the instances into angular sectors was measured and rejected: a wedge of this arc has
+// a bounding sphere of 120 m or more, which no camera position on the route can cull.
+const PALM_NEAR = 70, PALM_STEP = 5;
+function palmLOD(M, matrices) {
+  const hi = palmGeometry(), lo = palmGeometry({ radial: 8, rings: 6, segs: 4, every: 2, flat: true });
+  const n = matrices.length;
+  const mk = (g, mat) => {
+    const im = new THREE.InstancedMesh(g, mat, Math.max(1, n));
+    im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    im.count = 0; im.visible = false;
+    im.castShadow = true; im.receiveShadow = true;
+    im.matrixAutoUpdate = false;
+    return im;
+  };
+  const meshes = [mk(hi.trunk, M.bark), mk(hi.fronds, M.frond), mk(lo.trunk, M.bark), mk(lo.fronds, M.frond)];
+  const pos = matrices.map((m) => new THREE.Vector3().setFromMatrixPosition(m));
+  const at = new THREE.Vector3(Infinity, 0, 0);
+  const update = (cam) => {
+    if (cam.distanceTo(at) < PALM_STEP) return;
+    at.copy(cam);
+    let a = 0, b = 0;
+    for (let i = 0; i < n; i++) {
+      if (pos[i].distanceToSquared(cam) < PALM_NEAR * PALM_NEAR) { meshes[0].setMatrixAt(a, matrices[i]); meshes[1].setMatrixAt(a, matrices[i]); a++; }
+      else { meshes[2].setMatrixAt(b, matrices[i]); meshes[3].setMatrixAt(b, matrices[i]); b++; }
+    }
+    meshes[0].count = meshes[1].count = a;
+    meshes[2].count = meshes[3].count = b;
+    for (const m of meshes) {
+      m.visible = m.count > 0;
+      m.instanceMatrix.needsUpdate = true;
+      if (m.visible) m.computeBoundingSphere();
+    }
+  };
+  // far palms cast only from the air: in the house and street zones they are outside the
+  // shadow frustum or too small to register, and every sun move redraws the whole map
+  const setZone = (zone) => { meshes[2].castShadow = meshes[3].castShadow = zone === 'aerial'; };
+  return { meshes, update, setZone };
+}
+
+// What a lived-in Dubai roof carries, in house-local plan units, on top of buildShell(): pavers
+// over the top slab, pale coping on the parapets, planter and garden walls, two split-unit
+// condensers and a water tank. Applied to the hero (main.js), the full neighbours and, in its
+// cheap form, the far houses, so the aerials read as a terrace of homes rather than a massing model.
+export function dressShell(B, { lod = false } = {}) {
+  const { F2, R2 } = H;
+  const bx = (k, x0, x1, y0, y1, d0, d1, f) => B.box(k, x0, x1, y0, y1, -d1, -d0, f);
+  const coping = (x0, x1, y, d0, d1) => bx('curb', x0 - 0.02, x1 + 0.02, y, y + 0.04, d0 - 0.02, d1 + 0.02);
+  // roof pavers, set in from the edge so the fascia still reads
+  bx('pavers', 0.05, 4.45, R2, R2 + 0.025, 6.35, 11.15, F.PY);
+  bx('pavers', 4.45, 6.05, R2, R2 + 0.025, 7.7, 11.15, F.PY);
+  if (!lod) {
+    coping(0, 0.1, F2 + 1.7, 11.2, 13.44); coping(6.0, 6.1, F2 + 1.7, 11.2, 14.26);
+    coping(0, 6.1, F2 + 0.55, 3.4, 3.6); coping(0, 0.1, F2 + 0.55, 3.6, 6.6); coping(6.0, 6.1, F2 + 0.55, 3.6, 7.95);
+    coping(0, 6.1, 2.0, 18.4, 18.5); coping(0, 0.1, 2.0, 15.0, 18.4); coping(6.0, 6.1, 2.0, 15.0, 18.4);
+  }
+  // condensers on feet along the back of the roof, grilles facing the terrace; the tank on the
+  // right-hand roof over the bathroom
+  for (const x0 of [0.5, 1.7]) {
+    bx('equipment', x0, x0 + 0.9, R2 + 0.1, R2 + 0.8, 10.0, 10.35);
+    if (lod) bx('frame', x0 + 0.17, x0 + 0.73, R2 + 0.17, R2 + 0.73, 10.35, 10.352, F.NZ);
+    else {
+      B.add('frame', new THREE.CylinderGeometry(0.27, 0.27, 0.02, 14), new THREE.Matrix4().makeTranslation(x0 + 0.45, R2 + 0.45, -10.35).multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2)));
+      for (const fx of [x0 + 0.08, x0 + 0.82]) bx('frame', fx - 0.03, fx + 0.03, R2, R2 + 0.1, 10.05, 10.3);
+    }
+  }
+  B.add('lodRoof', new THREE.CylinderGeometry(0.5, 0.5, 1.0, lod ? 8 : 18, 1, false), new THREE.Matrix4().makeTranslation(5.3, R2 + 0.5, -8.4), 'box');
+  B.add('frame', new THREE.CylinderGeometry(0.16, 0.16, 0.08, lod ? 8 : 14), new THREE.Matrix4().makeTranslation(5.3, R2 + 1.04, -8.4), 'box');
+}
+
 function lodHouse(B) {
   const bx = (k, x0, x1, y0, y1, d0, d1, f) => B.box(k, x0, x1, y0, y1, -d1, -d0, f);
   bx('lodRoof', 0, 6.1, 0, 6.95, 1.5, 15.3, F.PY | F.PX | F.NX);
   bx('lodRoof', 0.1, 6.0, 6.95, 10.0, 6.6, 11.2, F.PY | F.PX | F.NX);
+  dressShell(B, { lod: true });
   const v = (y) => y / 10.2;
   B.quad('lod', [0, 0, -1.5], [6.1, 0, -1.5], [6.1, 6.95, -1.5], [0, 6.95, -1.5], [[0, 0], [0.5, 0], [0.5, v(6.95)], [0, v(6.95)]]);
   B.quad('lod', [0.1, 6.95, -6.6], [6.0, 6.95, -6.6], [6.0, 10.0, -6.6], [0.1, 10.0, -6.6], [[0.008, v(6.95)], [0.492, v(6.95)], [0.492, v(10)], [0.008, v(10)]]);
@@ -33,6 +109,47 @@ function lodHouse(B) {
   bx('wood', 0.3, 5.8, 6.95, 7.0, 1.6, 3.4, F.PY);
   bx('patio', 0.1, 6.0, 6.95, 6.97, 11.2, 14.2, F.PY);
   bx('gravel', 0.1, 6.0, 6.95, 6.97, 3.6, 6.6, F.PY);
+}
+
+// Night lamp irradiance over the community ground, baked once on the CPU into an R8 texture the
+// ground materials sample (materials.js, lampMap): each emitter is splatted within its radius as
+// I cos^3(theta) / d^2 for a source h above the ground and windowed to zero at the edge, so pools
+// are soft, add where they overlap and take each surface's own albedo, where the additive decals
+// they replace lit asphalt as brightly as paving. Stored as sqrt(E / Eref) so the tail survives
+// eight bits; the shader squares it back. A few million texel updates: trivial.
+function bakeLampMap(emitters, texel = 0.24) {
+  const box = new THREE.Box2();
+  for (const e of emitters) { box.expandByPoint(new THREE.Vector2(e.x - e.r, e.z - e.r)); box.expandByPoint(new THREE.Vector2(e.x + e.r, e.z + e.r)); }
+  box.expandByScalar(texel);
+  const cells = (len) => Math.min(2048, Math.ceil(len / texel / 4) * 4);
+  const W = cells(box.max.x - box.min.x), Hh = cells(box.max.y - box.min.y);
+  const dx = (box.max.x - box.min.x) / W, dz = (box.max.y - box.min.y) / Hh;
+  const E = new Float32Array(W * Hh);
+  for (const e of emitters) {
+    const i0 = Math.max(0, Math.floor((e.x - e.r - box.min.x) / dx)), i1 = Math.min(W - 1, Math.ceil((e.x + e.r - box.min.x) / dx));
+    const j0 = Math.max(0, Math.floor((e.z - e.r - box.min.y) / dz)), j1 = Math.min(Hh - 1, Math.ceil((e.z + e.r - box.min.y) / dz));
+    const h3 = e.h ** 3, r2max = e.r * e.r;
+    for (let j = j0; j <= j1; j++) {
+      const z = box.min.y + (j + 0.5) * dz;
+      for (let i = i0; i <= i1; i++) {
+        const x = box.min.x + (i + 0.5) * dx, r2 = (x - e.x) ** 2 + (z - e.z) ** 2;
+        if (r2 >= r2max) continue;
+        const d2 = r2 + e.h * e.h, w = 1 - r2 / r2max;
+        E[j * W + i] += e.I * h3 / (d2 * d2 * Math.sqrt(d2)) * w * w;
+      }
+    }
+  }
+  // one street lamp (I 1 at h 5) peaks at 0.8 of the range, leaving room where pools overlap
+  const ref = 1.25 / 25;
+  const data = new Uint8Array(W * Hh);
+  for (let i = 0; i < data.length; i++) data[i] = Math.round(Math.sqrt(Math.min(1, E[i] / ref)) * 255);
+  const t = new THREE.DataTexture(data, W, Hh, THREE.RedFormat, THREE.UnsignedByteType);
+  t.minFilter = t.magFilter = THREE.LinearFilter; t.generateMipmaps = false;
+  t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.unpackAlignment = 1;
+  t.needsUpdate = true;
+  shared.lampMap.uLampMap.value = t;
+  shared.lampMap.uLampXf.value.set(1 / (W * dx), 1 / (Hh * dz), -box.min.x / (W * dx), -box.min.y / (Hh * dz));
+  return t;
 }
 
 // Flat annulus sector around CENTER; uv = world metres.
@@ -97,10 +214,12 @@ export function buildCommunity(M, heroSpots, { lite = false } = {}) {
     }
   }
 
-  // ---- full-detail neighbours (instanced shell)
+  // ---- full-detail neighbours (instanced shell); their light pools come from the lamp map below
   const SB = new Builder();
   const shellSpots = buildShell(SB, { hero: false });
+  dressShell(SB);
   const geos = SB.geometries();
+  geos.delete('pool');
   const geosM = new Map([...geos].map(([k, g]) => [k, mirrorX(g, 3.05)]));
   const roomN = geos.get('room'), roomM = geosM.get('room');
   geos.delete('room'); geosM.delete('room');
@@ -116,7 +235,8 @@ export function buildCommunity(M, heroSpots, { lite = false } = {}) {
   lodHouse(LB);
   const lg = LB.geometries();
   const lgM = new Map([...lg].map(([k, g]) => [k, mirrorX(g, 3.05)]));
-  group.add(instanced(lg, M, lod.n), instanced(lgM, M, lod.m));
+  const lodGroups = [instanced(lg, M, lod.n), instanced(lgM, M, lod.m)];
+  group.add(...lodGroups);
 
   // ---- streets, sidewalks, curbs
   const SBk = new Builder();
@@ -171,27 +291,44 @@ export function buildCommunity(M, heroSpots, { lite = false } = {}) {
     group.add(mesh);
   }
 
-  // ---- lamps (pole + head + light pool)
+  // ---- lamps (pole, arm, head, beam cone); the light they throw is baked into the lamp map
+  const emitters = []; // { x, z, h, I, r }: a point source h above the ground, splatted within r
   {
     const pole = new THREE.CylinderGeometry(0.045, 0.07, 5.2, 8); pole.translate(0, 2.6, 0);
     const arm = new THREE.BoxGeometry(0.05, 0.05, 0.9); arm.translate(0, 5.1, 0.42);
     const head = new THREE.BoxGeometry(0.22, 0.08, 0.5); head.translate(0, 5.06, 0.78);
-    const poolG = new THREE.PlaneGeometry(9, 9); poolG.rotateX(-Math.PI / 2); poolG.translate(0, 0.04, 1.6);
-    const pm = [], hm = [], lm = [];
+    const pm = [], hm = [];
     for (const [p, a, inner] of lamps) {
-      const m = new THREE.Matrix4().makeTranslation(p.x, p.y, p.z).multiply(new THREE.Matrix4().makeRotationY(a + (inner ? 0 : Math.PI)));
-      pm.push(m); hm.push(m); lm.push(m);
+      const rot = a + (inner ? 0 : Math.PI);
+      const m = new THREE.Matrix4().makeTranslation(p.x, p.y, p.z).multiply(new THREE.Matrix4().makeRotationY(rot));
+      pm.push(m); hm.push(m);
+      emitters.push({ x: p.x + Math.sin(rot) * 0.78, z: p.z + Math.cos(rot) * 0.78, h: 5.0, I: 1, r: 15 });
     }
     group.add(instancedFrom(pole, M.frame, pm));
     group.add(instancedFrom(arm, M.frame, pm));
     group.add(instancedFrom(head, M.lampHead, hm, { cast: false }));
-    group.add(instancedFrom(poolG, M.pool, lm, { cast: false, receive: false }));
     const cone = new THREE.CylinderGeometry(0.12, 2.4, 5.0, 24, 1, true);
     cone.translate(0, 2.52, 0.78);
-    const beams = instancedFrom(cone, M.beam, lm, { cast: false, receive: false });
+    const beams = instancedFrom(cone, M.beam, pm, { cast: false, receive: false });
     beams.name = 'lampBeams';
     group.add(beams);
   }
+  // the houses' own fittings: the two car-port downlights, the strip over the front door and the
+  // strip over the patio glazing, for every full neighbour. The hero's car port and door lie in
+  // the baked volume, which already carries those fittings; only its patio strip, at the volume's
+  // edge, goes in the map (the hero is the world frame).
+  {
+    const fit = [{ p: [1.5, -3.6], h: 3.19, I: 0.25, r: 6 }, { p: [4.6, -3.6], h: 3.19, I: 0.25, r: 6 }];
+    for (const x of [2.2, 2.8]) fit.push({ p: [x, -6.13], h: 3.17, I: 0.05, r: 4 });
+    for (let x = 0.45; x < 5.8; x += 0.6) fit.push({ p: [x, -15.22], h: 3.02, I: 0.05, r: 4, rear: true });
+    const units = [[new THREE.Matrix4(), false, true], ...fullSpots.map(([m, mir]) => [m, mir, false])];
+    for (const [m, mir, hero] of units) for (const f of fit) {
+      if (hero && !f.rear) continue;
+      v3.set(mir ? 6.1 - f.p[0] : f.p[0], 0, f.p[1]).applyMatrix4(m);
+      emitters.push({ x: v3.x, z: v3.z, h: f.h, I: f.I, r: f.r });
+    }
+  }
+  bakeLampMap(emitters);
 
   // ---- lagoon toward the sunset, with a beach
   {
@@ -211,7 +348,9 @@ export function buildCommunity(M, heroSpots, { lite = false } = {}) {
     beach.scale(1.12, 1, 1.22);
     const place = new THREE.Matrix4().makeTranslation(-260, 0, -360).multiply(new THREE.Matrix4().makeRotationY(-0.6));
     const wm = new THREE.Mesh(water, M.water); wm.applyMatrix4(place); wm.position.y = 0.06; wm.receiveShadow = true;
-    const sandMat = M.sand.clone(); sandMat.color.set(0xfbe7cb); sandMat.polygonOffset = true; sandMat.polygonOffsetFactor = -1; sandMat.polygonOffsetUnits = -2;
+    // Material.clone() drops the shader patch and its uniforms, so the beach would lose its macro
+    // variation and GI lookup; cloneEnhanced re-applies them
+    const sandMat = cloneEnhanced(M.sand); sandMat.color.set(0xfbe7cb); sandMat.polygonOffset = true; sandMat.polygonOffsetFactor = -1; sandMat.polygonOffsetUnits = -2;
     const bm = new THREE.Mesh(beach, sandMat); bm.applyMatrix4(place); bm.position.y = 0.03; bm.receiveShadow = true;
     M.water.polygonOffset = true; M.water.polygonOffsetFactor = -2; M.water.polygonOffsetUnits = -4;
     group.add(wm, bm);
@@ -222,9 +361,10 @@ export function buildCommunity(M, heroSpots, { lite = false } = {}) {
     }
   }
 
-  // ---- desert ground with dunes beyond the community
+  // ---- desert ground with dunes beyond the community (the dunes start 470 m out and are
+  // low-frequency, so the coarse mesh serves every tier)
   {
-    const size = 4200, seg = lite ? 130 : 220;
+    const size = 4200, seg = 130;
     const g = new THREE.PlaneGeometry(size, size, seg, seg);
     g.rotateX(-Math.PI / 2);
     const pa = g.attributes.position;
@@ -244,7 +384,6 @@ export function buildCommunity(M, heroSpots, { lite = false } = {}) {
   }
 
   // ---- vegetation instances
-  const palm = palmGeometry();
   const bush = bushGeometry(14, 2, 0.75);
   const canopy = bushGeometry(18, 4, 1.0);
   const lists = { palm: [], bush: [], flower: [], pink: [], olive: [] };
@@ -268,12 +407,32 @@ export function buildCommunity(M, heroSpots, { lite = false } = {}) {
   for (const p of lodPalms) if (keep()) addSpot('palm', p, 0.75 + rand() * 0.35, null);
   for (const p of streetPalms) if (keep()) addSpot('palm', p, 0.85 + rand() * 0.4, null);
   for (const p of vergeBushes) if (keep()) addSpot(rand() < 0.3 ? 'flower' : 'bush', p, 0.7 + rand() * 0.3, null);
-  group.add(instancedFrom(palm.trunk, M.bark, lists.palm));
-  group.add(instancedFrom(palm.fronds, M.frond, lists.palm));
+  const palms = palmLOD(M, lists.palm);
+  group.add(...palms.meshes);
   group.add(instancedFrom(bush, M.leaf, lists.bush));
   group.add(instancedFrom(bush, M.flower, lists.flower));
   group.add(instancedFrom(bush, M.flowerPink, lists.pink));
   group.add(instancedFrom(canopy, M.leafOlive, lists.olive));
-  group.traverse((o) => { if (o.isMesh) { o.updateMatrix(); o.matrixAutoUpdate = false; } });
-  return { group, stats: { full: full.n.length + full.m.length, lod: lod.n.length + lod.m.length, palms: lists.palm.length } };
+  // Opaque community meshes draw after the hero's: the renderer sorts opaques by renderOrder
+  // before material, so the ground and facades no longer get shaded first and overwritten by
+  // the floors and furniture in front of them. Transparent ones keep their depth sort.
+  group.traverse((o) => {
+    if (!o.isMesh) return;
+    o.updateMatrix(); o.matrixAutoUpdate = false;
+    if (!o.material.transparent) o.renderOrder = 1;
+  });
+  let zone = null;
+  return {
+    group,
+    stats: { full: full.n.length + full.m.length, lod: lod.n.length + lod.m.length, palms: lists.palm.length },
+    // re-partition the palms around the camera (cheap: a distance check until it has moved)
+    update: (camPos) => palms.update(camPos),
+    // what casts into the sun's shadow map per zone: far houses and far palms only from the air
+    setShadowZone(z) {
+      if (z === zone) return;
+      zone = z;
+      palms.setZone(z);
+      for (const g of lodGroups) for (const m of g.children) m.castShadow = z === 'aerial';
+    },
+  };
 }
