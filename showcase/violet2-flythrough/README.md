@@ -60,7 +60,7 @@ ramp, sun swing and pin follow.
 
 | Chapter | Progress | Shot |
 | --- | --- | --- |
-| Arrival | 0–0.04 | aerial, the house centred and pinned from the first frame |
+| Arrival | 0–0.04 | aerial from about 110 m, the house centred and pinned from the first frame, the hero rows and the lagoon in frame |
 | The community | 0.056–0.13 | descent over the lakes and terraces to the plot |
 | Facade | 0.146–0.215 | orbit down to the street in front of the house |
 | Ground floor | 0.235–0.31 | carport, front door, a glance right through the kitchen opening, the hall |
@@ -69,7 +69,7 @@ ramp, sun swing and pin follow.
 | Bedrooms | 0.521–0.58 | in from the rear balcony to a level hold just inside the glazing: bed, prints, lamps, the wardrobe wall by the door |
 | Master suite | 0.602–0.664 | through the door to a 3/4 view from the foot of the bed, the front glazing, sheers and lattice as the key light |
 | Front balcony | 0.68–0.712 | out through the open panel to a hold at the balustrade over the two loungers, lattice at the left, then a reverse dolly back through the room |
-| The stair | 0.728–0.784 | into the stair well and up to the roof landing and its window |
+| The stair | 0.728–0.784 | back into the well and up over the half landing to a hold on the dog-leg: the upper flight and its rail climbing to the roof landing and its window, the first-floor hall below; then up to the landing |
 | Bedroom 4 | 0.80–0.866 | from the stair top through the doorway past the open leaf to a hold inside: bed, prints, the terrace through the glazing |
 | Roof terrace | 0.882–0.944 | out through the glazing before the card arrives, then round to the sofa, loungers and fire bowl under the pergola with the sun going down |
 | Summary | 0.96–1 | rise and pull back to the right; the lit rear elevation at blue hour |
@@ -88,7 +88,12 @@ where a bed should sit low in the frame the key carries a vertical lens shift
 - Scroll, trackpad or touch drives the flight; the rail on the right lists the chapters and a
   click lands on each chapter's best frame.
 - Keyboard: `→` `↓` `PageDown` `Space` next chapter, `←` `↑` `PageUp` `Shift+Space` previous,
-  `Home` / `End` the ends. The active chapter is announced to screen readers.
+  `Home` / `End` the ends. A key pressed while the flight is still easing towards a landing
+  steps on from that landing, so two quick presses move two chapters.
+- Screen readers: the active chapter is announced, and the whole story (every card's text,
+  figures and the disclaimer) sits in a visually hidden section that a **Skip to the chapter
+  text** link, the first stop for the Tab key, reaches. The inactive cards are hidden from
+  assistive tech, so without it only the current chapter could be read.
 - Top right: **Day → Night** (the light follows the flight: daylight, sunset on the roof,
   night by the summary), **Day** or **Night** throughout; the **Interior** style pill shows
   from the facade to the roof terrace, where a change is visible, and the choice is kept in

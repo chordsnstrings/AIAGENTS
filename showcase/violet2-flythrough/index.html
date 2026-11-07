@@ -9,19 +9,22 @@
 <link rel="preload" as="fetch" crossorigin="anonymous" href="assets/gi/U.json">
 <link rel="preload" as="fetch" crossorigin="anonymous" href="assets/gi/U2.json">
 <link rel="preload" as="fetch" crossorigin="anonymous" href="assets/gi/N-minimal.json">
-<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" href="assets/tex/plaster_c.webp">
-<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" href="assets/tex/plaster_n.webp">
-<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" href="assets/tex/pavers_c.webp">
-<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" href="assets/tex/pavers_n.webp">
-<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" href="assets/tex/sidewalk_c.webp">
-<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" href="assets/tex/asphalt_c.webp">
-<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" href="assets/tex/grass_c.webp">
-<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" href="assets/tex/sand_c.webp">
-<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" href="assets/tex/patio_c.webp">
-<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" href="assets/tex/walnut_c.webp">
+<!-- the 1024 px exterior set, preloaded only where the high or mid tier is likely: the low tier
+     (phones, tablets) reads assets/tex/512/ and would download these for nothing -->
+<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" media="(pointer: fine) and (min-width: 900px)" href="assets/tex/plaster_c.webp">
+<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" media="(pointer: fine) and (min-width: 900px)" href="assets/tex/plaster_n.webp">
+<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" media="(pointer: fine) and (min-width: 900px)" href="assets/tex/pavers_c.webp">
+<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" media="(pointer: fine) and (min-width: 900px)" href="assets/tex/pavers_n.webp">
+<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" media="(pointer: fine) and (min-width: 900px)" href="assets/tex/sidewalk_c.webp">
+<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" media="(pointer: fine) and (min-width: 900px)" href="assets/tex/asphalt_c.webp">
+<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" media="(pointer: fine) and (min-width: 900px)" href="assets/tex/grass_c.webp">
+<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" media="(pointer: fine) and (min-width: 900px)" href="assets/tex/sand_c.webp">
+<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" media="(pointer: fine) and (min-width: 900px)" href="assets/tex/patio_c.webp">
+<link rel="preload" as="image" type="image/webp" crossorigin="anonymous" media="(pointer: fine) and (min-width: 900px)" href="assets/tex/walnut_c.webp">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<a class="skip" href="#story-text">Skip to the chapter text</a>
 <canvas id="scene" aria-label="3D flythrough of the townhouse"></canvas>
 
 <div id="loader" role="status" aria-live="polite">
@@ -65,7 +68,7 @@
   <section class="card" data-chapter="community">
     <p class="eyebrow"><span class="n"></span>Plot XJ407B · the community</p>
     <h3>A mid-terrace among the lakes</h3>
-    <p>Type TH12-4M, the middle unit of a seven-house terrace in a cluster of back-to-back rows, with a walled garden behind. Water Town, Sports Town and Down Town are minutes away: a wave pool, a lazy river, courts, a fishing lake and a floating cinema.</p>
+    <p>The middle unit of a seven-house terrace, back to back with the next row, with a walled garden behind. Water Town, Sports Town and Down Town are minutes away: a wave pool, a lazy river, courts and a floating cinema.</p>
     <button type="button" class="more" aria-expanded="false">Details</button>
     <div class="detail">
       <dl class="figs">
@@ -87,11 +90,11 @@
   <section class="card" data-chapter="facade">
     <p class="eyebrow"><span class="n"></span>The front</p>
     <h3>White render, stone and bronze</h3>
-    <p>A two-storey white frame, bronze balustrades and slatted timber pergolas. The covered car port takes two cars; the front door sits in a stone-clad recess.</p>
+    <p>A two-storey white frame, bronze balustrades and slatted timber pergolas. The car port gives covered parking for two cars; the front door sits in a stone-clad recess.</p>
     <button type="button" class="more" aria-expanded="false">Details</button>
     <div class="detail">
       <dl class="figs">
-        <div><dt>Covered parking</dt><dd>2 cars</dd></div>
+        <div><dt>Covered parking</dt><dd>for 2 cars</dd></div>
         <div><dt>Levels</dt><dd>Ground, first, roof</dd></div>
       </dl>
     </div>
@@ -233,6 +236,7 @@
       <button type="button" data-action="copy">Copy link to this style</button>
       <button type="button" data-action="print">Print the plans</button>
     </div>
+    <p class="vis-note">Visualisation: furniture and finishes are illustrative; sizes from the developer's plans.</p>
     <details class="fine">
       <summary>Disclaimer &amp; credits</summary>
       <p>Visualisation. Room sizes and layout follow the developer's TH12-4M floor plans and the unit plan in the sales offer; furniture, finishes, landscaping, neighbouring buildings and views are illustrative. The four interior styles follow 2026 trend reporting (Dezeen, 1stDibs, Khaleej Times, Bayut, Domus Academy) and are not a developer specification. Independent visualisation, not produced by the developer. Textures: Poly Haven and ambientCG (CC0). Rendered live with three.js.</p>
