@@ -514,10 +514,13 @@ export function buildInterior(B) {
   curtain(2.95, 3.45, F2 + 0.02, C2 - 0.15, 10.92);
   curtain(5.1, 5.6, F2 + 0.02, C2 - 0.15, 10.92);
   frameArtX('art3', 3.051, 8.35, 9.25, F2 + 1.0, F2 + 1.9, true);
-  // the desk carries this room's arrangement and a tray with a carafe
-  rb('walnut', 2.65, F2 + 0.74, 10.6, 0.7, 0.04, 0.5, 0.01);
-  vase(2.45, F2 + 0.76, 10.5, { h: 0.24, r: 0.07, stems: 13, spread: 0.16, height: 0.38, bloom: 0.055, seed: 11 });
-  tray(2.78, F2 + 0.76, 10.62);
+  // the desk carries this room's arrangement and a tray with a carafe. It stands before the fixed
+  // pane of the terrace glazing, inside the key frame from the foot of the bed; in the west corner
+  // it sat 58 degrees off the lens axis and no shot ever saw it.
+  rb('walnut', 3.6, F2 + 0.74, 10.58, 0.7, 0.04, 0.45, 0.01);
+  for (const x of [3.29, 3.91]) for (const d of [10.39, 10.77]) bx('walnut', x - 0.015, x + 0.015, F2, F2 + 0.72, d - 0.015, d + 0.015);
+  vase(3.4, F2 + 0.76, 10.62, { h: 0.24, r: 0.07, stems: 13, spread: 0.16, height: 0.38, bloom: 0.055, seed: 11 });
+  tray(3.73, F2 + 0.76, 10.55);
   plant(5.2, F2, 7.3, 0.9, 'leaf'); // on the gravel roof outside the landing glazing, so the lobby stays clear for the route
   // roof bathroom
   rb('walnut', 0.4, F2 + 0.72, 10.35, 0.45, 0.22, 0.9, 0.01);
@@ -543,11 +546,12 @@ export function buildInterior(B) {
     for (const [x, d] of [[1.3, 13.0], [2.6, 11.45]]) { rb('frame', x, y + 0.2, d, 0.18, 0.4, 0.18, 0.01); sphere('bulb', x, y + 0.2, d, 0.05); lampAt(x, y + 0.2, d); }
   }
 
-  // ---------- lights (hero only); intensities are scaled by time of day in main.js
+  // ---------- lights (hero only); intensities are scaled by time of day in main.js. The rooms
+  // have no ceiling-level fill lights: a point light under the ceiling of the living room and of
+  // each landing lit every wall to the same level at night, an even wash with no pools. Room light
+  // at night is the baked lamp volume plus the pool lights parked on the nearest bulbs; only the
+  // terrace fire, which the bake does not carry, keeps a light of its own.
   const lights = [
-    { type: 'point', name: 'hall', pos: [2.6, C0 - 0.4, 8.2], color: 0xffd9a8, day: 0, dusk: 1.5, dist: 7 },
-    { type: 'point', name: 'livingWarm', pos: [3.0, C0 - 0.5, 12.6], color: 0xffd2a0, day: 0, dusk: 2.2, dist: 9 },
-    { type: 'point', name: 'ff', pos: [3.8, C1 - 0.4, 8.5], color: 0xffd9a8, day: 0, dusk: 1.8, dist: 8 },
     { type: 'point', name: 'fire', pos: [1.95, F2 + 0.9, 12.3], color: 0xff9a4a, day: 0, dusk: 7, dist: 7 },
   ];
   // lamps: bulb positions [x, y, d] of the fixed fixtures, for a pool of point lights near the camera

@@ -122,8 +122,10 @@ and the last click wins, so a failed download leaves nothing half-applied.
 ## Lighting and the look
 
 Golden hour to blue hour is three keyframes in `src/atmosphere.js` (a dust-hazed Gulf sky:
-turbidity 8, little Rayleigh, a wide Mie glow, a few high wisps); the sun holds still per zone so
-the shadow map renders once. The environment map is assigned to every lit material explicitly,
+turbidity 8, Rayleigh 2.6, a broad Mie lobe, a few high wisps; in three's Preetham model more
+Rayleigh is what pales the blue, since the blue channel's extinction saturates first, and the gain
+holds the sky's irradiance where it was); the sun holds still per zone so the shadow map renders
+once. The environment map is assigned to every lit material explicitly,
 so per-material and per-style `envMapIntensity` values count; environments are cached as render
 targets (LRU, the bake's reference pinned) and the asynchronous sky read-back behind the baked
 light is validated before it is trusted. Street-front and garden-facing glazing mirror two local
@@ -131,8 +133,15 @@ reflection probes (256 px cube renders, refreshed on load and at steps of the ev
 show the street and the garden instead of reading as holes. Lamp shades are linen over the bulb:
 the shade shader grades the glow from the rim to the top and burns hotter on the inside, opal
 globes darken towards their rim, and every bulb position is recorded (`interior.lamps`, each
-style kit's `lamps`) for a pool of night point lights. The photographic numbers (indoor exposure,
-fill, lamp level, look-in weight, bloom ramp) live in `src/look.js`.
+style kit's `lamps`) for a pool of night point lights; there are no ceiling-level fill lights, so
+night rooms are lamp-lit pools rather than an even wash (only the terrace fire, which the bake does
+not carry, has a point light of its own). Exposure follows the frame, read from a 5 x 3 grid of
+rays: indoors it opens up about two stops and gives part of that back in proportion to how much of
+the frame looks out through sunlit glazing within reach; looking in from outside it opens up about
+a stop in proportion to how much of the frame is room; behind the house it lifts for the shaded
+rear elevation. The
+photographic numbers (indoor exposure, fill, lamp level, look-in and look-out weights, garden shade
+lift, bloom ramp and cap) live in `src/look.js`.
 
 ## Baked global illumination
 
@@ -147,7 +156,9 @@ textures, decodes a style's lamp set only when that style shows, and mixes the p
 moment (sky as the live env map measures it, the two sun bounces cross-faded with the swing,
 lamps as dusk falls). Where the volume says a point is enclosed its irradiance replaces the env
 map's diffuse light, and the env reflections are dimmed by the probe's open-sky fraction and
-tinted by the room's own bounce colour; outdoors the env map stays in charge. Interiors are then
+tinted by the room's own bounce colour, with what the walls send back (a mid albedo times the
+irradiance) filling the part of the reflection the sky does not, so brass and other metals in a
+closed room mirror the room instead of reading black; outdoors the env map stays in charge. Interiors are then
 exposed about two stops brighter by day, as an interiors photographer would, with lamps on
 dimmed. Re-run the bake after moving walls, furniture or lamps:
 
@@ -159,7 +170,8 @@ npm install && npm run bake   # three-mesh-bvh is a dev dependency
 
 `src/volumetric.js`: a half-resolution raymarch through the sun's static shadow map gives
 shafts through glazing, pergola slats and palms, and a height-weighted haze; density is
-per sample (dusty air inside the house volume, thin haze outside). Dust motes sparkle only
+per sample (dusty air inside the house volume, thin haze outside; the open roof terrace counts
+as outside). Dust motes sparkle only
 where the shadow map says sunlight reaches them; lamp cones fade in at dusk. The sun holds
 south-west through the master suite, swings north-west for the terrace and sets at the
 sunset view so the rays meet the visible sun.
@@ -203,7 +215,9 @@ sunset view so the rays meet the visible sun.
   volumetric march and the bloom in linear light, then tone-maps, encodes and grades. SMAA runs
   only while the pixel ratio is under 1.75; `low` skips the volumetric march. The bloom
   threshold rides with the exposure (`2.5 / exposure`) so lamps halo at night and sunlit render
-  does not bloom by day.
+  does not bloom by day, and only the excess over the threshold blooms, capped at one threshold
+  (`LOOK.bloomCap`): passed whole, a low sun's Mie glow bloomed into a white veil over the roof
+  terrace.
 - Textures: 18 base sets; the 11 exterior ones are awaited, the 7 interior-only sets stream in
   behind the first frame (the camera starts in the air). Phones read `assets/tex/512/`
   (3.0 MB for all 29 sets against 8.6 MB), about 58 MiB of texture memory instead of 232 MiB,
@@ -218,7 +232,8 @@ sunset view so the rays meet the visible sun.
   awaited, so stills are complete); `?tod=night` forces night; `&ui=0` hides the overlay;
   `&cam=x,y,z,lx,ly,lz[,fov[,shift]]` places the camera directly (with `?p=`) to compose a
   shot before writing it into `src/path.js`; `&hide=sheer,lampBeams,dust` hides scene objects
-  by name to tell what a stray highlight is. Regenerate the 512 tier after re-packing sets with
+  by name to tell what a stray highlight is, and `&off=vol,bloom` drops the volumetric march or
+  the bloom from the finish composite to tell which of them makes a veil. Regenerate the 512 tier after re-packing sets with
   the skill's `textures.py --downscale 512`: Lanczos to 512 px, WebP quality 82, method 6,
   files already at 512 px copied.
 

@@ -20,10 +20,14 @@ function envBin(t, az, el, coarse) {
 }
 
 const TWILIGHT = { horizon: [0.042, 0.038, 0.062], zenith: [0.006, 0.009, 0.026], glow: [0.11, 0.05, 0.03] };
-// A Gulf evening is dust-hazed rather than deep blue: high turbidity, little Rayleigh, a wide Mie glow.
+// A Gulf evening is dust-hazed rather than deep blue. In three's Preetham model the hazy, pale blue
+// comes from *more* Rayleigh, not less: the blue channel's extinction saturates first, so a thick
+// scattering column lifts red and green towards it, where a thin one (1.1) left a deep #2c65a5
+// overhead. A broad Mie lobe (g 0.62) spreads the dust glow instead of piling it round the sun; the
+// gain holds the sky's irradiance where it was, so the exposures and the baked fill keep their level.
 // The golden-hour row must match SKY in scripts/bake-gi.mjs.
 const STATES = [
-  { t: 0.0, elev: 17, turb: 8.0, ray: 1.1, mie: 0.004, mieG: 0.72, gain: 0.82, sun: 4.3, sunCol: [1.0, 0.81, 0.6], fog: [0.84, 0.78, 0.71], fogD: 0.0009, exp: 0.7, env: 0.55, ground: [0.55, 0.5, 0.44], disc: 1 },
+  { t: 0.0, elev: 17, turb: 8.0, ray: 2.6, mie: 0.005, mieG: 0.62, gain: 0.56, sun: 4.3, sunCol: [1.0, 0.81, 0.6], fog: [0.84, 0.78, 0.71], fogD: 0.0009, exp: 0.7, env: 0.55, ground: [0.55, 0.5, 0.44], disc: 1 },
   { t: 0.5, elev: 3.0, turb: 7.5, ray: 2.0, mie: 0.004, mieG: 0.76, gain: 0.95, sun: 2.2, sunCol: [1.0, 0.62, 0.4], fog: [0.84, 0.66, 0.55], fogD: 0.0011, exp: 0.88, env: 0.6, ground: [0.42, 0.34, 0.28], disc: 1 },
   { t: 1.0, elev: 0.4, turb: 2.0, ray: 4.2, mie: 0.002, mieG: 0.75, gain: 0.6, sun: 0.0, sunCol: [0.55, 0.6, 0.85], fog: TWILIGHT.horizon, fogD: 0.0011, exp: 2.0, env: 1.4, ground: [0.06, 0.065, 0.085], disc: 0 },
 ];

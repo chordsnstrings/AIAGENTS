@@ -281,14 +281,39 @@ async function main() {
   // front, rear or roof face, the ones with glazing (party walls never are). The route interpolates
   // orientation, so the look point itself always sits 10 m out and says nothing about either.
   const viewDir = new THREE.Vector3(), probe = new THREE.Vector3();
-  function viewCrossing(c) {
-    camera.getWorldDirection(viewDir);
+  function crossingAlong(c, dir) {
     const from = inHouseBox(c);
     for (let d = 0.5; d <= 7.5; d += 0.5) {
-      probe.copy(c).addScaledVector(viewDir, d);
+      probe.copy(c).addScaledVector(dir, d);
       if (inHouseBox(probe) !== from) return from && (probe.x <= 0.1 || probe.x >= 6.0) ? Infinity : d;
     }
     return Infinity;
+  }
+  function viewCrossing(c) {
+    camera.getWorldDirection(viewDir);
+    return crossingAlong(c, viewDir);
+  }
+  // The share of the frame (a 5 x 3 grid of rays) that crosses glazing within reach: from inside,
+  // leaving the rooms through a face the sun is on; from outside, entering them. The centre ray
+  // alone misjudged both ways. In the master suite it left by the party wall a hand's width from
+  // the front corner while the sunlit front glazing filled the right of the frame, so the room was
+  // exposed as if it had no window and clipped to white; from the garden it entered the living
+  // room while two thirds of the frame was shaded paving, which took the full look-in lift on top
+  // of the shade lift and washed milky. Glazing in the house's own shade is no brighter than the
+  // room, so only sunlit faces count from inside.
+  const ray = new THREE.Vector3(), camR = new THREE.Vector3(), camU = new THREE.Vector3();
+  function frameShare(c, fromInside) {
+    const sd = atmo.sunDir, lit = [smooth(sd.z, 0, 0.25), smooth(-sd.z, 0, 0.25), smooth(sd.y, 0, 0.25)];
+    camR.setFromMatrixColumn(camera.matrixWorld, 0);
+    camU.setFromMatrixColumn(camera.matrixWorld, 1);
+    const tv = Math.tan(camera.fov * Math.PI / 360), th = tv * camera.aspect;
+    let sum = 0;
+    for (const sy of [-0.6, 0, 0.6]) for (const sx of [-0.8, -0.4, 0, 0.4, 0.8]) {
+      ray.copy(viewDir).addScaledVector(camR, sx * th).addScaledVector(camU, sy * tv).normalize();
+      const d = crossingAlong(c, ray);
+      if (d < Infinity) sum += (1 - smooth(d, 5, 7.5)) * (fromInside ? lit[probe.z >= -3.5 ? 0 : probe.z <= -14.85 ? 1 : 2] : 1);
+    }
+    return sum / 15;
   }
   // the sun schedule by progress, for the frame and for the environment prebuild: it holds
   // south-west through the master suite, swings north-west in the stair core, then sets
@@ -319,10 +344,12 @@ async function main() {
     const c = camera.position;
     const camIn = inHouseBox(c) ? 1 : 0;
     const crossing = viewCrossing(c), nearW = 1 - smooth(crossing, 5, 7.5);
-    // looking in through glazing from outside opens up about a stop; looking out from inside gives
-    // part of the indoor lift back so the sunlit garden or terrace keeps its highlights
-    inside = ease(inside, Math.max(camIn, (1 - camIn) * nearW * LOOK.lookInExposure), dt, 2.2);
-    lookOut = ease(lookOut, camIn * nearW * LOOK.lookOutExposure, dt, 2.2);
+    // looking in through glazing from outside opens up about a stop, in proportion to how much of
+    // the frame is room; looking out from inside gives part of the indoor lift back so the sunlit
+    // garden or terrace keeps its highlights. Out is weighted as a meter would weigh it: sunlit
+    // glazing is the brightest thing in frame, so two fifths of a frame of it is all of the lift.
+    inside = ease(inside, camIn ? 1 : frameShare(c, false) * LOOK.lookInExposure, dt, 2.2);
+    lookOut = ease(lookOut, camIn ? Math.max(nearW, Math.min(1, 2.5 * frameShare(c, true) * (1 - tod))) * LOOK.lookOutExposure : 0, dt, 2.2);
     // behind the house the rear elevation is in the sun's shade: expose for the shade, as a
     // photographer would, rather than for the sunlit street
     shade = ease(shade, c.x > -1 && c.x < 7 && c.z < -15 && c.z > -21.5 && c.y < 7.5 ? 1 : 0, dt, 2.2);
