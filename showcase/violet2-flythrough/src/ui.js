@@ -60,6 +60,34 @@ function printSheet() {
   document.body.appendChild(sheet);
 }
 
+// The whole story as text for assistive tech. Only the active card is exposed (the others are
+// aria-hidden and invisible while the flight is elsewhere), so a screen reader would otherwise
+// only ever hear one chapter. Cloned from the cards after numbering, so the copy has one source;
+// controls, plans and the live style line are left out, and the credits are spelled out in full.
+function storyText(cards) {
+  const box = document.createElement('section');
+  box.id = 'story-text';
+  box.className = 'sr-only';
+  box.tabIndex = -1;
+  box.setAttribute('aria-labelledby', 'story-text-h');
+  box.innerHTML = `<h1 id="story-text-h">${FACTS.project} · Plot ${FACTS.plot}: the flight, chapter by chapter</h1>`;
+  for (const [i, c] of cards.entries()) {
+    const art = document.createElement('article');
+    const h = document.createElement('h2');
+    h.textContent = `${i + 1}. ${c.ch.rail}: ${c.title}`;
+    art.appendChild(h);
+    for (const el of c.el.children) {
+      if (el.matches('h2, h3, button, .plan, .style-line, .actions, .cue')) continue;
+      const k = el.cloneNode(true);
+      k.querySelectorAll('button, .plan, .n, [aria-hidden]').forEach((x) => x.remove());
+      if (k.matches('details')) { const p = document.createElement('p'); p.textContent = k.querySelector('p')?.textContent || ''; art.appendChild(p); continue; }
+      art.appendChild(k);
+    }
+    box.appendChild(art);
+  }
+  document.body.insertBefore(box, document.getElementById('cards'));
+}
+
 export function initUI({ onMode, onJump, onStyle, styles }) {
   const loader = document.getElementById('loader');
   const bar = loader.querySelector('.bar i');
@@ -79,7 +107,16 @@ export function initUI({ onMode, onJump, onStyle, styles }) {
     if (n) n.textContent = String(CHAPTERS.indexOf(c.ch) + 1).padStart(2, '0');
   }
   printSheet();
+  storyText(cards);
   let lastP = 0, active = null, announceT = 0, styleNow = null;
+
+  // The flight eases towards a landing for a second or two after a jump, so the eased progress
+  // is a poor place to step from: a second key pressed mid-flight would find itself still short
+  // of the first landing and ask for it again. The landing last asked for is remembered until
+  // the flight reaches it, the visitor takes over with wheel, touch or pointer, or it goes stale.
+  let aim = null, aimT = 0;
+  const jump = (ch) => { aim = ch; aimT = performance.now(); onJump(ch.jump); };
+  for (const ev of ['wheel', 'touchstart', 'pointerdown']) addEventListener(ev, () => { aim = null; }, { passive: true });
 
   // rail: one stop per chapter, landing on the chapter's best frame rather than its midpoint
   const rail = document.getElementById('rail');
@@ -88,7 +125,7 @@ export function initUI({ onMode, onJump, onStyle, styles }) {
     b.type = 'button';
     b.innerHTML = `<span class="n">${String(i + 1).padStart(2, '0')}</span><span class="t">${ch.rail}</span>`;
     b.setAttribute('aria-label', `${ch.rail}, chapter ${i + 1} of ${CHAPTERS.length}`);
-    b.addEventListener('click', () => onJump(ch.jump));
+    b.addEventListener('click', () => jump(ch));
     rail.appendChild(b);
     return b;
   });
@@ -98,10 +135,19 @@ export function initUI({ onMode, onJump, onStyle, styles }) {
   addEventListener('keydown', (e) => {
     if (e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return;
     const onControl = e.target instanceof Element && e.target.closest('button, a, input, select, textarea, summary');
-    // from between two landings, the first step goes to the nearer one in that direction
-    const cur = chapterAt(lastP), i = CHAPTERS.indexOf(cur);
-    const next = lastP < cur.jump - 0.003 ? cur : CHAPTERS[Math.min(i + 1, CHAPTERS.length - 1)];
-    const prev = lastP > cur.jump + 0.003 ? cur : CHAPTERS[Math.max(i - 1, 0)];
+    if (aim && performance.now() - aimT > 4000) aim = null;
+    let next, prev;
+    if (aim) {
+      // mid-flight: step from where the flight is going, not from where it has got to
+      const i = CHAPTERS.indexOf(aim);
+      next = CHAPTERS[Math.min(i + 1, CHAPTERS.length - 1)];
+      prev = CHAPTERS[Math.max(i - 1, 0)];
+    } else {
+      // from between two landings, the first step goes to the nearer one in that direction
+      const cur = chapterAt(lastP), i = CHAPTERS.indexOf(cur);
+      next = lastP < cur.jump - 0.003 ? cur : CHAPTERS[Math.min(i + 1, CHAPTERS.length - 1)];
+      prev = lastP > cur.jump + 0.003 ? cur : CHAPTERS[Math.max(i - 1, 0)];
+    }
     let to = null;
     if (['ArrowRight', 'ArrowDown', 'PageDown'].includes(e.key) || (e.key === ' ' && !e.shiftKey && !onControl)) to = next;
     else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key) || (e.key === ' ' && e.shiftKey && !onControl)) to = prev;
@@ -109,7 +155,7 @@ export function initUI({ onMode, onJump, onStyle, styles }) {
     else if (e.key === 'End') to = CHAPTERS[CHAPTERS.length - 1];
     if (!to) return;
     e.preventDefault();
-    onJump(to.jump);
+    jump(to);
   });
 
   // time of day
@@ -144,7 +190,7 @@ export function initUI({ onMode, onJump, onStyle, styles }) {
   // ending actions
   document.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', async () => {
     const a = b.dataset.action;
-    if (a === 'replay') onJump(0);
+    if (a === 'replay') jump(CHAPTERS[0]);
     else if (a === 'print') window.print();
     else if (a === 'copy') {
       const url = location.href.split('#')[0] + '#' + (styleNow || 'minimal');
@@ -196,6 +242,7 @@ export function initUI({ onMode, onJump, onStyle, styles }) {
     },
     update(p, camera, pinWorld, w, h) {
       lastP = p;
+      if (aim && Math.abs(p - aim.jump) < 0.003) aim = null;
       const cur = chapterAt(p);
       for (const c of cards) {
         const { from, to } = c.ch;

@@ -15,6 +15,11 @@ body { overscroll-behavior-y: none; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--violet); outline-offset: 3px; border-radius: 3px; }
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* the chapter text for assistive tech is fixed, not in the flow: focusing it from the skip link
+   must not scroll the page, since the scroll position is the flight */
+#story-text { position: fixed !important; top: 0; left: 0; white-space: normal; }
+.skip { position: fixed; z-index: 40; left: 16px; top: 12px; padding: 10px 16px; border-radius: 999px; background: #2a2232; color: var(--ink); font-size: 13px; letter-spacing: .04em; text-decoration: none; transform: translateY(calc(-100% - 20px)); }
+.skip:focus { transform: none; }
 
 /* loader: the facade poster (a tiny blurred still) is the first thing on screen while the
    textures arrive; without WebGL it stays, sharp, as the page's one picture */
@@ -127,6 +132,7 @@ body.ready .top, body.ready .meter, body.ready #rail { opacity: 1; }
 .actions button { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; padding: 10px 14px; border: 1px solid rgba(180,154,216,.6); border-radius: 999px; color: var(--ink); transition: background .3s; }
 .actions button:hover { background: rgba(180,154,216,.22); }
 .actions button:first-child { background: rgba(180,154,216,.3); }
+.card.outro .vis-note { font-size: 12px; line-height: 1.45; color: var(--ink-3); margin: 0 0 6px; }
 .card.outro .fine { font-size: 12px; line-height: 1.55; color: var(--ink-3); margin: 0; }
 .card.outro .fine summary { cursor: pointer; color: var(--ink-2); letter-spacing: .04em; }
 .card.outro .fine p { font-size: 12px; margin: 8px 0 0; color: var(--ink-3); }
@@ -160,15 +166,17 @@ body.noui .top, body.noui #rail, body.noui #cards, body.noui .meter, body.noui #
   .card.hero h2 { font-size: clamp(56px, 9vw, 88px); }
   .card.hero .lead { margin-bottom: 16px; }
   .card.outro .fine { display: none; }
+  .figs div, .times div { padding: 6px 0; }
 }
 @media (max-height: 560px) {
-  .figs, .times, .card .src, .card.outro table { display: none; }
+  .card .figs, .card .times, .card .src, .card.outro table { display: none; }
   .card p { margin-bottom: 8px; }
   .card.hero .stats { display: none; }
   .card.hero .cue { margin-top: 12px !important; }
 }
 @media (max-height: 480px) {
-  .card p, .eyebrow small { display: none; }
+  .card p, .card .eyebrow small { display: none; }
+  .card.outro .vis-note { display: block; margin: 6px 0 0; }
   .card { bottom: 16px; padding: 14px 18px 12px; }
   .card h3 { font-size: 20px; margin: 0; }
   .card.hero h2 { font-size: 56px; margin-bottom: 4px; }
@@ -208,11 +216,12 @@ body.noui .top, body.noui #rail, body.noui #cards, body.noui .meter, body.noui #
   #toast { top: 118px; }
 }
 /* phones and tablets: the compositor would re-blur the live canvas under every panel each
-   frame; solid glass costs nothing. body.lowfx is the same swap for the low quality tier. */
+   frame; solid glass costs nothing. body.lowfx is the same swap for the low quality tier (the
+   hero title has no panel to swap, so it is left out). */
 @media (pointer: coarse) {
   .card, .tod, .styles, #toast, #pin span, #loader.err .inner { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(24, 18, 28, .86); }
 }
-body.lowfx .card, body.lowfx .tod, body.lowfx .styles, body.lowfx #toast, body.lowfx #pin span { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(24, 18, 28, .86); }
+body.lowfx .card:not(.hero), body.lowfx .tod, body.lowfx .styles, body.lowfx #toast, body.lowfx #pin span { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(24, 18, 28, .86); }
 @media (prefers-reduced-motion: reduce) { .cue i { animation: none; } .card, .bar i, #toast, .styles, .top, #rail, .meter { transition: none; } }
 
 /* print: only the plan sheet, drawn from plan.js */
