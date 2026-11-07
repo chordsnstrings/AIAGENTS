@@ -138,10 +138,14 @@ const GI_FRAG = /* glsl */`
       float gLum = max(dot(gIrr, LUM), 1e-4);
       float gSo = g1.a > 0.0 ? clamp(g1.a * 2.5, 0.03, 1.0) : clamp(gLum / max(dot(iblIrradiance, LUM), 1e-4), 0.03, 1.0);
       vec3 gT = gIrr / gLum;
+      // what the walls send back where the sky is hidden: a mid albedo times the irradiance over
+      // pi. Without it a metal (a brass pull, a lamp base) in a room that sees little sky mirrors
+      // almost nothing and reads as a black slot.
+      vec3 gRoom = gIrr * (0.45 * RECIPROCAL_PI) * (1.0 - gSo);
       iblIrradiance = mix(iblIrradiance, gIrr, gw);
-      radiance = mix(radiance, dot(radiance, LUM) * gSo * gT, gw);
+      radiance = mix(radiance, dot(radiance, LUM) * gSo * gT + gRoom, gw);
       #ifdef USE_CLEARCOAT
-        clearcoatRadiance = mix(clearcoatRadiance, dot(clearcoatRadiance, LUM) * gSo * gT, gw);
+        clearcoatRadiance = mix(clearcoatRadiance, dot(clearcoatRadiance, LUM) * gSo * gT + gRoom, gw);
       #endif
     }
   }`;

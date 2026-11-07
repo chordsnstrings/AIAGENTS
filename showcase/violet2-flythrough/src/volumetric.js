@@ -16,7 +16,7 @@ uniform mat4 uProjInv, uViewInv, uShadowMatrix;
 uniform vec3 uCamPos, uSunDir;
 uniform float uDensity, uMaxDist, uG, uJitter, uHeightK, uHeightScale, uDensityIn, uSunIn, uSunOut, uAmbIn, uAmbOut;
 uniform int uSteps;
-uniform vec3 uBoxMin, uBoxMax;
+uniform vec3 uBoxMin, uBoxMax, uCutMin, uCutMax;
 varying vec2 vUv;
 float ign(vec2 p){ return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
 float hg(float c, float g){ float g2 = g * g; return (1.0 - g2) / pow(max(1.0 + g2 - 2.0 * g * c, 1e-4), 1.5); }
@@ -39,7 +39,7 @@ void main(){
     vec4 sc = uShadowMatrix * vec4(p, 1.0);
     float lit = 1.0;
     if (sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0 && sc.z < 1.0) lit = texture(tShadow, vec3(sc.xy, sc.z - 0.0004));
-    bool inside = all(greaterThan(p, uBoxMin)) && all(lessThan(p, uBoxMax));
+    bool inside = all(greaterThan(p, uBoxMin)) && all(lessThan(p, uBoxMax)) && !(all(greaterThan(p, uCutMin)) && all(lessThan(p, uCutMax)));
     float a = (inside ? uDensityIn : uDensity * (1.0 + uHeightK * exp(-max(p.y, 0.0) / uHeightScale))) * st;
     sun += lit * a * tr * (inside ? uSunIn : uSunOut);
     amb += a * tr * (inside ? uAmbIn : uAmbOut);
@@ -77,6 +77,9 @@ export class VolumetricPass extends Pass {
         uDensity: { value: 0.01 }, uMaxDist: { value: 60 }, uG: { value: 0.6 }, uJitter: { value: 0 }, uHeightK: { value: 2 }, uHeightScale: { value: 4 },
         uDensityIn: { value: 0.03 }, uSunIn: { value: 1 }, uSunOut: { value: 0.07 }, uAmbIn: { value: 1 }, uAmbOut: { value: 1 }, uSteps: { value: steps },
         uBoxMin: { value: new THREE.Vector3(0.1, 0.25, -14.85) }, uBoxMax: { value: new THREE.Vector3(6.0, 9.7, -3.55) },
+        // the open roof terrace sits inside that box but is outdoor air: room-dense dust there,
+        // looking into a low sun, washed half the sunset frame white (main.js inHouseBox cuts it too)
+        uCutMin: { value: new THREE.Vector3(0.1, 6.8, -14.85) }, uCutMax: { value: new THREE.Vector3(6.0, 9.7, -11.2) },
       },
     }));
     this.blurQ = new FullScreenQuad(new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BLUR, depthTest: false, depthWrite: false, uniforms: { tIn: { value: null }, uDir: { value: new THREE.Vector2() } } }));

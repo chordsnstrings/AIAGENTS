@@ -6,6 +6,11 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { N8AOPass } from 'n8ao';
 import { VolumetricPass } from './volumetric.js';
+import { LOOK } from './look.js';
+
+// ?off=vol,bloom drops a term from the finish composite (diagnostics: which of the march, the
+// bloom or the scene itself makes a veil). Only the composite weight changes, so nothing recompiles.
+const OFF = new Set((typeof location !== 'undefined' ? new URLSearchParams(location.search).get('off') || '' : '').split(','));
 
 // The chain is two full-resolution passes: the scene (through N8AO's composite, or a plain
 // RenderPass) and one finish pass, plus SMAA where the pixel ratio is low enough for it to
@@ -57,16 +62,26 @@ class FinishPass extends ShaderPass {
   render(renderer, writeBuffer, readBuffer, deltaTime, maskActive) {
     const u = this.uniforms;
     u.toneMappingExposure.value = renderer.toneMappingExposure;
-    u.uVol.value = this.volPass && this.volPass.enabled && this.volPass.ready ? 1 : 0;
-    u.uBloom.value = this.bloomPass && this.bloomPass.enabled ? 1 : 0;
+    u.uVol.value = this.volPass && this.volPass.enabled && this.volPass.ready && !OFF.has('vol') ? 1 : 0;
+    u.uBloom.value = this.bloomPass && this.bloomPass.enabled && !OFF.has('bloom') ? 1 : 0;
     super.render(renderer, writeBuffer, readBuffer, deltaTime, maskActive);
   }
 }
 
 // UnrealBloomPass without its last step, the additive blend over the input (a full-resolution
-// pass of its own); the finish pass samples the composited mips instead. The body up to that
-// point is r187's, kept verbatim so the look does not move.
+// pass of its own); the finish pass samples the composited mips instead. The render body is
+// r187's. The bright pass is not: the stock one lets a pixel over the threshold through whole,
+// so a low sun's Mie glow (tens of times the threshold over a quarter of the sky) bloomed into a
+// white veil across the terrace. Only the excess over the threshold blooms here, capped at
+// LOOK.bloomCap thresholds, so a lamp shade still halos while a bright sky cannot flood the frame.
 class BloomPass extends UnrealBloomPass {
+  constructor(...a) {
+    super(...a);
+    const m = this.materialHighPassFilter;
+    m.uniforms.uCap = { value: LOOK.bloomCap };
+    m.fragmentShader = 'uniform float uCap;\n' + m.fragmentShader.replace('gl_FragColor = mix( outputColor, texel, alpha );',
+      'float e = min(max(v - luminosityThreshold, 0.0), luminosityThreshold * uCap) * alpha;\n\t\t\tgl_FragColor = vec4(texel.rgb * (e / max(v, 1e-4)), 1.0);');
+  }
   get texture() { return this.renderTargetsHorizontal[0].texture; }
   render(renderer, writeBuffer, readBuffer) {
     renderer.getClearColor(this._oldClearColor);

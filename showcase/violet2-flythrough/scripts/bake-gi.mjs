@@ -130,7 +130,7 @@ function sceneFor(style) {
 }
 
 // ---------- Preetham sky, ported from three/examples/jsm/objects/Sky.js (golden-hour state)
-const SKY = { turbidity: 8.0, rayleigh: 1.1, mie: 0.004, mieG: 0.72, gain: 0.82 };
+const SKY = { turbidity: 8.0, rayleigh: 2.6, mie: 0.005, mieG: 0.62, gain: 0.56 };
 const totalRayleigh = [5.804542996261093e-6, 1.3562911419845635e-5, 3.0265902468824876e-5];
 const MieConst = [1.8399918514433978e14, 2.7798023919660528e14, 4.0790479543861094e14];
 const sunE = (() => { const z = Math.max(-1, Math.min(1, sunDir.y)); return 1000 * Math.max(0, 1 - Math.exp(-((1.6110731556870734 - Math.acos(z)) / 1.5))); })();
