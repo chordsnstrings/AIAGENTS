@@ -32,7 +32,7 @@ const T0 = performance.now();
 const mark = (s) => { if (STILL) console.log(`[t] ${s} ${((performance.now() - T0) / 1000).toFixed(1)}s`); };
 
 // the hero's transparent meshes draw in a fixed order, sheer under glass, whatever the view
-const ORDER = { sheer: 1, glass: 2, glassLight: 2 };
+const ORDER = { sheer: 1, glass: 2, glassRear: 2, glassLight: 2 };
 
 // a style named in the hash or query counts only as one of STYLES' own keys: '#constructor'
 // and '?style=Luxe' both fall through
