@@ -24,7 +24,8 @@ for s in minimal japandi desert luxe; do node scripts/capture.cjs http://localho
 python3 <skill>/scripts/sheet.py rv rv.jpg 4 500      # one sheet to glance at yourself
 ```
 
-Each still takes 30–50 s on the software renderer; the whole set is ~20 minutes. The logs carry
+Each still takes about a minute on the software renderer, page start-up included (the `settled`
+mark lands 10–30 s in); the whole set is 20–30 minutes. The logs carry
 load timings and the `settled · calls · tris · programs · textures` line the performance
 reviewer needs. Keep frames at 1024 × 576: reviewers open many of them, and image tokens add up.
 
@@ -82,7 +83,10 @@ needed in a file it does not own.
 ## 4. Prove the fixes
 
 Re-run `node scripts/check-path.mjs` (exit 0), render the same evidence set again, and run the
-audit once more with `notes` listing what was fixed. A finding that comes back is not fixed.
+audit once more with `notes` listing what was fixed. Prove a look fix by measurement, not by eye:
+crop the region at full size and compare means and clipped fractions before and after (the
+reference polish round reported, for example, the master suite's mean luma 194 → 124 with clipping
+12 % → 0), and isolate a veil or a highlight with `&off=vol,bloom` and `&hide=<key>` stills first. A finding that comes back is not fixed.
 Report to the user: what was confirmed and fixed, what was plausible and left, what was refuted
 and why, and the before/after contact sheets.
 

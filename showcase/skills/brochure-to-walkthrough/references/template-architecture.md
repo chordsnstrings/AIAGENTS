@@ -3,8 +3,8 @@
 The per-file map of the reference build the skill copies as its template. Read `decisions-and-pitfalls.md`
 (same folder) first: it says *why* the whole is shaped as it is; this file says *where* each piece lives,
 what it exports and what to touch for a different property. Identifiers, numbers and signatures were read
-from the code after the review-and-fix passes; functions are named rather than line-numbered because the
-lines moved in every pass (`grep -n` finds them).
+from the code after the fix pass and the polish round (template snapshot `8d55857`); functions are named
+rather than line-numbered because the lines move in every pass (`grep -n` finds them).
 
 ## Contents
 
@@ -26,7 +26,7 @@ module, directly or through them, and nothing imports it.
 | --- | --- | --- |
 | `plan.js` | nothing | `PLOT`, `H`, `FACTS`, `ROOMS`, `STAIR` → `house.js`, `interior.js`, `stylesets.js`, `community.js` (levels), `ui.js` (rooms, plot, facts) |
 | `story.js` | nothing | `CHAPTERS`, `FADE`, `chapter()`, `chapterAt()`, `TOD`, `SUN`, `PIN`, `STYLE_PILL` → `main.js`, `ui.js`, `scripts/check-path.mjs` |
-| `look.js` | nothing | `LOOK` (the photographic constants) → `main.js` only |
+| `look.js` | nothing | `LOOK` (the photographic constants) → `main.js`, `post.js` (`bloomCap`) |
 | `tiers.js` | nothing | `TIERS`, `detectTier`, `pixelRatioFor`, `AdaptiveScale` → `main.js` |
 | `builder.js` | nothing | `Builder`, `F`, `mirrorX`, `meshes`, `instanced` → every geometry module and both scripts |
 | `house.js` | `plan.js` (`H`), `builder.js` (`F`) | `buildShell(B, {hero})` → `main.js` (hero), `community.js` (neighbours), both scripts |
@@ -39,7 +39,7 @@ module, directly or through them, and nothing imports it.
 | `community.js` | `builder.js`, `house.js`, `plan.js`, `vegetation.js`, `materials.js` (`shared`, `cloneEnhanced`) | `buildCommunity(M, spots, {lite})` → `{ group, stats, update, setShadowZone }`; `dressShell(B, {lod})`; `R`, `CENTER` |
 | `atmosphere.js` | three addons only | `Atmosphere` (sun, sky, fog, env maps, probes, shadow zones) → the frame loop |
 | `path.js` | nothing | `KEYS`, `MAX_SHIFT`, `DronePath`, `DroneRig` → the frame loop and `check-path.mjs` |
-| `post.js` | `volumetric.js` (`VolumetricPass`), n8ao | `createPost(...)` → the composer the loop renders |
+| `post.js` | `volumetric.js` (`VolumetricPass`), `look.js`, n8ao | `createPost(...)` → the composer the loop renders; reads `?off=` itself |
 | `volumetric.js` | three addons only | `VolumetricPass`, `makeDust`, `beamMaterial` |
 | `ui.js` | `plan.js`, `story.js` | `initUI(...)` → DOM overlay handle |
 | `scripts/bake-gi.mjs` | `builder`, `house`, `interior`, `stylesets`, `styles`; reads `materials.js` as text | writes `assets/gi/S.json`, `U.json`, `U2.json`, `N-<style>.json` |
@@ -57,7 +57,7 @@ group, toggled by visibility); **atmosphere → GI → shaders** (each frame `at
 `main.js` turns it into rgb weights for `gi.set(sky, sunHeld, sunSwung, lamps, style)`, which re-mixes the
 baked volume into two `Data3DTexture`s every opaque material samples through `shared.gi`); **post chain**
 `N8AOPass` (beauty + AO; a plain `RenderPass` where AO is off) → `VolumetricPass` (its own half-size target)
-→ `BloomPass` (mips only) → `FinishPass` (march and bloom composited in linear light, ACES, sRGB, grade) →
+→ `BloomPass` (mips only, excess over the threshold) → `FinishPass` (march and bloom composited in linear light, ACES, sRGB, grade) →
 `SMAAPass` while the pixel ratio is under 1.75.
 
 ## Conventions that cross every file
@@ -115,8 +115,9 @@ The photographic constants, in page units, kept out of the loop so a property is
 `insideExposureDay` / `insideExposureNight` (the indoor lift), `lookInExposure` (looking in through glazing
 from outside), `lookOutExposure` (looking out from inside), `gardenShadeExposure` (behind the house, in the
 sun's shade), `streetLamp` (the ground pools of the lamp map), `lampPool` / `lampReach` / `lampIntensity`
-(the night point-light pool), `bloomThresholdK` / `bloomStrength` (bloom rides with exposure), `dustSun` /
-`dustAmbient`. `lighting-and-look.md` says what each does to the picture and in which order to tune them.
+(the night point-light pool), `bloomThresholdK` / `bloomStrength` (bloom rides with exposure), `bloomCap`
+(the excess that blooms is capped at this many thresholds; read by `post.js`), `dustSun` / `dustAmbient`.
+Values: `lighting-and-look.md` §8 and `decisions-and-pitfalls.md` "Calibration numbers". `lighting-and-look.md` says what each does to the picture and in which order to tune them.
 
 ## src/tiers.js
 
@@ -158,9 +159,10 @@ kitchen window, stone recess with the walnut door at `x 1.95, d 6.62` swung 82°
 rear glazing); first floor (slabs, balcony fronts, pergola, lattice); roof (bedroom 4 box, pergola,
 terrace railings). Every opening is a hole in `wallX`/`wallD` *and* a `glaze` at the wall's mid-plane;
 `interior.js` repeats the same holes in its 12 mm `paint` linings, or a window shows a wall behind it.
-The three `B.quad('pool', ...)` emitters (car-port downlights, door strip, patio strip) are no longer
-drawn: `main.js` and `community.js` drop the `pool` bucket, since the fittings now live in the lamp
-irradiance map (`community.js`) and, for the hero, in the baked volume.
+The shell writes no `pool` emitters any more: the car-port downlights, door strip and patio strip light
+the ground through the lamp irradiance map (`community.js`) and, for the hero, through the baked volume.
+`main.js`, `community.js` and both scripts still drop or skip a `pool` bucket, so an old shell stays
+harmless.
 
 ## src/interior.js
 
@@ -191,11 +193,14 @@ risers), study nook, hall art, the shared living/dining items (the vase at `x 4.
 table position every style set shares), kitchen run, powder room. First floor: `of()` oak floors,
 linings, five `door` calls, ceilings, stair FF→RF (18 risers), master (a lamp and books one side, flowers
 under a pendant the other), master bath, corridor art, family bath, bedrooms 2 and 3, balconies. Roof
-level: bedroom 4 (its door swung 1.45 rad flat to the wall so the route passes it straight), bathroom,
-the potted tree on the gravel roof outside the landing glazing, terrace with fire bowl and two lanterns.
-`lights`: four point lights `{ type: 'point', name, pos: [x, y, d], color, day, dusk, dist }` (hall,
-livingWarm, ff, fire) that `main.js` fades with `smooth(tod, 0.25, 1.0)`; `lamps`: the bulb positions
-the night pool parks its point lights on. Daylight indoors is the baked volume, not these.
+level: bedroom 4 (its door swung 1.45 rad flat to the wall so the route passes it straight; the walnut
+desk with a vase and a tray stands before the fixed pane of the terrace glazing, inside the key frame from
+the foot of the bed), bathroom, the potted tree on the gravel roof outside the landing glazing, terrace
+with fire bowl and two lanterns. `lights`: one point light `{ type: 'point', name: 'fire', pos: [x, y,
+d], color, day: 0, dusk: 7, dist: 7 }` that `main.js` fades with `smooth(tod, 0.25, 1.0)`. There are no
+ceiling-level fills: a point light under the living-room and landing ceilings lit every wall to one level
+at night. `lamps`: the bulb positions the night pool parks its point lights on. Daylight and the room's
+lamp fill indoors are the baked volume.
 
 ## src/softgoods.js
 
@@ -341,7 +346,7 @@ verticals; `still` snaps everything for captures.
 
 | Chapter (`story.js`) | Progress | Shot |
 | --- | --- | --- |
-| Arrival, The community | 0–0.13 | aerial, the house centred and pinned, descent over the lakes and terraces |
+| Arrival, The community | 0–0.13 | aerial from about 110 m, the house centred and pinned, descent over the lagoon and terraces |
 | Facade | 0.146–0.215 | orbit down to the street in front of the house |
 | Ground floor | 0.235–0.31 | carport, front door, a glance at the kitchen, the hall |
 | Living | 0.335–0.452 | an arc along the living room: sofa, table, glazing, back to the room |
@@ -349,7 +354,7 @@ verticals; `still` snaps everything for captures.
 | Bedrooms | 0.521–0.58 | in from the rear balcony to a hold just inside bedroom 2's glazing |
 | Master suite | 0.602–0.664 | through the door to a 3/4 view from the foot of the bed |
 | Front balcony | 0.68–0.712 | out through the open panel to the balustrade, then a reverse dolly back |
-| The stair | 0.728–0.784 | up the stair well to the roof landing and its window (the sun swings here) |
+| The stair | 0.728–0.784 | back into the rear of the well, over the half landing to a hold on the dog-leg (upper flight, rail, roof-landing window, the hall below), then up to the roof landing; the sun swings here |
 | Bedroom 4 | 0.80–0.866 | through the doorway past the open leaf to a hold inside |
 | Roof terrace | 0.882–0.944 | out through the glazing, round to the sofa and fire bowl at sunset |
 | Summary | 0.96–1 | rise and pull back to the right; the lit rear elevation at blue hour |
@@ -362,8 +367,10 @@ lens shift within ±`MAX_SHIFT`, plus the story table's own rules. The template 
 ## src/atmosphere.js
 
 `STATES`: `t 0` golden hour, `0.5` sunset, `1` blue hour, each `{ elev, turb, ray, mie, mieG, gain,
-sun, sunCol, fog, fogD, exp, env, ground, disc }` (golden hour: turbidity 8.0, Rayleigh 1.1, Mie 0.004,
-g 0.72, gain 0.82, sun 4.3 × (1, 0.81, 0.6), exposure 0.7, env 0.55; the same row is `SKY` in the bake);
+sun, sunCol, fog, fogD, exp, env, ground, disc }` (golden hour: turbidity 8.0, Rayleigh 2.6, Mie 0.005,
+g 0.62, gain 0.56, sun 4.3 × (1, 0.81, 0.6), exposure 0.7, env 0.55; the same row is `SKY` in the bake;
+more Rayleigh, not less, is what pales the blue in three's Preetham model, and the gain holds the
+irradiance);
 `stateAt(t)` lerps and darkens fog with `smoothstep(t, 0.55, 0.92)` towards `TWILIGHT.horizon`.
 `makeSky(scale)`: three's Preetham `Sky` with a patched fragment shader (twilight gradient, horizon melt,
 gain, sun disc 25 not 760) and a few high wisps (`cloudCoverage 0.08`, `cloudDensity 0.7`). Main sky 9000,
@@ -407,8 +414,9 @@ open-sky fraction the shader uses for specular occlusion), skipping when the qua
 unchanged, and writes `uGiDims`, which un-fades the shader lookup; a style whose lamps have not arrived
 borrows the first set loaded. The shader half (`GI_FRAG` in `materials.js`) samples at `vWPos + normal *
 0.22`, fades near the volume edge, reconstructs the L1 lobe non-linearly (pitfall 14), replaces
-`iblIrradiance` where `inside` and dims reflections by the open-sky fraction (or the irradiance ratio where
-the alpha is 0).
+`iblIrradiance` where `inside`, dims reflections by the open-sky fraction (or the irradiance ratio where
+the alpha is 0), tints them by the room's bounce colour and fills the part the sky cannot reach with the
+room's own light (`0.45 / π × irradiance × (1 − open)`), so metals indoors read as metal (pitfall 34).
 
 ## src/post.js and src/volumetric.js
 
@@ -420,15 +428,20 @@ overridden per zone in `main.js`, `intensity 3.0`; the `depthDownsampleTarget.te
 r187, pitfall 2) or a plain `RenderPass` (the `low` tier swaps between them per zone through `setAO`),
 then `FinishPass`, which samples the march's half-size target and the bloom mips, adds them in linear
 light, tone-maps (ACES), encodes, and grades (split tone, `uVignette 0.32`, `uGrain 0.022`). `BloomPass`
-is `UnrealBloomPass` without its final blend (strength 0.2, radius 0.32, threshold 9.0 at construction;
-`main.js` drives threshold and strength each frame from `LOOK`). `SMAAPass` is last and enabled while the
+is `UnrealBloomPass` without its final blend and with its own bright pass, which passes only the excess
+over the threshold, capped at `LOOK.bloomCap` thresholds (the stock pass lets the whole texel through:
+pitfall 29); strength 0.2, radius 0.32, threshold 9.0 at construction, `main.js` drives threshold and
+strength each frame from `LOOK`. `?off=vol,bloom` (parsed in `post.js`) zeroes either term's weight in
+the finish composite, so nothing recompiles. `SMAAPass` is last and enabled while the
 pixel ratio is under `SMAA_MAX_DPR = 1.75`.
 
 `VolumetricPass({ camera, sun, getDepth, steps = 28, scale = 0.5 })` raymarches the sun's shadow map into
 its own target (sun term, ambient term, 1 − transmittance), blurred; uniforms are exposed as `pass.u`
 (`uDensity`, `uDensityIn`, `uMaxDist`, `uG 0.6`, `uHeightK`, `uHeightScale`, `uSunIn/Out`, `uAmbIn/Out`,
 `uSteps`) and composite colours as `pass.sunCol`, `pass.ambCol`. `uBoxMin (0.1, 0.25, -14.85)` / `uBoxMax
-(6.0, 9.7, -3.55)` is the house envelope in which air is dusty and beam-forming: **this plot's numbers**.
+(6.0, 9.7, -3.55)` is the house envelope in which air is dusty and beam-forming, less `uCutMin (0.1, 6.8,
+-14.85)` / `uCutMax (6.0, 9.7, -11.2)`, the open roof terrace, which is outdoor air (pitfall 30): **this
+plot's numbers**.
 `makeDust(boxes [[x0, x1, y0, y1, d0, d1]...], perCubic, seed)` scatters motes lit only where the shadow
 map says sun reaches, energy-conserving (a near sprite grows but does not brighten); `beamMaterial(color)`
 is the lamp cone.
@@ -442,8 +455,12 @@ styles })` reads the DOM once → `{ progress(f, text), setStyle(k), styleLoadin
 update(p, camera, pinWorld, w, h) }`. Cards are every `.card` with `data-chapter="<key>"` (an unknown key
 throws); a child `.plan[data-floor][data-room="key,key"]` receives a `planSVG`, `[data-style-line]` the
 style's swatches and blurb, `.eyebrow .n` the chapter's number. The rail is one button per `CHAPTERS` row
-landing on `jump`; arrow, page, space, Home and End keys step between chapters; a live region announces the
-chapter once the visitor settles on it. In `update`, one chapter is active (`chapterAt`), each card fades
+landing on `jump`; arrow, page, space, Home and End keys step between chapters, from the landing last
+requested while the flight is still easing towards it (`aim`, cleared by wheel, touch or pointer input or
+after 4 s); a live region announces the chapter once the visitor settles on it. `storyText(cards)` clones
+every card's heading and copy (no controls, plans or style line; the credits in full) into a visually
+hidden `section#story-text.sr-only`, the skip link's target, since inactive cards are hidden from
+assistive tech. In `update`, one chapter is active (`chapterAt`), each card fades
 over ±`FADE` around its window, the style pill shows within `STYLE_PILL`, a toast explains the sunset once
 in auto mode, and the plot pin is projected from `pinWorld` within `PIN.windows`. `fatal()` keeps the loader
 as a page with the poster and the facts when WebGL is missing. The style chip's click keeps the promise
@@ -455,7 +472,8 @@ Query parameters: `?p=0.42` renders one still at that progress (`STILL`, `FIXED_
 forces a tier, `?tod=day|night` forces time of day, `?ui=0` adds `body.noui`, `?style=` or `#japandi`
 picks the style (hash wins; `pickStyle` admits only `STYLES` keys), `?cam=x,y,z,lx,ly,lz[,fov[,shift]]`
 places the camera for a still, `?hide=name,name` hides scene objects by name in a still (`sheer`,
-`lampBeams`, `dust`, any material key).
+`lampBeams`, `dust`, any material key). `?off=vol,bloom` is read by `post.js` (see there). `?cam=` and
+`?hide=` act only with `?p=`.
 
 Start-up: `initUI`, the renderer (a `fatal()` page without WebGL; a context loss shows a notice and
 reloads on restore), `detectTier` and `TIERS[TIER]` (the `low` tier adds `body.lowfx`), the size from the
@@ -465,21 +483,26 @@ the live page, awaited for a still), `createMaterials`; the hero shell, interior
 `Builder` (the `pool` bucket dropped, `renderOrder` sheer 1 / glass 2); the chosen style set now, the
 others on chip hover or focus (`ensureStyle`, compiled before they can show), each kit's lamps kept in
 `kitLamps`; the styler (`releaseUnused` on `low`, the boot `apply` falling back to `minimal`);
-`buildCommunity`; the four fixed point lights and the night **lamp pool** (`LOOK.lampPool` point lights,
+`buildCommunity`; the fire's point light and the night **lamp pool** (`LOOK.lampPool` point lights,
 `placeLamps()` parks them each frame on the bulbs nearest the camera among `interior.lamps` and the current
 kit's, cross-fading over about 0.4 s; the count never changes, so no program recompiles); `Atmosphere`
 with `envCacheSize`, `probeSize` and `envBins` per tier, then `atmo.envFor(0, -55, 18)` to seed the GI
 reference env; `createPost`; `makeDust` (plan-unit boxes; `dust.name = 'dust'`); `pinWorld (3.05, 11.5, -9)`.
 Helpers: `zoneFor(c)` (`aerial` above `y 42`, `house` inside the plot box or its margin, else `street`),
 `inHouseBox(v)` (the rooms proper: `x 0.1–6.0`, `z -3.5…-14.85`, `y < 9.7`, minus the terrace),
-`viewCrossing(c)` (how far along the view the rooms begin, from outside, or end through a front, rear or
-roof face, from inside; party walls never count), `todAt(p)`, `sunAt(p)` → `{ swing, az, el }` from
+`crossingAlong(c, dir)` (how far along a ray, up to 7.5 m, the rooms begin, from outside, or end through
+a front, rear or roof face, from inside; party walls never count), `viewCrossing(c)` (that along the view),
+`frameShare(c, fromInside)` (the share of a 5 × 3 grid of view rays, ±0.8 of the half-width and ±0.6 of
+the half-height, that crosses within reach, weighted down from 5 m to 7.5 m; from inside a ray counts only
+by how sunlit the face it leaves through is: front `z ≥ −3.5`, rear `z ≤ −14.85`, else the roof),
+`todAt(p)`, `sunAt(p)` → `{ swing, az, el }` from
 `story.js`'s `SUN`.
 
 `update(dt, time)`: eased progress; `tod = todAt(progress)` eased; the sun from `sunAt`; `atmo.update`;
-zones; the exposure model: `inside` eases to `max(camIn, lookIn)` where `lookIn = LOOK.lookInExposure`
-when the view enters the rooms within 7.5 m, `lookOut` eases to `camIn × LOOK.lookOutExposure` when the
-view leaves them through glazing, `shade` to 1 behind the house; `expIn = st.exp × lerp(1,
+zones; the exposure model (a meter over the frame, pitfall 28): `inside` eases to 1 with the camera in
+the rooms, else to `frameShare(c, false) × LOOK.lookInExposure`; `lookOut` eases, with the camera inside,
+to `max(nearW, min(1, 2.5 × frameShare(c, true) × (1 − tod))) × LOOK.lookOutExposure` (`nearW` the view
+ray's own crossing weight), else to 0; `shade` to 1 behind the house (`x −1…7`, `z −15…−21.5`, `y < 7.5`); `expIn = st.exp × lerp(1,
 lerp(insideExposureDay, insideExposureNight, tod) × STYLES[style].inside, inside)`; `expTarget =
 lerp(expIn, st.exp, lookOut) × lerp(1, gardenShadeExposure, shade)`; bloom `threshold = bloomThresholdK /
 exposure`, `strength = bloomStrength`; AO radius per zone; the glow list by `lamp = smooth(tod, 0.3,
@@ -502,18 +525,24 @@ rung and `applySize()` re-allocates.
 
 `index.html`: `canvas#scene`; `#loader` with `.bar i`, `.label`, `.pct` and the poster; `header.top` with
 the brand and `[data-mode]` Auto/Day/Night buttons; `.styles#styles` (buttons appended by `ui.js`);
-`#toast`; `#live` (screen-reader status); `nav#rail`; `.meter`; `#pin`; `#cards` with thirteen
+`#toast`; `#live` (screen-reader status); `nav#rail`; `.meter`; `#pin`; `main#cards` with thirteen
 `section.card`s, each `data-chapter="<story.js key>"`: the hero card, eleven chapters, the `outro`
 summary. Chapter cards carry `.eyebrow` with an empty `.n` (filled from the table), `h3`, copy, a
 `button.more` that opens `.detail` on phones (`dl.figs`, `dl.times`, the `.plan[data-floor][data-room]`),
-and optionally `p.style-line[data-style-line]`. `main#scroll` is the scroll spacer; the module script is
-`dist/app.js`. The summary card holds the areas table, the three actions (replay, copy link, print) and the
-disclaimer; it names no price or payment plan.
+and optionally `p.style-line[data-style-line]`. `div#scroll` is the scroll spacer; the module script is
+`dist/app.js`. The summary card holds the areas table, the three actions (replay, copy link, print), a
+one-sentence `p.vis-note` that stays visible at every size and the collapsible `details.fine` disclaimer
+and credits; it names no price or payment plan. `<head>` preloads the boot GI files (`S`, `U`, `U2`,
+`N-minimal`, `as="fetch"`) and ten 1024 px exterior textures with `media="(pointer: fine) and (min-width:
+900px)"`, so phones on the 512 px tier do not fetch them; `a.skip` ("Skip to the chapter text") is the
+first element of `<body>`.
 
-`style.css`: `#scroll { height }` is the scroll length; progress is `scrollY / (scrollHeight -
+`style.css`: `#scroll { height: 1700vh }` is the scroll length; progress is `scrollY / (scrollHeight -
 innerHeight)`. Brand accent `--violet`; cards bottom-left; `.plan-svg` classes style the mini-plans;
 `body.ready` reveals the chrome, `body.noui` hides it, `body.lowfx` and `@media (pointer: coarse)` swap
-the overlay's backdrop blur for solid glass; `#print-plans` shows only in print.
+the overlay's backdrop blur for solid glass; `.sr-only` and `.skip` (shown on focus) serve assistive tech;
+`max-height` queries at 700, 560 and 480 px shed card content so every card fits at 1024 × 576;
+`#print-plans` shows only in print.
 
 ## scripts/
 
@@ -532,8 +561,8 @@ hits, `fill` refills them from neighbours, `pass` traces one bounce lit by the p
 rebuild is needed afterwards, the page fetches the files.
 
 `check-path.mjs`: `LIMITS` (clearance, look distance, pitch, yaw and pitch rates, lens shift, caption
-gap); solids from the hero shell, its interior and the two attached neighbours mirrored at `±6.1` (the roof
-kit is not in it); a 0.5 m cell grid; samples every 0.001 of progress; prints breach runs named by the
+gap); solids from the hero shell, its interior and `dressShell` (the rooftop kit), and the two attached
+neighbours (shell plus kit) mirrored at `±6.1`; a 0.5 m cell grid; samples every 0.001 of progress; prints breach runs named by the
 chapter being read, a per-chapter table (span, yaw swing, pitch range, authored look distance, clearance)
 and checks the story table; exits 1 on any breach. `node scripts/check-path.mjs [--verbose]`.
 
@@ -550,8 +579,8 @@ the skill's `scripts/sheet.py <dir> <out.jpg> <columns> <thumb-width>`.
 --outfile=dist/app.js --legal-comments=none`), `dev` (unminified, sourcemap, `--watch`), `serve`
 (`python3 -m http.server 8080`), `bake`. Dependencies `three ^0.187.0`, `n8ao ^2.0.1`, `postprocessing
 ^6.39.6` (n8ao's peer), `esbuild ^0.28.2`; dev `three-mesh-bvh ^0.9.18` (bake only). `dist/app.js`
-(994 KB minified, 338 KB gzip, no GI data) is committed and `.gitignore` re-includes it with
-`!dist/` because the published page serves the bundle (pitfall 9); `assets/gi/*.json` (about 490 KB in
+(996 KB minified, 338 KB gzip, no GI data) is committed and `.gitignore` re-includes it with
+`!dist/` because the published page serves the bundle (pitfall 9); `assets/gi/*.json` (492 KB in
 seven files) are committed for the same reason. Module scripts need a server, not `file://`.
 
 ## Adapting to a new property
@@ -566,13 +595,13 @@ contact sheets at every chapter's `jump`.
 | `src/plan.js` | must | `PLOT`, `H` levels (add or drop a floor), `FACTS`, every `ROOMS` entry (`key`, `name`, `x`, `d`, `size`), `STAIR` |
 | `src/story.js` | must | every `CHAPTERS` row (`key`, `rail`, `from`, `to`, `jump`); `TOD`, `SUN`, `PIN` and `STYLE_PILL` follow from the rows they name |
 | `src/house.js` | must | every wall, slab, parapet and planter in the four sections; each `wallX`/`wallD` hole with its `glaze` (and `'glassRear'` where it faces the garden); door position and swing; railings, slats, lattice; the non-hero `room` quads; spots |
-| `src/interior.js` | must | floor slabs per finish, `paint` linings with the shell's holes, doors, ceilings and downlight grids, both stairs, kitchen, bathrooms, fixed joinery, decor, the four `lights`; keep every lamp going through the kit so `lamps` stays complete |
+| `src/interior.js` | must | floor slabs per finish, `paint` linings with the shell's holes, doors, ceilings and downlight grids, both stairs, kitchen, bathrooms, fixed joinery, decor staged for each chapter's key frame, the fire's entry in `lights` (add no ceiling fills); keep every lamp going through the kit so `lamps` stays complete |
 | `src/stylesets.js` | must | furniture positions in all four blocks to the new living, dining and master rooms; keep one table position shared by every style |
 | `src/community.js` | usually | `PLOT_W`, `BLOCK`, `GAP`, `rows`, `streets`, `CROSS`, the `(3.05, 0, -9)` hero reference and `mirrorX(…, 3.05)` (half the new width), `dressShell` and `lodHouse` to the new massing, the fittings list in the lamp map, lagoon and desert placement; or replace the arc layout for a different estate |
 | `src/path.js` | must | every row of `KEYS`; keep ≥ 2.4 m look distance and ≥ 0.3 m clearance; re-run `check-path.mjs` until it exits 0 |
-| `src/main.js` | must | `zoneFor`, `inHouseBox` and the garden-shade box, dust boxes, `pinWorld`, the sun schedule in `sunAt` if the terrace faces elsewhere, loader copy; the tiers only if the new scale demands |
-| `src/look.js` | usually | `LOOK`, after the first bake and stills: `giFill`/`giSunBalance` if interiors read dark or tan, `insideExposureDay/Night` for the indoor stop, `giLamp`/`streetLamp` for the night |
-| `src/volumetric.js` | must | `uBoxMin`/`uBoxMax` to the new interior envelope |
+| `src/main.js` | must | `zoneFor`, `inHouseBox` (with its terrace exclusion) and the garden-shade box, the front and rear faces `frameShare` tests, dust boxes, `pinWorld`, the sun schedule in `sunAt` if the terrace faces elsewhere, loader copy; the tiers only if the new scale demands |
+| `src/look.js` | usually | `LOOK`, after the first bake and stills: `giFill`/`giSunBalance` if interiors read dark or tan, `insideExposureDay/Night` for the indoor stop, `lookInExposure`/`lookOutExposure`/`gardenShadeExposure` for the transitions, `giLamp`/`lampIntensity`/`streetLamp` for the night |
+| `src/volumetric.js` | must | `uBoxMin`/`uBoxMax` to the new interior envelope, `uCutMin`/`uCutMax` to any open terrace inside it |
 | `src/atmosphere.js` | usually | `sun.target` and the house-zone target to the new plot centre; `STATES`, the `-55 / 18` sun in `envBin`'s anchor, `main.js`'s `envFor(0, -55, 18)` and `sunAt` only if the orientation changes (then the bake's `sunDir`, `SUN_DIRS`, `SUN` and `SKY` too) |
 | `src/styles.js` | usually | palettes, blurbs, `art`, role colours per brief; `SET_AVG` and `SET_ROUGH` entries for new texture sets; `roles` keys only if `materials.js` gains or loses a role |
 | `src/materials.js` | usually | add sets to `SETS` and one-line `pbr` entries for new finishes (with `noPoint`/`lampMap` for exterior ground); facade palette (`render`, `stone`, `bronze`, `frame`) |

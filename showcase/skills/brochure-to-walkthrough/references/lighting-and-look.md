@@ -1,6 +1,6 @@
 # Lighting and the look: how the image is made and how to recalibrate it
 
-The lighting half of the template at `violet2-flythrough/`: everything between the geometry and the pixels, for
+The lighting half of the template (`assets/template/`, a snapshot of `violet2-flythrough`): everything between the geometry and the pixels, for
 a session adapting it to a new property. Read `decisions-and-pitfalls.md` first; it holds the "why" of the big
 choices and is only cited here. Functions are named rather than line-numbered (the lines moved in every fix
 pass); `grep -n` finds them.
@@ -19,15 +19,16 @@ Light reaches a pixel from four places; knowing which one is wrong is most of ca
 | --- | --- | --- |
 | Direct sun | `DirectionalLight` + one PCF shadow map per zone, 2048² on every tier (`atmosphere.js`) | same, through the openings |
 | Diffuse ambient | PMREM of the sky, assigned per material with the authored intensity × the sky's (`envK × envScale`) | baked volume replaces the env diffuse where `inside` > 0 (`GI_FRAG`) |
-| Specular | env map; the glazing mirrors two local probes instead | env map dimmed by the probe's open-sky fraction and tinted by the room's bounce |
-| Lamps | emissive heads, the baked lamp irradiance map on the ground, `M.beam` cones | baked `N` component + the night point-light pool + four fixed `PointLight`s + emissive fixtures |
+| Specular | env map; the glazing mirrors two local probes instead | env map dimmed by the probe's open-sky fraction and tinted by the room's bounce; the hidden part filled with the room's own light |
+| Lamps | emissive heads, the baked lamp irradiance map on the ground, `M.beam` cones | baked `N` component (the room's fill) + the night point-light pool (the pools and falloff) + emissive fixtures; outdoors on the terrace, the fire's `PointLight` |
 
 Per frame, `update()` in `main.js` drives, in order: camera, `tod` and the sun (`sunAt`), `atmo.update()`,
 shadow zone, the exposure model (`inside`, `lookOut`, `shade`), bloom threshold, AO radius, the glow list,
-the lamp pool, the lamp-map colour, `gi.set()`, dust, volumetric uniforms, the fixed point lights. The
+the lamp pool, the lamp-map colour, `gi.set()`, dust, volumetric uniforms, the fire light. The
 composer then runs N8AO (beauty + AO) → the volumetric march (its own half-size target) → the bloom mips →
 the finish pass (march and bloom added in linear light, ACES, sRGB, grade) → SMAA while the pixel ratio is
-under 1.75. Rendering is on demand; `?p=<progress>` renders one still.
+under 1.75. Rendering is on demand; `?p=<progress>` renders one still, and `&off=vol`, `&off=bloom` (or
+both, `&off=vol,bloom`) drop the march or the bloom from the composite to show which one makes a veil.
 
 ## 2. `src/atmosphere.js`
 
@@ -39,8 +40,8 @@ by field in `stateAt(t)`:
 | Field | t=0 | t=0.5 | t=1 | Drives |
 | --- | --- | --- | --- | --- |
 | `elev` | 17 | 3.0 | 0.4 | the *sky's* sun elevation cap, via `skyElev()` |
-| `turb`, `ray`, `mie`, `mieG` | 8.0, 1.1, 0.004, 0.72 | 7.5, 2.0, 0.004, 0.76 | 2.0, 4.2, 0.002, 0.75 | Preetham uniforms: a dust-hazed Gulf sky, little Rayleigh |
-| `gain` | 0.82 | 0.95 | 0.6 | `uGain`, a plain multiplier on the Preetham colour |
+| `turb`, `ray`, `mie`, `mieG` | 8.0, 2.6, 0.005, 0.62 | 7.5, 2.0, 0.004, 0.76 | 2.0, 4.2, 0.002, 0.75 | Preetham uniforms: a dust-hazed, pale Gulf sky |
+| `gain` | 0.56 | 0.95 | 0.6 | `uGain`, a plain multiplier on the Preetham colour |
 | `sun`, `sunCol` | 4.3, (1, 0.81, 0.6) | 2.2, (1, 0.62, 0.4) | 0, (0.55, 0.6, 0.85) | `DirectionalLight` |
 | `fog`, `fogD` | (0.84, 0.78, 0.71), 0.0009 | (0.84, 0.66, 0.55), 0.0011 | `TWILIGHT.horizon`, 0.0011 | `FogExp2` |
 | `exp` | 0.7 | 0.88 | 2.0 | base tone-mapping exposure |
@@ -52,6 +53,13 @@ After interpolation the fog colour is pulled towards `TWILIGHT.horizon` by `smoo
 linear blend glows at the horizon (pitfall 12). `skyElev(t, el, s)` lets the sky's sun sink to `s.elev`
 while the shadow-casting sun stays where the route put it, because the shadow map cannot follow. The t=0 row
 is also the bake's `SKY`.
+
+Why the golden-hour row has *more* Rayleigh than the sunset row (pitfall 31): in three's Preetham model a
+thin scattering column (1.1) leaves a deep, saturated blue overhead (#2c65a5 above the facade), because the
+blue channel's extinction saturates first; a thick one (2.6) lifts red and green towards it, the hazy pale
+blue of a Gulf evening (#6599b7). A broad Mie lobe (g 0.62) spreads the dust glow instead of piling it
+round the sun, and the gain falls to 0.56 so the sky's irradiance, and with it every exposure and the
+baked fill, stays where it was. Change a sky row only together with `bake-gi.mjs` `SKY`, then re-bake.
 
 ### The Preetham patches in `makeSky()`
 
@@ -118,8 +126,13 @@ phone tier), `distanceFalloff 1.0`, `intensity 3.0`. The `low` tier swaps AO for
 aerial zone (`setAO`). The volumetric pass reads `aoPass.beautyRenderTarget.depthTexture`, so there are **no
 volumetrics on `?q=low`**; calibrate on `high`. `BloomPass` is `UnrealBloomPass` without its final blend
 (half size, radius 0.32; strength and threshold are set each frame from `LOOK`: `threshold = bloomThresholdK
-/ exposure`, `strength = bloomStrength`, so lamps halo at night and sunlit render by day does not; a
-threshold of `1 / exposure` would pass every sunlit patch whole). `FinishPass` samples the march's target
+/ exposure`, `strength = bloomStrength`, so lamps halo at night and sunlit render by day does not). Its
+bright pass is replaced: the stock one lets a pixel over the threshold through whole, so a low sun's Mie
+glow, tens of times the threshold over a quarter of the sky, bloomed into a white veil across the roof
+terrace (pitfall 29). The template passes `min(max(v − threshold, 0), threshold × LOOK.bloomCap)` of the
+texel's luminance `v`, keeping its colour: a lamp shade still halos, a bright sky cannot flood the frame.
+`?off=vol,bloom` zeroes the march's or the bloom's weight in the finish pass (a uniform, so nothing
+recompiles). `FinishPass` samples the march's target
 and the bloom mips, adds them in linear light, applies ACES and sRGB, then the grade; `SMAAPass` is last
 and enabled while the pixel ratio is under `SMAA_MAX_DPR = 1.75`.
 
@@ -143,7 +156,9 @@ lighting problem, only hide one.
 `VolumetricPass` raymarches at `scale 0.5` resolution through the sun's shadow depth texture with `STEPS`
 (28; 20 on `mid`) and a 5-tap separable blur, writing (sun, ambient, 1 − transmittance) to its own target
 for the finish pass. Per sample: `inside` = point within `uBoxMin..uBoxMax` (the house volume, (0.1,
-0.25, −14.85)–(6.0, 9.7, −3.55)); density is `uDensityIn` inside, otherwise `uDensity * (1 + uHeightK *
+0.25, −14.85)–(6.0, 9.7, −3.55)) and outside `uCutMin..uCutMax` (the open roof terrace, (0.1, 6.8,
+−14.85)–(6.0, 9.7, −11.2), outdoor air: room-dense dust there, looking into a low sun, washed half the
+sunset frame white, pitfall 30); density is `uDensityIn` inside, otherwise `uDensity * (1 + uHeightK *
 exp(-y / uHeightScale))`; the lit term is weighted `uSunIn`/`uSunOut`, the ambient term `uAmbIn`/`uAmbOut`;
 `uG 0.6` is the Henyey–Greenstein anisotropy; the composite clamps the sun term at 6. `main.js` sets, with
 `air` = 1 in the aerial zone:
@@ -161,8 +176,8 @@ exp(-y / uHeightScale))`; the lit term is weighted `uSunIn`/`uSunOut`, the ambie
 | `ambCol` | fog colour × 0.14 × (0.6 + 0.8 tod) | haze brightens relative to the scene at night |
 
 A white veil over window views is almost never the volumetrics (pitfall 10): render the still with
-`?q=low` (no march) and compare before touching densities. A bright cone or blob that survives on `low` is
-geometry or baked light, not the march.
+`&off=vol`, then `&off=bloom`, and compare before touching densities. A bright cone or blob that survives
+both is geometry or baked light: `&hide=<material key>` names it (pitfall 24).
 
 ### Dust and lamp beams
 
@@ -188,7 +203,7 @@ onProgress, { defer })` loads `<name>_c.webp` (sRGB colour), `_n` (OpenGL normal
 occlusion, G = roughness) with `RepeatWrapping`; the phone tier reads `assets/tex/512/`. One `_r` texture
 serves as both `roughnessMap` and `aoMap` because three reads roughness from G and AO from R. Style-only sets
 load on first use through the styler. Pack new sets with the skill's `scripts/textures.py` and measure
-their mean albedo with `--measure` (a `contrast` column compresses a scan that would clip when divided up to
+their mean albedo with `--measure` (the mean of the `_r` green channel goes in `SET_ROUGH`; a `contrast` column compresses a scan that would clip when divided up to
 a near-white albedo; `linen` 0.4, `boucle` 0.6); never clone a texture before it has loaded (pitfall 1).
 
 ### `pbr(name, o)` options
@@ -247,9 +262,11 @@ fraction. The reconstruction is the Geomerics/Hazel non-linear form: `gR = g1 / 
 0.98)` (0.5, not 0.433, because the stored ratio is irradiance-premultiplied), `q = ½(1 + n·ĝR)`, `p = 1 +
 2x`, `a = (1 − x)/(1 + x)`, `E = DC (a + (1 − a)(p + 1) q^p)`: no negative lobe, so strong lamps do not ring
 dark behind themselves (pitfall 14). Then `gw = g0.a * gF` mixes `iblIrradiance` towards `E`, and `radiance`
-(and `clearcoatRadiance`) is replaced by its luminance × `gSo` × the room's bounce tint, where `gSo =
-clamp(open × 2.5, 0.03, 1)` (or the irradiance ratio where the alpha is 0): a dark room has no bright sky in
-its marble, and a glossy floor in a lamp-lit room reflects the room.
+(and `clearcoatRadiance`) is replaced by its luminance × `gSo` × the room's bounce tint plus `gRoom`, where
+`gSo = clamp(open × 2.5, 0.03, 1)` (or the irradiance ratio where the alpha is 0) and `gRoom = E × 0.45 / π ×
+(1 − gSo)`: what the walls, at a mid albedo, send back where the sky is hidden. A dark room has no bright
+sky in its marble, a glossy floor in a lamp-lit room reflects the room, and a metal (a brass pull, a lamp
+base) in a room that sees little sky reads as metal instead of a black slot (pitfall 34).
 
 ### Emitters and the glow list
 
@@ -270,7 +287,8 @@ dusk }` onto `glow`, which `createMaterials` returns; `main.js` lerps each entry
 | `lod` 0xffd9a6 | 0 → 1.1 | facade-atlas windows of distant blocks |
 | `beam` (`uOpacity`) | 0 → 0.16 | street-lamp cones |
 
-(`M.pool`, the additive blobs under lamps, is no longer drawn: the ground takes the lamp map instead.)
+(There is no `pool` material any more: the additive blobs under the lamps are replaced by the lamp map the
+ground takes, pitfall 22.)
 Fixture day values are non-zero on purpose (an unlit fixture in a daylit room reads as a black disc); match
 any change with the bake's `LAMP` table (section 7) or fixture and pool disagree.
 
@@ -353,7 +371,7 @@ iterations.
 `encode()` writes per probe: DC rgb as `log2` over 20 stops from 2⁻¹⁴ (byte 0 = black), the luminance
 gradient `(x, y, z)` relative to DC in [−2, 2] as three bytes, and for `S` the open fraction; `write()`
 puts each component in `assets/gi/<name>.json` as `{ spacing, min, dims, stride, data }` with `data`
-base64 (about 80 KB for `S`, 69 KB for the rest; 490 KB in all, gzip about 55 %). The page fetches them:
+base64 (80 KB for `S`, 69 KB for the rest; 492 KB in all, 286 KB gzip). The page fetches them:
 `createGI({ base, style })` starts the requests before the textures, decodes through the browser's own
 base64 decoder (a `data:` fetch; `atob` where a sandbox refuses it), derives `inside = 1 − smoothstep(open,
 0.2, 0.4)` and sets `uGiA`/`uGiB`; `ready` resolves once `S`, `U`, `U2` and the boot style's `N` are in;
@@ -371,47 +389,66 @@ weights collapse to their luminance), `t1.a = open`. Weights are sanitised (fini
   swing)` and `kU2` the same × `swing` — the bake's sun colour and intensity divided out, so the bounce
   scales with the real sun as it swings and sets, and the golden cast is balanced so white walls read light
   rather than tan;
-- `kN = LOOK.giLamp × lerp(LOOK.giLampDay, 1, lamp)` — lamps on at 12 % by day, full at dusk.
+- `kN = LOOK.giLamp × lerp(LOOK.giLampDay, 1, lamp)` — `giLamp` 0.06, lamps at 44 % of that by day, full
+  at dusk. The volume's 0.5 m probes can only carry a room's lamp-lit fill; at 0.22 it lit every wall to
+  one level at night, so the pools come from the point lights (§8).
 
 ## 8. The exposure model in `src/main.js`
 
-### Indoor factor, the look-in, look-out and shade blends, and the `LOOK` weights
+### Indoor factor, the frame meter, the look-in, look-out and shade blends
 
 The renderer uses `ACESFilmicToneMapping` with exposure driven per frame:
 
 `expIn = STATES.exp × lerp(1, lerp(insideExposureDay, insideExposureNight, tod) × STYLES[style].inside, inside)`
 `expTarget = lerp(expIn, STATES.exp, lookOut) × lerp(1, gardenShadeExposure, shade)`
 
-`inside` eases (rate 2.2) towards `max(camIn, lookIn)`: `camIn` is 1 when the camera is within the rooms
-proper (`inHouseBox`: x 0.1–6.0, z −14.85 to −3.5, y < 9.7, excluding the roof terrace), and `lookIn` is
-`LOOK.lookInExposure` (0.35, about a stop) when, from outside, the view enters the rooms within 7.5 m
-(`viewCrossing`, which walks the view ray: the route interpolates orientation, so the look point itself
-always sits 10 m out and says nothing). `lookOut` eases towards `camIn × LOOK.lookOutExposure` (0.6) when
-the view leaves the rooms through a front, rear or roof face within 7.5 m (party walls never count), giving
-part of the indoor lift back so the sunlit garden or terrace keeps its highlights. `shade` eases to 1
-behind the house (x −1..7, z −15..−21.5, y < 7.5), where the rear elevation is in the sun's shade and the
-sunlit-street exposure would read as dusk: `gardenShadeExposure` 2.5 exposes for the shade as a photographer
-would. By day an interior is therefore exposed 4.2× (0.7 → 2.94), at night 0.9× (2.0 → 1.8): the
-photographer's two stops by day, and lamp-lit rooms darker than day with pools near the lamps (decision
-"Interiors exposed like a photograph"). `giFill` 3.4 multiplies the baked daylight; `giWhiteBalance` (1.0,
-1.0, 0.97) trims the baked sky's blue, `giSunBalance` (0.92, 1.0, 1.12) the bounce's gold; `giLamp` 0.22
-scales the lamp component to page units. Tune in that order: exposure sets the level and the headroom
-(the sheers and the sun patches clip first), `giFill` where the bedding and the walls sit under it,
-the balances the wall tint, `giLamp` how much a lamp lights its room against how bright the fixture looks.
+Exposure is metered over the frame, as a photographer's meter weighs it, not along the centre ray (pitfall
+28). `frameShare(c, fromInside)` casts a 5 × 3 grid of view rays (at ±0.4 and ±0.8 of the half-width, 0
+and ±0.6 of the half-height) and, for each, walks it up to 7.5 m (`crossingAlong`) to where it leaves
+the rooms (from inside) or enters them (from outside), weighting a crossing down from 5 m to 7.5 m. From
+inside a ray counts only by how sunlit the face it leaves through is (front `z ≥ −3.5`, rear `z ≤
+−14.85`, else the roof, each `smoothstep(0, 0.25)` of the sun direction's matching component): glazing in
+the house's own shade is no brighter than the room. `camIn` is 1 within the rooms proper (`inHouseBox`:
+x 0.1–6.0, z −14.85 to −3.5, y < 9.7, excluding the roof terrace). Then, each easing at rate 2.2:
+
+- `inside` → 1 with the camera in the rooms; from outside → `frameShare(c, false) × LOOK.lookInExposure`
+  (0.35, about a stop at a frame full of room). The look-in lift scales with how much of the frame is room,
+  so a garden view with two thirds shaded paving no longer takes the full lift on top of the shade lift.
+- `lookOut` → with the camera inside, `max(nearW, min(1, 2.5 × frameShare(c, true) × (1 − tod))) ×
+  LOOK.lookOutExposure` (0.85; `nearW` is the centre ray's own crossing weight): two fifths of a frame of
+  sunlit glazing, the brightest thing in it, is already the whole give-back, so the sunlit garden or
+  terrace keeps its highlights and the room does not clip; towards night the glazing stops counting.
+  Outside, 0. Without the grid the master suite's centre ray left by the party wall while the sunlit front
+  glazing filled the right of the frame, and the room clipped white.
+- `shade` → 1 behind the house (x −1..7, z −15..−21.5, y < 7.5), where the rear elevation is in the sun's
+  shade and the sunlit-street exposure would read as dusk: `gardenShadeExposure` 2.2 exposes for the shade
+  as a photographer would. It compounds with the look-in lift: the garden view sits near 2.1× the street,
+  a frame filled by the living room through the glazing near 3.3×.
+
+By day an interior is therefore exposed 4.2× (0.7 → 2.94), at night 0.9× (2.0 → 1.8): the photographer's
+two stops by day, and lamp-lit rooms darker than day with pools near the lamps (decision "Interiors
+exposed like a photograph"). `giFill` 3.4 multiplies the baked daylight; `giWhiteBalance` (1.0, 1.0, 0.97)
+trims the baked sky's blue, `giSunBalance` (0.92, 1.0, 1.12) the bounce's gold; `giLamp` 0.06 scales the
+lamp component to page units. Tune in that order: exposure sets the level and the headroom (the sheers and
+the sun patches clip first), `giFill` where the bedding and the walls sit under it, the balances the wall
+tint, then the night (below). The look-in, look-out and shade weights come after the interiors hold, on
+the transition stills (the facade, the garden, each window view).
 
 ### The night lights
 
-`buildInterior()` returns `lights` (four fixed point lights: `hall`, `livingWarm`, `ff`, `fire`, day 0,
-dusk 1.5–7, distance 7–9 m) and `lamps` (the bulb position of every fixture placed through the kit); each
-style kit records its own `lamps`. `main.js` makes the four fixed lights `PointLight(color, day, dist,
-decay 2)` at `(x, y, −d)`, faded by `smoothstep(tod, 0.25, 1)`, and a **pool** of `LOOK.lampPool` (3)
-point lights (`lampReach` 2.5 m, decay 2, no shadows, colour 0xffd2a0) that `placeLamps()` parks each frame
-on the three bulbs nearest the camera among the fixed fixtures and the current style's, cross-fading a
-slot over about 0.4 s when it moves so a lamp never pops. The count is constant, so no program ever
-recompiles; intensity is `lampIntensity` (1.2) × the lamp factor × the slot's weight. They add the pool
-under each shade and the glints; room light comes from the baked volume (`giLamp`), so raise one against the
-other, never both: a shade with a pool from both reads double-lit. Exterior finishes carry `noPoint` and
-pay for none of this.
+`buildInterior()` returns `lights` (one fixed point light, the terrace `fire`: day 0, dusk 7, distance
+7 m) and `lamps` (the bulb position of every fixture placed through the kit); each style kit records its
+own `lamps`. There are no ceiling-level fills: a point light under the living-room and landing ceilings lit
+every wall to one level at night, an even wash with no pools (pitfall 33). `main.js` makes the fire light
+`PointLight(color, day, dist, decay 2)` at `(x, y, −d)`, faded by `smoothstep(tod, 0.25, 1)`, and a
+**pool** of `LOOK.lampPool` (3) point lights (`lampReach` 4 m, decay 2, no shadows, colour 0xffd2a0) that
+`placeLamps()` parks each frame on the three bulbs nearest the camera among the fixed fixtures and the
+current style's, cross-fading a slot over about 0.4 s when it moves so a lamp never pops. The count is
+constant, so no program ever recompiles; intensity is `lampIntensity` (3.0) × the lamp factor × the slot's
+weight. The division of labour: the baked volume (`giLamp`) is the room's lamp-lit fill, the pool carries
+the falloff a night room reads by, bright under and beside each shade and dim in the corners. Raise one
+against the other, never both: a shade with a pool from both reads double-lit. Exterior finishes carry
+`noPoint` and pay for none of this.
 
 ### Night mode and the glow list
 
@@ -463,11 +500,12 @@ materials, so styles restyle decor for free.
 | Golden-hour sun az −55°, el 18° | `atmosphere.js` `sunDir`, the anchor in `envBin`; `main.js` `envFor(0, -55, 18)`, `sunAt`; `bake-gi.mjs` `sunDir` |
 | Swung sun az −128°, el 11.5° | `main.js` `sunAt` (through `story.js` `SUN`); `bake-gi.mjs` `SUN_DIRS.U2` |
 | Sun intensity 4.3, colour (1, 0.81, 0.6) | `STATES[0]`; `bake-gi.mjs` `SUN`; `main.js` `kU` (`/ 4.3`, `/ 0.81`, `/ 0.6`) |
-| Sky constants 8.0 / 1.1 / 0.004 / 0.72 / 0.82 | `STATES[0]`; `bake-gi.mjs` `SKY` |
-| House box x 0.1–6.0, y 0.25–9.7, z −14.85 to −3.55 | `volumetric.js` `uBoxMin/uBoxMax`; `main.js` `inHouseBox` (z to −3.5); `zoneFor` (deliberately padded: x 0.05–6.05, z −15.4 to −1.4, y < 10.2) |
+| Sky constants 8.0 / 2.6 / 0.005 / 0.62 / 0.56 (turbidity, Rayleigh, Mie, g, gain) | `STATES[0]`; `bake-gi.mjs` `SKY` |
+| House box x 0.1–6.0, y 0.25–9.7, z −14.85 to −3.55 | `volumetric.js` `uBoxMin/uBoxMax`; `main.js` `inHouseBox` (z to −3.5), the front and rear faces in `frameShare` (z −3.5, −14.85); `zoneFor` (deliberately padded: x 0.05–6.05, z −15.4 to −1.4, y < 10.2) |
+| Open roof terrace y > 6.8, z < −11.2 | `volumetric.js` `uCutMin/uCutMax`; `main.js` `inHouseBox` exclusion |
 | Probe box | `bake-gi.mjs` `SP`/`MIN`/`DIMS`; read by the page from `assets/gi/*.json` |
 | House centre (3.05, −9), neighbour pitch 6.1 | `atmosphere.js` sun target; `main.js` `pinWorld`; `bake-gi.mjs` (mirror about x 3.05, offsets ±6.1, ±12.2); `community.js` `mirrorX(g, 3.05)` |
-| Lamp brightness | `materials.js` emissive dusk values; `bake-gi.mjs` `LAMP`; `LOOK.giLamp`, `lampIntensity` |
+| Lamp brightness | `materials.js` emissive dusk values; `bake-gi.mjs` `LAMP`; `LOOK.giLamp`, `lampIntensity`, `lampReach` |
 | Street fittings | `community.js` lamp map `fit` list (downlights at (1.5, −3.6), (4.6, −3.6) at h 3.19; strips at −6.13 and −15.22) must match `house.js`'s emitters |
 | Finish albedo | `SET_AVG`; roles `albedo`; `bake-gi.mjs` `albedoFor()` |
 
@@ -482,10 +520,12 @@ materials, so styles restyle decor for free.
 2. `npm run build` and `node scripts/check-path.mjs`; fix the route first, every still depends on it.
 3. Draft bake: `RAYS=16 npm run bake` (about 2 min on the reference build; 256 rays about 12 min). Per
    component it prints `mean`, `indoor mean` (unmasked probes under 15 % open sky; `-` for `S`, which
-   produces that mask) and `max`. Reference figures at 256 rays: `S` mean 0.64, max 2.8; `U` mean 0.22,
-   indoor 0.14; `U2` mean 0.08, indoor 0.05 (the swung sun reaches fewer floor patches); `N` indoor mean
-   3.8–4.3, max about 63 (91–96 lamp points per style; 268–280 k triangles). An `N` max ten times that, or a
-   `U` indoor mean near zero, means a misclassified emitter, a wrong `LAMP` entry or a sealed room.
+   produces that mask) and `max`, all of the red DC. Reference figures at 256 rays, read back from the
+   committed files: `S` mean 0.48, max 1.9 (the pale golden-hour sky; 0.64 and 2.8 under the old deep-blue
+   one); `U` mean 0.22, indoor 0.14; `U2` mean 0.08, indoor 0.05 (the swung sun reaches fewer floor
+   patches); `N` indoor mean 3.7–4.2, max above 60 (the 8-bit encoding tops out at 2⁶ = 64; 91–96 lamp
+   points per style; 268–280 k triangles). An `N` max ten times that, or a `U` indoor mean near zero, means
+   a misclassified emitter, a wrong `LAMP` entry or a sealed room.
 4. No rebuild is needed: the page fetches `assets/gi/*.json`. Capture (below) and tune.
 5. When the look holds on the draft, `npm run bake` at 256 rays, recapture the same frames and a 16-still
    route sheet.
@@ -493,7 +533,7 @@ materials, so styles restyle decor for free.
 ### Capture commands
 
 ```bash
-cd violet2-flythrough
+cd <project>
 nohup npm run serve > /dev/null 2>&1 &          # python3 -m http.server 8080 (pitfall 17)
 curl -sI http://localhost:8080/index.html | head -1
 mkdir -p out/day out/night
@@ -501,9 +541,10 @@ mkdir -p out/day out/night
 node scripts/capture.cjs http://localhost:8080 out/day high 0.385,0.56,0.655,0.85 "&ui=0"
 node scripts/capture.cjs http://localhost:8080 out/night high 0.385,0.56,0.655,0.85 "&ui=0&tod=night"
 # one style at a time: append &style=japandi (desert, luxe); defaults to minimal
-# a stray highlight: &hide=sheer,lampBeams,dust names what it is; &cam=x,y,z,lx,ly,lz looks from anywhere
-python3 ../skills/brochure-to-walkthrough/scripts/sheet.py out/day out/day.jpg 4 512
-python3 ../skills/brochure-to-walkthrough/scripts/sheet.py out/night out/night.jpg 4 512
+# a veil: &off=vol or &off=bloom says which term makes it; a stray highlight: &hide=sheer,lampBeams,dust
+# (or any material key) names it; &cam=x,y,z,lx,ly,lz looks from anywhere
+python3 <skill>/scripts/sheet.py out/day out/day.jpg 4 512
+python3 <skill>/scripts/sheet.py out/night out/night.jpg 4 512
 ```
 
 For a new property take each interior chapter's `jump` from `story.js`. `capture.cjs` renders at 1024 ×
@@ -530,13 +571,18 @@ still reads as clipped long before it is (crop the bedding at full size and take
 4. **Lamps.** Night interiors: each fixture should show a pool on the surface it faces and the fixture
    itself should not be the brightest thing by more than two stops. Raise `LAMP.I` for a type whose pool is
    missing, lower its emissive `dusk` if the fixture blows out; `giLamp` moves all baked pools together,
-   `lampIntensity` the three point lights near the camera; `insideExposureNight` keeps night darker than day.
+   `lampIntensity` (and `lampReach`) the three point lights near the camera, which carry the falloff;
+   `insideExposureNight` keeps night darker than day; add no ceiling fills.
    Outside, `streetLamp` sets the ground pools of the lamp map against the lamp heads.
-5. **Volumetrics.** With the sun through a window there should be a soft shaft, not a wall of white; compare
-   with `?q=low` before changing `uDensityIn` or the 0.16 sun factor.
-6. **Exterior.** Only now adjust `STATES.exp`/`env`, fog colour and density, and the twilight constants,
-   checking the facade still (progress 0.19) and the aerials (0.03, 0.98).
-7. **Grade.** Vignette, grain and split-tone last, on a full route sheet.
+5. **Volumetrics and bloom.** With the sun through a window there should be a soft shaft, not a wall of
+   white; compare with `&off=vol` and `&off=bloom` before changing `uDensityIn`, the 0.16 sun factor or
+   `bloomCap`.
+6. **Transitions.** The facade (0.19), the garden (0.49) and each window view: `lookInExposure`,
+   `gardenShadeExposure`, `lookOutExposure`. Measure the paving and the sunlit glazing, do not eyeball.
+7. **Exterior.** Only now adjust `STATES.exp`/`env`, fog colour and density, and the twilight constants,
+   checking the facade still (progress 0.19) and the aerials (0.03, 0.98); a sky row changes with the
+   bake's `SKY` and a re-bake.
+8. **Grade.** Vignette, grain and split-tone last, on a full route sheet.
 
 Done means: the eight interior stills read as one house photographed at two times of day, the four styles
 differ in finish but not in exposure, and nothing was changed in only one of the places listed in section 10.

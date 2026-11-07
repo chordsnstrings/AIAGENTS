@@ -12,9 +12,10 @@ template this skill ships (`assets/template/`): a finished, reviewed build of a 
 townhouse that reached photographic interiors. Your job is to adapt the template to the new
 property and bring it back to the same polish, not to rebuild it.
 
-Reference build: Violet 2 (DAMAC Hills 2) TH12-4M, 6.1 × 18.5 m plot, three levels, 815 lines of
-plan/interior code changed per property, the rest reused. Whole build ≈ 48 M tokens; a realism
-pass ≈ 24 M. Budget for it and keep review images small.
+Reference build: Violet 2 (DAMAC Hills 2) TH12-4M, 6.1 × 18.5 m plot, three levels. Per property
+the plan, shell, interior and style-set files (about 1,100 lines), the route and chapter tables and
+the cards are rewritten; the engine is reused. Whole build ≈ 48 M tokens; a realism pass ≈ 24 M.
+Budget for it and keep review images small.
 
 ## Inputs and the one round of questions
 
@@ -69,8 +70,8 @@ cp -r <skill>/assets/template <dest> && cd <dest> && npm install && npm run buil
 nohup npm run serve > /dev/null 2>&1 &         # http://localhost:8080
 node scripts/capture.cjs http://localhost:8080 shots high 0.0,0.45 "&ui=0"
 ```
-The two stills prove the toolchain (Chromium + SwiftShader, ~40 s per still). Keep the server
-under `nohup`; it dies with the session worker otherwise.
+The two stills prove the toolchain (Chromium + SwiftShader, about a minute per still including
+start-up). Keep the server under `nohup`; it dies with the session worker otherwise.
 
 ### 3. Plan, shell, interior
 - `src/plan.js`: PLOT, H (level heights), ROOMS (f, key, name, x[], d[], size), STAIR, FACTS.
@@ -82,11 +83,17 @@ under `nohup`; it dies with the session worker otherwise.
   keyframe). Chairs facing the wall and doors swinging into walls are found this way, not later.
 - `src/community.js`: rows, streets, landscape and landmarks from the masterplan; adjacent
   neighbours are mirrored copies of the shell; farther rows use the LOD atlas.
+- The house boxes that are this plot's numbers: `inHouseBox`, `zoneFor`, the garden-shade box,
+  the glazing faces `frameShare` tests and the dust boxes in `src/main.js`; `uBoxMin`/`uBoxMax`
+  and the terrace cut in `src/volumetric.js`.
 
 ### 4. Finishes and styles
-- Textures: the template ships 29 packed CC0 sets. Add a finish with
-  `python3 <skill>/scripts/textures.py dl assets/tex <name>` after adding it to the manifest,
-  then put its measured mean albedo in `SET_AVG` (`src/styles.js`).
+- Textures: the template ships 29 packed CC0 sets (`assets/tex/`, and `assets/tex/512/` for the
+  phone tier). Add a finish to `MANIFEST` in `<skill>/scripts/textures.py`, then
+  `python3 <skill>/scripts/textures.py dl assets/tex <name>`,
+  `python3 <skill>/scripts/textures.py --downscale 512 assets/tex`, and put its mean linear albedo
+  (`--measure assets/tex <name>`) in `SET_AVG` and the mean of its `_r` green (roughness) channel
+  in `SET_ROUGH` (`src/styles.js`).
 - Styles: keep the four researched presets unless asked; re-tune `roles` to the brochure's
   palette by albedo (`albedo:` not `color:` for walls, floors and ceilings). Style furniture
   positions follow the new living/dining/master layout.
@@ -95,19 +102,24 @@ under `nohup`; it dies with the session worker otherwise.
 ### 5. Light it
 Freeze geometry first (the bake traces it), then:
 ```bash
-RAYS=16 npm run bake     # 2 min, enough to see
-npm run build && node scripts/capture.cjs http://localhost:8080 gi high 0.40,0.47,0.62,0.70 "&ui=0"
-RAYS=256 npm run bake    # ~10 min, final
+RAYS=16 npm run bake     # about 2 min, enough to see; writes assets/gi/*.json, no rebuild needed
+node scripts/capture.cjs http://localhost:8080 gi high 0.385,0.56,0.655,0.85 "&ui=0"
+RAYS=256 npm run bake    # about 12 min, final
 ```
-Tune in this order: indoor exposure factor, `GI_FILL`, white balance, lamp level at night, then
-per-style `inside`. Interiors should read like a photograph taken at the window's exposure
-plus two stops: bright, soft, no blown windows, no grey corners.
+The photographic constants are `LOOK` in `src/look.js`. Tune in this order: `insideExposureDay`
+(headroom for sheers and sun patches), `giFill`, `giSunBalance` and `giWhiteBalance`, the night
+(`giLamp`, `lampIntensity`, `insideExposureNight`, `streetLamp`), then per-style `inside`.
+Interiors should read like a photograph taken at the window's exposure plus two stops: bright,
+soft, no blown windows, no grey corners. Diagnose a stray veil or highlight in a still with
+`&off=vol,bloom` (drops the march or the bloom), `&hide=<material key>` and `&cam=x,y,z,lx,ly,lz`.
 
 ### 6. Route and story
-`src/path.js` keyframes `[progress, position, look, fov]`; `index.html` cards with
-`data-from/data-to`. Author each chapter as a hold or a slow arc around a fixed target: bedrooms
-from a 3/4 eye-height view showing bed, window light, wardrobes and prints; the garden from the
-lawn looking back at the lit glazing; the kitchen actually in frame on the kitchen card. Run
+`src/story.js` `CHAPTERS` holds every chapter's card window, rail label and `jump`; the sunset, sun
+swing and plot pin follow from it. `src/path.js` `KEYS` are `[progress, position, look, fov,
+lensShift?]`; `index.html` cards name their chapter with `data-chapter`. Author each chapter as
+a hold or a slow arc around a fixed target: bedrooms from a 3/4 eye-height view showing bed,
+window light, wardrobes and prints; the garden from the lawn looking back at the lit glazing;
+the kitchen actually in frame on the kitchen card. Run
 `node scripts/check-path.mjs` until it exits 0, then contact-sheet the route:
 ```bash
 node scripts/capture.cjs http://localhost:8080 rv high 0.03,0.1,0.18,0.28,0.35,0.41,0.46,0.52,0.58,0.63,0.69,0.76,0.8,0.845,0.88,0.96 ""
@@ -124,8 +136,9 @@ findings; list plausible ones for the user. Re-run `check-path` and the contact 
 ### 8. Deliver
 - `npm run build`; README with what is real vs illustrative, controls, structure, credits
   (texture sources, interior-trend research), re-bake instructions.
-- Publish: `publish_files` with `index.html`, `style.css`, `dist/app.js`, `assets/tex/*`
-  (patch mode on republish; `.bin` is refused; deep links are `#style` hashes only).
+- Publish: `publish_files` with `index.html`, `style.css`, `dist/app.js`, `assets/gi/*.json`,
+  `assets/tex/*.webp`, `assets/tex/512/*.webp` and `assets/poster.jpg` (patch mode on republish;
+  `.bin` is refused; deep links are `#style` hashes only).
 - Commit including `dist/` (the page runs from a plain checkout). No buyer contact or price
   unless asked.
 - Report: link, what was verified, known limits, token cost
@@ -137,17 +150,22 @@ findings; list plausible ones for the user. Re-run `check-path` and the contact 
 - A still at each card's mid progress shows what the card names; sizes match the PDF.
 - Desktop (1024 × 576 and 1440 × 900) and phone (390 × 844, `?q=low`) sheets read well with the
   overlay; night sheet and all four styles checked.
-- Console clean in the capture logs; ~150 draw calls, ≤ 1.3 M triangles on high, bundle ≤ 1.5 MB,
-  textures ≤ 10 MB.
+- Console clean in the capture logs (a forced `?q=low` at desktop width warns about the unused
+  1024 px preloads; that alone is expected); ~150–190 draw calls, ≤ 1.3 M triangles on high,
+  bundle ≤ 1.5 MB, textures ≤ 10 MB per tier.
+- Overlay: every card fits at 1024 × 576; the skip link, the hidden chapter text and the
+  always-visible visualisation line on the summary card are present.
 - Interiors: bright soft daylight, no blown glazing, beds staged, prints and flowers present,
   joinery contrasting, no flat grey corners; night: warm lamplight, no glowing hero shell.
 - README, credits and the summary's "visualisation" disclaimer present.
 
 ## When things look wrong
 
-`references/decisions-and-pitfalls.md` lists the 21 ways the reference build went wrong and the
+`references/decisions-and-pitfalls.md` lists the 38 ways the reference build went wrong and the
 fix for each (black textures, n8ao crash, milky bloom, orange wood, white fog, whip pans, lamps
-1000× too bright, SH ringing...). Check it before debugging from scratch.
+1000× too bright, SH ringing, beams stacked at the origin, centre-ray exposure, a bloom veil over
+the terrace...). Check it before debugging from scratch, and isolate with `?off=`, `?hide=` and
+`?cam=` stills before changing a number.
 
 ## References
 
